@@ -27,6 +27,10 @@ import {
   User,
   Eye,
   Shield,
+  UserPlus,
+  Key,
+  Copy,
+  Check,
 } from "lucide-react"
 import AttendanceSection from "@/components/attendance-section"
 import PlayerStatsAdmin from "@/components/player-stats-admin"
@@ -224,6 +228,16 @@ export default function AdminPage() {
   const [editingTeamId, setEditingTeamId] = useState<number | null>(null)
   const [editTeamData, setEditTeamData] = useState<any>({})
   const [coachAccounts, setCoachAccounts] = useState<{ id: number; username: string; email: string; role: string }[]>([])
+  const [creatingAccount, setCreatingAccount] = useState<number | null>(null)
+  const [playerCredentials, setPlayerCredentials] = useState<{
+    player_id: number
+    player_name: string
+    email: string
+    password: string
+  } | null>(null)
+  const [copiedField, setCopiedField] = useState<string | null>(null)
+  const [showAccountForm, setShowAccountForm] = useState<Player | null>(null)
+  const [accountForm, setAccountForm] = useState({ email: "", password: "" })
 
   // Form states
   const [teamForm, setTeamForm] = useState({
@@ -574,6 +588,66 @@ export default function AdminPage() {
       console.error("Error loading data:", error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Función para crear cuenta de jugador con email y password manual
+  const createPlayerAccount = async (player: Player, email: string, password: string) => {
+    if (!email || !password) {
+      alert("El correo y la contraseña son requeridos")
+      return
+    }
+
+    if (password.length < 6) {
+      alert("La contraseña debe tener al menos 6 caracteres")
+      return
+    }
+
+    setCreatingAccount(Number(player.id))
+
+    try {
+      const response = await fetch("/api/auth/register-player", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          player_id: player.id,
+          coach_user_id: user!.id,
+          email: email,
+          password: password,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setPlayerCredentials({
+          player_id: Number(player.id),
+          player_name: player.name,
+          email: email,
+          password: password,
+        })
+        setShowAccountForm(null)
+        setAccountForm({ email: "", password: "" })
+        await loadData()
+      } else {
+        alert(data.message || "Error al crear la cuenta")
+      }
+    } catch (error) {
+      console.error("Error creando cuenta:", error)
+      alert("Error al crear la cuenta del jugador")
+    } finally {
+      setCreatingAccount(null)
+    }
+  }
+
+  // Función para copiar al portapapeles
+  const copyToClipboard = async (text: string, field: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedField(field)
+      setTimeout(() => setCopiedField(null), 2000)
+    } catch (error) {
+      console.error("Error copying to clipboard:", error)
     }
   }
 
@@ -1680,7 +1754,20 @@ export default function AdminPage() {
                                 )}
 
                                 {/* Botones de acción */}
-                                <div className="flex gap-2 mt-2">
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                  {!player.user_id && (
+                                    <Button
+                                      size="sm"
+                                      onClick={() => {
+                                        setShowAccountForm(player)
+                                        setAccountForm({ email: "", password: "" })
+                                      }}
+                                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                    >
+                                      <UserPlus className="w-3 h-3 mr-1" />
+                                      Crear Cuenta
+                                    </Button>
+                                  )}
                                   {!player.admin_verified && player.profile_completed && (
                                     <Button
                                       size="sm"
@@ -2558,6 +2645,182 @@ export default function AdminPage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Modal para crear cuenta de jugador - Admin escribe email y password */}
+      {showAccountForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="bg-white max-w-md w-full">
+            <CardHeader>
+              <CardTitle className="text-gray-900 flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-emerald-600" />
+                Crear Cuenta para {showAccountForm.name}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-gray-600 text-sm">
+                Escribe el correo y contraseña que deseas asignar a este jugador.
+              </p>
+
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="admin-player-email" className="text-gray-700">Correo electronico</Label>
+                  <Input
+                    id="admin-player-email"
+                    type="email"
+                    placeholder="jugador@ejemplo.com"
+                    value={accountForm.email}
+                    onChange={(e) => setAccountForm({ ...accountForm, email: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="admin-player-password" className="text-gray-700">Contrasena</Label>
+                  <Input
+                    id="admin-player-password"
+                    type="text"
+                    placeholder="Minimo 6 caracteres"
+                    value={accountForm.password}
+                    onChange={(e) => setAccountForm({ ...accountForm, password: e.target.value })}
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">La contrasena sera visible para que puedas compartirla con el jugador.</p>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <Button
+                  onClick={() => createPlayerAccount(showAccountForm, accountForm.email, accountForm.password)}
+                  disabled={creatingAccount === Number(showAccountForm.id) || !accountForm.email || !accountForm.password}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {creatingAccount === Number(showAccountForm.id) ? (
+                    <>
+                      <Clock className="w-4 h-4 mr-2 animate-spin" />
+                      Creando...
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Crear Cuenta
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowAccountForm(null)
+                    setAccountForm({ email: "", password: "" })
+                  }}
+                  className="border-gray-300 text-gray-900"
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Modal de Credenciales del Jugador */}
+      {playerCredentials && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="bg-white max-w-md w-full">
+            <CardHeader>
+              <CardTitle className="text-gray-900 flex items-center gap-2">
+                <Key className="w-5 h-5 text-emerald-600" />
+                Cuenta Creada Exitosamente
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-gray-600 text-sm">
+                Se ha creado la cuenta para <strong>{playerCredentials.player_name}</strong>.
+                Comparte estas credenciales con el jugador para que pueda iniciar sesion y completar su perfil.
+              </p>
+
+              <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+                <div>
+                  <Label className="text-gray-500 text-xs">Correo electronico</Label>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 bg-white p-2 rounded text-sm border text-gray-900 break-all">
+                      {playerCredentials.email}
+                    </code>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => copyToClipboard(playerCredentials.email, "email")}
+                      className="shrink-0"
+                    >
+                      {copiedField === "email" ? (
+                        <Check className="w-4 h-4 text-emerald-600" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-gray-500 text-xs">Contrasena</Label>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 bg-white p-2 rounded text-sm border text-gray-900 font-mono">
+                      {playerCredentials.password}
+                    </code>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => copyToClipboard(playerCredentials.password, "password")}
+                      className="shrink-0"
+                    >
+                      {copiedField === "password" ? (
+                        <Check className="w-4 h-4 text-emerald-600" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg">
+                <p className="text-amber-800 text-xs">
+                  <strong>Importante:</strong> El jugador debe iniciar sesion en /login y completar su perfil
+                  subiendo su cedula y datos personales para verificar que esta en la categoria correcta.
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => {
+                    const text = `Hola ${playerCredentials.player_name}!\n\nTu cuenta de jugador ha sido creada:\n\nCorreo: ${playerCredentials.email}\nContrasena: ${playerCredentials.password}\n\nInicia sesion en la pagina de la liga y completa tu perfil.`
+                    copyToClipboard(text, "all")
+                  }}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {copiedField === "all" ? (
+                    <>
+                      <Check className="w-4 h-4 mr-2" />
+                      Copiado!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4 mr-2" />
+                      Copiar Todo
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setPlayerCredentials(null)}
+                  className="border-gray-300 text-gray-900"
+                >
+                  Cerrar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }
