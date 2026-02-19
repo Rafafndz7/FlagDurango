@@ -2,13 +2,19 @@ import { type NextRequest, NextResponse } from "next/server"
 import { supabase } from "@/lib/supabase-admin"
 import QRCode from "qrcode"
 
+function getBaseUrl(request: NextRequest): string {
+  const host = request.headers.get("host") || "localhost:3000"
+  const proto = request.headers.get("x-forwarded-proto") || "http"
+  return `${proto}://${host}`
+}
+
 // GET - Generate QR code for a player
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const playerId = searchParams.get("player_id")
     const teamId = searchParams.get("team_id")
-    const format = searchParams.get("format") || "dataurl" // dataurl or svg
+    const baseUrl = getBaseUrl(request)
 
     // If team_id is specified, return all player QRs for that team
     if (teamId) {
@@ -43,15 +49,9 @@ export async function GET(request: NextRequest) {
 
       const playersWithQR = await Promise.all(
         (players || []).map(async (player) => {
-          const qrData = JSON.stringify({
-            type: "player_attendance",
-            player_id: player.id,
-            player_name: player.name,
-            team_id: player.team_id,
-            jersey_number: player.jersey_number,
-          })
+          const profileUrl = `${baseUrl}/perfil/${player.id}`
 
-          const qrDataUrl = await QRCode.toDataURL(qrData, {
+          const qrDataUrl = await QRCode.toDataURL(profileUrl, {
             width: 300,
             margin: 2,
             color: { dark: "#000000", light: "#ffffff" },
@@ -61,6 +61,7 @@ export async function GET(request: NextRequest) {
           return {
             ...player,
             qr_code: qrDataUrl,
+            profile_url: profileUrl,
           }
         })
       )
@@ -103,37 +104,21 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const qrData = JSON.stringify({
-      type: "player_attendance",
-      player_id: player.id,
-      player_name: player.name,
-      team_id: player.team_id,
-      jersey_number: player.jersey_number,
+    const profileUrl = `${baseUrl}/perfil/${player.id}`
+
+    const qrCode = await QRCode.toDataURL(profileUrl, {
+      width: 300,
+      margin: 2,
+      color: { dark: "#000000", light: "#ffffff" },
+      errorCorrectionLevel: "M",
     })
-
-    let qrCode: string
-
-    if (format === "svg") {
-      qrCode = await QRCode.toString(qrData, {
-        type: "svg",
-        width: 300,
-        margin: 2,
-        errorCorrectionLevel: "M",
-      })
-    } else {
-      qrCode = await QRCode.toDataURL(qrData, {
-        width: 300,
-        margin: 2,
-        color: { dark: "#000000", light: "#ffffff" },
-        errorCorrectionLevel: "M",
-      })
-    }
 
     return NextResponse.json({
       success: true,
       data: {
         ...player,
         qr_code: qrCode,
+        profile_url: profileUrl,
       },
     })
   } catch (error: any) {

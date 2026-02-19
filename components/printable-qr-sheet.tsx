@@ -3,8 +3,7 @@
 import { useState, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Printer, Loader2, Users, QrCode, Download } from "lucide-react"
+import { Printer, Loader2, QrCode, User } from "lucide-react"
 
 interface Team {
   id: number
@@ -24,6 +23,7 @@ interface PlayerWithQR {
   photo_url?: string
   team_id: number
   qr_code: string
+  profile_url?: string
   teams?: {
     id: number
     name: string
@@ -80,6 +80,8 @@ export default function PrintableQRSheet({ teams }: PrintableQRSheetProps) {
     fetchTeamQRs(teamId)
   }
 
+  const teamColor = teamInfo?.color1 || selectedTeam?.color1 || "#1e40af"
+
   const handlePrint = () => {
     if (!printRef.current) return
 
@@ -94,44 +96,122 @@ export default function PrintableQRSheet({ teams }: PrintableQRSheetProps) {
       <head>
         <title>QR Codes - ${teamInfo?.name || "Equipo"}</title>
         <style>
+          @page { margin: 12mm 10mm; }
           * { box-sizing: border-box; margin: 0; padding: 0; }
-          body { font-family: Arial, sans-serif; color: #111; padding: 20px; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; color: #111; }
           
-          .header { text-align: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 3px solid #1e40af; }
-          .header h1 { font-size: 24px; font-weight: bold; color: #1e40af; }
-          .header h2 { font-size: 18px; color: #333; margin-top: 4px; }
-          .header p { font-size: 14px; color: #666; margin-top: 4px; }
-          
-          .qr-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; page-break-inside: auto; }
-          
-          .player-card { 
-            border: 1px solid #ddd; 
-            border-radius: 8px; 
-            padding: 12px; 
-            text-align: center; 
-            page-break-inside: avoid; 
+          .page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 16px;
+            margin-bottom: 20px;
+            border-bottom: 3px solid ${teamColor};
           }
-          .player-card img { width: 140px; height: 140px; margin: 0 auto 8px; display: block; }
-          .player-name { font-size: 14px; font-weight: bold; color: #111; }
-          .player-info { font-size: 11px; color: #666; margin-top: 2px; }
-          
-          .signature-section { 
-            margin-top: 40px; 
-            padding-top: 20px; 
-            border-top: 2px solid #1e40af; 
-            page-break-inside: avoid; 
+          .page-header-left { display: flex; align-items: center; gap: 14px; }
+          .team-logo { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid ${teamColor}; }
+          .team-logo-placeholder {
+            width: 48px; height: 48px; border-radius: 50%;
+            background: ${teamColor}; display: flex; align-items: center;
+            justify-content: center; color: white; font-weight: bold; font-size: 18px;
           }
-          .signature-section h3 { font-size: 16px; font-weight: bold; margin-bottom: 24px; color: #333; }
-          .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
-          .signature-line { border-bottom: 1px solid #333; padding-bottom: 4px; margin-bottom: 4px; height: 60px; }
-          .signature-label { font-size: 12px; color: #666; text-align: center; }
-          
-          .footer { text-align: center; margin-top: 24px; font-size: 11px; color: #999; }
+          .page-header h1 { font-size: 20px; font-weight: 800; color: #111; letter-spacing: -0.02em; }
+          .page-header h2 { font-size: 13px; color: #555; font-weight: 500; margin-top: 2px; }
+          .page-header-right { text-align: right; font-size: 11px; color: #888; }
+          .page-header-right strong { color: #333; font-weight: 600; }
 
-          @media print { 
-            body { padding: 10px; }
-            .qr-grid { gap: 12px; }
-            .player-card img { width: 120px; height: 120px; }
+          .player-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            page-break-inside: auto;
+          }
+
+          .player-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            overflow: hidden;
+            page-break-inside: avoid;
+            background: #fff;
+          }
+          .player-card-header {
+            background: #0a0f1c;
+            padding: 14px 12px 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+          }
+          .player-card-header::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 40px;
+            background: ${teamColor};
+            opacity: 0.3;
+          }
+          .player-photo {
+            width: 52px; height: 52px; border-radius: 50%;
+            object-fit: cover; border: 2px solid ${teamColor};
+            position: relative; z-index: 1; background: #1e293b;
+          }
+          .player-photo-placeholder {
+            width: 52px; height: 52px; border-radius: 50%;
+            background: #1e293b; border: 2px solid ${teamColor};
+            display: flex; align-items: center; justify-content: center;
+            color: #475569; font-size: 22px; position: relative; z-index: 1;
+          }
+          .player-name {
+            font-size: 12px; font-weight: 700; color: #fff;
+            margin-top: 8px; text-align: center; position: relative; z-index: 1;
+            line-height: 1.2;
+          }
+          .player-meta {
+            font-size: 9px; color: rgba(255,255,255,0.4);
+            margin-top: 3px; position: relative; z-index: 1;
+          }
+
+          .player-card-body {
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+          }
+          .player-qr { width: 110px; height: 110px; }
+          .player-card-footer {
+            font-size: 8px; color: #999; text-align: center;
+            padding: 0 8px 8px; line-height: 1.3;
+          }
+
+          .signature-section {
+            margin-top: 32px;
+            padding-top: 20px;
+            border-top: 2px solid ${teamColor};
+            page-break-inside: avoid;
+          }
+          .signature-section h3 {
+            font-size: 14px; font-weight: 700; margin-bottom: 24px; color: #333;
+            text-transform: uppercase; letter-spacing: 0.05em;
+          }
+          .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 36px 48px; }
+          .signature-item {}
+          .signature-line {
+            border-bottom: 1.5px solid #333;
+            height: 50px;
+            margin-bottom: 6px;
+          }
+          .signature-label { font-size: 11px; color: #666; text-align: center; }
+
+          .page-footer {
+            text-align: center; margin-top: 24px; padding-top: 12px;
+            border-top: 1px solid #eee; font-size: 10px; color: #aaa;
+          }
+          .page-footer strong { color: #666; }
+
+          @media print {
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .player-card-header { background: #0a0f1c !important; }
+            .player-card-header::before { background: ${teamColor} !important; opacity: 0.3 !important; }
           }
         </style>
       </head>
@@ -142,10 +222,9 @@ export default function PrintableQRSheet({ teams }: PrintableQRSheetProps) {
     `)
 
     printWindow.document.close()
-
     setTimeout(() => {
       printWindow.print()
-    }, 500)
+    }, 600)
   }
 
   const currentDate = new Date().toLocaleDateString("es-MX", {
@@ -163,8 +242,8 @@ export default function PrintableQRSheet({ teams }: PrintableQRSheetProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="text-gray-600 mb-4">
-          Selecciona un equipo para generar una hoja imprimible con los QR de todos sus jugadores, nombre del equipo y espacio para firma de coaches.
+        <p className="text-gray-600 mb-4 text-sm">
+          Selecciona un equipo para generar una hoja imprimible con foto, QR y nombre de cada jugador. Incluye espacio para firmas de coaches.
         </p>
 
         {/* Team selector */}
@@ -176,7 +255,7 @@ export default function PrintableQRSheet({ teams }: PrintableQRSheetProps) {
                 ? handleTeamSelect(Number(e.target.value))
                 : setSelectedTeamId(null)
             }
-            className="w-full border border-gray-300 rounded-md p-2 text-gray-900 bg-white"
+            className="w-full border border-gray-300 rounded-lg p-2.5 text-gray-900 bg-white text-sm"
           >
             <option value="">-- Seleccionar Equipo --</option>
             {teams.map((team) => (
@@ -189,8 +268,8 @@ export default function PrintableQRSheet({ teams }: PrintableQRSheetProps) {
 
         {loading && (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-            <span className="ml-2 text-gray-500">
+            <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+            <span className="ml-2 text-gray-500 text-sm">
               Generando codigos QR...
             </span>
           </div>
@@ -205,41 +284,66 @@ export default function PrintableQRSheet({ teams }: PrintableQRSheetProps) {
         {!loading && playersWithQR.length > 0 && (
           <>
             {/* Print button */}
-            <div className="flex gap-3 mb-6">
+            <div className="mb-6">
               <Button
                 onClick={handlePrint}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3"
+                className="w-full bg-gray-900 hover:bg-gray-800 text-white py-3"
               >
-                <Printer className="w-5 h-5 mr-2" />
-                Imprimir Hoja de QR
+                <Printer className="w-4 h-4 mr-2" />
+                Imprimir Hoja de QR ({playersWithQR.length} jugadores)
               </Button>
             </div>
 
-            {/* Preview */}
-            <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 mb-4">
-              <p className="text-sm text-gray-600 mb-2 font-medium">
-                Vista previa ({playersWithQR.length} jugadores):
+            {/* Preview cards */}
+            <div className="border border-gray-200 rounded-xl p-4 bg-gray-50 mb-4">
+              <p className="text-xs text-gray-500 mb-3 font-medium uppercase tracking-wider">
+                Vista previa
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {playersWithQR.map((player) => (
                   <div
                     key={player.id}
-                    className="bg-white border border-gray-200 rounded-lg p-3 text-center"
+                    className="bg-white border border-gray-200 rounded-xl overflow-hidden"
                   >
-                    <img
-                      src={player.qr_code}
-                      alt={`QR ${player.name}`}
-                      className="w-24 h-24 mx-auto mb-2"
-                    />
-                    <p className="text-xs font-semibold text-gray-900 truncate">
-                      {player.name}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {player.jersey_number
-                        ? `#${player.jersey_number}`
-                        : ""}{" "}
-                      {player.position || ""}
-                    </p>
+                    {/* Mini dark header */}
+                    <div className="bg-[#0a0f1c] p-3 flex flex-col items-center relative">
+                      <div
+                        className="absolute top-0 left-0 right-0 h-6 opacity-30"
+                        style={{ backgroundColor: teamColor }}
+                      />
+                      <div className="relative z-10">
+                        {player.photo_url ? (
+                          <img
+                            src={player.photo_url}
+                            alt={player.name}
+                            className="w-10 h-10 rounded-full object-cover border-2"
+                            style={{ borderColor: teamColor }}
+                          />
+                        ) : (
+                          <div
+                            className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center border-2"
+                            style={{ borderColor: teamColor }}
+                          >
+                            <User className="w-5 h-5 text-slate-600" />
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-[10px] font-bold text-white mt-1.5 truncate w-full text-center relative z-10">
+                        {player.name}
+                      </p>
+                      <p className="text-[9px] text-white/30 relative z-10">
+                        {player.jersey_number ? `#${player.jersey_number}` : ""}{" "}
+                        {player.position || ""}
+                      </p>
+                    </div>
+                    {/* QR */}
+                    <div className="p-2 flex justify-center">
+                      <img
+                        src={player.qr_code}
+                        alt={`QR ${player.name}`}
+                        className="w-20 h-20"
+                      />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -249,33 +353,68 @@ export default function PrintableQRSheet({ teams }: PrintableQRSheetProps) {
             <div className="hidden">
               <div ref={printRef}>
                 {/* Header */}
-                <div className="header">
-                  <h1>Liga Flag Durango</h1>
-                  <h2>{teamInfo?.name || selectedTeam?.name}</h2>
-                  <p>
-                    Categoria: {teamInfo?.category || selectedTeam?.category || "N/A"} |
-                    Coach: {teamInfo?.coach_name || "N/A"} | Fecha:{" "}
-                    {currentDate}
-                  </p>
-                  <p style={{ marginTop: "8px", fontSize: "12px" }}>
-                    Total de jugadores: {playersWithQR.length}
-                  </p>
+                <div className="page-header">
+                  <div className="page-header-left">
+                    {teamInfo?.logo_url ? (
+                      <img
+                        src={teamInfo.logo_url}
+                        alt={teamInfo.name}
+                        className="team-logo"
+                      />
+                    ) : (
+                      <div className="team-logo-placeholder">
+                        {(teamInfo?.name || "E")[0]}
+                      </div>
+                    )}
+                    <div>
+                      <h1>{teamInfo?.name || selectedTeam?.name}</h1>
+                      <h2>
+                        {teamInfo?.category || selectedTeam?.category || "N/A"}{" "}
+                        &mdash; Coach: {teamInfo?.coach_name || "N/A"}
+                      </h2>
+                    </div>
+                  </div>
+                  <div className="page-header-right">
+                    <div><strong>Liga Flag Durango</strong></div>
+                    <div>{currentDate}</div>
+                    <div>{playersWithQR.length} jugadores</div>
+                  </div>
                 </div>
 
-                {/* QR Grid */}
-                <div className="qr-grid">
+                {/* Player Grid */}
+                <div className="player-grid">
                   {playersWithQR.map((player) => (
                     <div key={player.id} className="player-card">
-                      <img
-                        src={player.qr_code}
-                        alt={`QR ${player.name}`}
-                      />
-                      <div className="player-name">{player.name}</div>
-                      <div className="player-info">
-                        {player.jersey_number
-                          ? `#${player.jersey_number}`
-                          : ""}{" "}
-                        {player.position ? `| ${player.position}` : ""}
+                      <div className="player-card-header">
+                        {player.photo_url ? (
+                          <img
+                            src={player.photo_url}
+                            alt={player.name}
+                            className="player-photo"
+                          />
+                        ) : (
+                          <div className="player-photo-placeholder">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+                              <circle cx="12" cy="7" r="4"/>
+                            </svg>
+                          </div>
+                        )}
+                        <div className="player-name">{player.name}</div>
+                        <div className="player-meta">
+                          {player.jersey_number ? `#${player.jersey_number}` : ""}{" "}
+                          {player.position ? `| ${player.position}` : ""}
+                        </div>
+                      </div>
+                      <div className="player-card-body">
+                        <img
+                          src={player.qr_code}
+                          alt={`QR ${player.name}`}
+                          className="player-qr"
+                        />
+                      </div>
+                      <div className="player-card-footer">
+                        Escanea para ver el perfil
                       </div>
                     </div>
                   ))}
@@ -285,43 +424,32 @@ export default function PrintableQRSheet({ teams }: PrintableQRSheetProps) {
                 <div className="signature-section">
                   <h3>Firmas de Enterados</h3>
                   <div className="signature-grid">
-                    <div>
+                    <div className="signature-item">
                       <div className="signature-line"></div>
                       <div className="signature-label">
-                        Head Coach - {teamInfo?.coach_name || "________________"}
+                        Head Coach &mdash; {teamInfo?.coach_name || "________________"}
                       </div>
                     </div>
-                    <div>
+                    <div className="signature-item">
                       <div className="signature-line"></div>
-                      <div className="signature-label">
-                        Coach Asistente
-                      </div>
+                      <div className="signature-label">Coach Asistente</div>
                     </div>
-                    <div>
+                    <div className="signature-item">
                       <div className="signature-line"></div>
-                      <div className="signature-label">
-                        Coordinador de Liga
-                      </div>
+                      <div className="signature-label">Coordinador de Liga</div>
                     </div>
-                    <div>
+                    <div className="signature-item">
                       <div className="signature-line"></div>
-                      <div className="signature-label">
-                        Representante del Equipo
-                      </div>
+                      <div className="signature-label">Representante del Equipo</div>
                     </div>
                   </div>
                 </div>
 
                 {/* Footer */}
-                <div className="footer">
-                  <p>
-                    Liga Flag Durango - Hoja de QR para control de asistencia
-                    - Generado el {currentDate}
-                  </p>
-                  <p>
-                    Este documento es oficial. Los codigos QR son unicos por
-                    jugador.
-                  </p>
+                <div className="page-footer">
+                  <strong>Liga Flag Durango</strong> &mdash; Hoja de QR para control de asistencia &mdash; Generado el {currentDate}
+                  <br />
+                  Este documento es oficial. Cada codigo QR enlaza al perfil publico del jugador.
                 </div>
               </div>
             </div>

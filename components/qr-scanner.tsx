@@ -391,7 +391,7 @@ export default function QRScanner({ games }: QRScannerProps) {
                   value={manualInput}
                   onChange={(e) => setManualInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleManualScan()}
-                  placeholder='{"type":"player_attendance","player_id":1,...}'
+                  placeholder="URL del perfil o ID del jugador"
                   className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 bg-white"
                 />
                 <Button

@@ -1,6 +1,32 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { supabase } from "@/lib/supabase-admin"
 
+function extractPlayerId(qrData: string): number | null {
+  // Try URL format first: .../perfil/123
+  const urlMatch = qrData.match(/\/perfil\/(\d+)/)
+  if (urlMatch) {
+    return Number(urlMatch[1])
+  }
+
+  // Try old JSON format: {"type":"player_attendance","player_id":123,...}
+  try {
+    const parsed = typeof qrData === "string" ? JSON.parse(qrData) : qrData
+    if (parsed.type === "player_attendance" && parsed.player_id) {
+      return Number(parsed.player_id)
+    }
+  } catch {
+    // not JSON
+  }
+
+  // Try plain number
+  const num = Number(qrData)
+  if (!isNaN(num) && num > 0) {
+    return num
+  }
+
+  return null
+}
+
 // POST - Scan QR and register attendance
 export async function POST(request: NextRequest) {
   try {
@@ -14,27 +40,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Parse QR data
-    let parsedQR: {
-      type: string
-      player_id: number
-      player_name: string
-      team_id: number
-      jersey_number: number
-    }
+    const playerId = extractPlayerId(qr_data)
 
-    try {
-      parsedQR = typeof qr_data === "string" ? JSON.parse(qr_data) : qr_data
-    } catch {
+    if (!playerId) {
       return NextResponse.json(
-        { success: false, message: "QR invalido - no se pudo leer los datos" },
-        { status: 400 }
-      )
-    }
-
-    if (parsedQR.type !== "player_attendance" || !parsedQR.player_id) {
-      return NextResponse.json(
-        { success: false, message: "QR invalido - no es un QR de jugador" },
+        { success: false, message: "QR invalido - no se pudo identificar al jugador" },
         { status: 400 }
       )
     }
@@ -55,7 +65,7 @@ export async function POST(request: NextRequest) {
           category
         )
       `)
-      .eq("id", parsedQR.player_id)
+      .eq("id", playerId)
       .single()
 
     if (playerError || !player) {
@@ -84,7 +94,7 @@ export async function POST(request: NextRequest) {
       .from("game_attendance")
       .select("id, attended")
       .eq("game_id", Number(game_id))
-      .eq("player_id", parsedQR.player_id)
+      .eq("player_id", playerId)
       .maybeSingle()
 
     if (existing && existing.attended) {
@@ -114,7 +124,7 @@ export async function POST(request: NextRequest) {
         .from("game_attendance")
         .insert({
           game_id: Number(game_id),
-          player_id: parsedQR.player_id,
+          player_id: playerId,
           attended: true,
         })
         .select()
