@@ -31,9 +31,12 @@ import {
   Key,
   Copy,
   Check,
+  QrCode,
 } from "lucide-react"
 import AttendanceSection from "@/components/attendance-section"
 import PlayerStatsAdmin from "@/components/player-stats-admin"
+import QRScanner from "@/components/qr-scanner"
+import PrintableQRSheet from "@/components/printable-qr-sheet"
 
 type Team = {
   id?: any
@@ -1217,7 +1220,7 @@ export default function AdminPage() {
         </Card>
 
         <Tabs defaultValue="teams" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-10 bg-white border border-gray-200">
+          <TabsList className="grid w-full grid-cols-12 bg-white border border-gray-200">
             <TabsTrigger
               value="teams"
               className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700"
@@ -1294,6 +1297,13 @@ export default function AdminPage() {
             >
               <Star className="w-4 h-4 mr-2" />
               MVPs
+            </TabsTrigger>
+            <TabsTrigger
+              value="qr"
+              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700"
+            >
+              <QrCode className="w-4 h-4 mr-2" />
+              QR
             </TabsTrigger>
           </TabsList>
 
@@ -2643,6 +2653,14 @@ export default function AdminPage() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* QR Codes */}
+          <TabsContent value="qr">
+            <div className="grid gap-6">
+              <QRScanner games={games} />
+              <PrintableQRSheet teams={teams.map(t => ({ id: Number(t.id), name: t.name, category: t.category, coach_name: t.coach_name, color1: t.color1, color2: t.color2, logo_url: t.logo_url }))} />
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
 
@@ -2822,8 +2840,5 @@ export default function AdminPage() {
         </div>
       )}
     </div>
-  )
-}
-
   )
 }

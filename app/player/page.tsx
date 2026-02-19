@@ -25,6 +25,7 @@ import {
   Loader2,
   LogOut,
 } from "lucide-react"
+import PlayerQRCard from "@/components/player-qr-card"
 
 interface PlayerProfile {
   id: number
@@ -409,6 +410,17 @@ export default function PlayerPortal() {
               </div>
             </CardContent>
           </Card>
+
+          {/* QR Code Card */}
+          <PlayerQRCard
+            playerId={player.id}
+            playerName={player.name}
+            teamName={player.teams?.name}
+            teamCategory={player.teams?.category}
+            jerseyNumber={player.jersey_number}
+            position={player.position}
+            photoUrl={player.photo_url}
+          />
 
           {/* Form Card */}
           <Card className="md:col-span-2">
