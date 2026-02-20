@@ -110,6 +110,9 @@ interface JoinRequest {
   status: string
   created_at: string
   updated_at?: string
+  is_transfer?: boolean
+  from_team_id?: number
+  requires_coordinator_approval?: boolean
   teams?: {
     id: number
     name: string
@@ -405,7 +408,8 @@ export default function CoachDashboard() {
     }
   }
 
-  const pendingJoinRequests = joinRequests.filter(r => r.status === "pending")
+  const pendingJoinRequests = joinRequests.filter(r => r.status === "pending" || r.status === "pending_coordinator")
+  const resolvedJoinRequests = joinRequests.filter(r => r.status === "accepted" || r.status === "rejected")
 
   const autoAssignBestMatches = async () => {
     if (potentialMatches.length === 0) return
@@ -1006,6 +1010,30 @@ export default function CoachDashboard() {
                 >
                   🏆 Campeonatos
                 </button>
+                {teams.length > 0 && (
+                  <button
+                    onClick={() => setActiveTab("requests")}
+                    className={`w-full text-left px-3 md:px-4 py-2 md:py-3 rounded-lg transition-all text-sm md:text-base flex items-center justify-between ${
+                      activeTab === "requests"
+                        ? "bg-blue-600 text-white font-semibold"
+                        : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Inbox className="w-4 h-4" />
+                      Solicitudes
+                    </span>
+                    {pendingJoinRequests.length > 0 && (
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                        activeTab === "requests"
+                          ? "bg-white text-blue-600"
+                          : "bg-red-500 text-white"
+                      }`}>
+                        {pendingJoinRequests.length}
+                      </span>
+                    )}
+                  </button>
+                )}
               </div>
 
               {/* User Info - Responsive */}
@@ -1071,6 +1099,30 @@ export default function CoachDashboard() {
                       </CardContent>
                     </Card>
                   </div>
+
+                  {/* Pending Join Requests Alert */}
+                  {pendingJoinRequests.length > 0 && (
+                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-amber-100 rounded-full">
+                          <Inbox className="w-5 h-5 text-amber-600" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-amber-900">
+                            {pendingJoinRequests.length} solicitud{pendingJoinRequests.length !== 1 ? "es" : ""} pendiente{pendingJoinRequests.length !== 1 ? "s" : ""}
+                          </p>
+                          <p className="text-amber-700 text-sm">Jugadores quieren unirse a tu equipo</p>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => setActiveTab("requests")}
+                        size="sm"
+                        className="bg-amber-600 hover:bg-amber-700 text-white"
+                      >
+                        Ver Solicitudes
+                      </Button>
+                    </div>
+                  )}
 
                   {/* Quick Actions - Responsive */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -2043,6 +2095,184 @@ export default function CoachDashboard() {
                       </form>
                     </CardContent>
                   </Card>
+                </div>
+              )}
+
+              {/* Requests Tab */}
+              {activeTab === "requests" && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
+                      <Inbox className="w-6 h-6" />
+                      Solicitudes de Ingreso
+                    </h2>
+                    {pendingJoinRequests.length > 0 && (
+                      <Badge className="bg-amber-100 text-amber-800 border-amber-200">
+                        {pendingJoinRequests.length} pendiente{pendingJoinRequests.length !== 1 ? "s" : ""}
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* Pending Requests */}
+                  {pendingJoinRequests.length > 0 ? (
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold text-gray-800">Solicitudes Pendientes</h3>
+                      {pendingJoinRequests.map((req) => (
+                        <Card key={req.id} className="bg-white border-gray-200 overflow-hidden">
+                          <div className={`h-1.5 ${req.is_transfer ? "bg-orange-400" : "bg-blue-400"}`} />
+                          <CardContent className="p-4 md:p-5">
+                            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                              <div className="flex-1 space-y-3">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <h4 className="font-bold text-gray-900 text-lg">{req.player_name}</h4>
+                                  {req.is_transfer && (
+                                    <Badge className="bg-orange-100 text-orange-800 border-orange-200 text-xs">
+                                      Transferencia
+                                    </Badge>
+                                  )}
+                                  {req.requires_coordinator_approval && (
+                                    <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
+                                      Requiere Coordinador
+                                    </Badge>
+                                  )}
+                                  {req.status === "pending_coordinator" && (
+                                    <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs">
+                                      Esperando Coordinador
+                                    </Badge>
+                                  )}
+                                </div>
+
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                                  <div>
+                                    <span className="text-gray-500 block">Posicion</span>
+                                    <span className="text-gray-900 font-medium">{req.position}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500 block">Numero</span>
+                                    <span className="text-gray-900 font-medium">#{req.jersey_number}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500 block">Equipo destino</span>
+                                    <span className="text-gray-900 font-medium">{req.teams?.name || "Equipo #" + req.team_id}</span>
+                                  </div>
+                                  {req.phone && (
+                                    <div>
+                                      <span className="text-gray-500 block">Telefono</span>
+                                      <span className="text-gray-900 font-medium">{req.phone}</span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {req.is_transfer && req.from_team_id && (
+                                  <div className="text-sm bg-orange-50 p-2 rounded-lg border border-orange-100">
+                                    <span className="text-orange-700">
+                                      Viene del equipo: <strong>{allTeams.find(t => t.id === req.from_team_id)?.name || "Equipo #" + req.from_team_id}</strong>
+                                      {" "}({allTeams.find(t => t.id === req.from_team_id)?.category || ""})
+                                    </span>
+                                  </div>
+                                )}
+
+                                {req.message && (
+                                  <div className="text-sm bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                    <span className="text-gray-500 block mb-1">Mensaje:</span>
+                                    <p className="text-gray-700 italic">{'"'}{req.message}{'"'}</p>
+                                  </div>
+                                )}
+
+                                <p className="text-xs text-gray-400">
+                                  Enviada el {new Date(req.created_at).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                </p>
+                              </div>
+
+                              <div className="flex flex-row md:flex-col gap-2 shrink-0">
+                                <Button
+                                  onClick={() => handleJoinRequest(req.id, "accepted")}
+                                  disabled={processingRequest === req.id}
+                                  size="sm"
+                                  className="bg-green-600 hover:bg-green-700 text-white flex-1 md:flex-none"
+                                >
+                                  {processingRequest === req.id ? (
+                                    <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                                  ) : (
+                                    <UserCheck className="w-4 h-4 mr-1" />
+                                  )}
+                                  Aceptar
+                                </Button>
+                                <Button
+                                  onClick={() => handleJoinRequest(req.id, "rejected")}
+                                  disabled={processingRequest === req.id}
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700 flex-1 md:flex-none"
+                                >
+                                  {processingRequest === req.id ? (
+                                    <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                                  ) : (
+                                    <UserX className="w-4 h-4 mr-1" />
+                                  )}
+                                  Rechazar
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <Card className="bg-white border-gray-200">
+                      <CardContent className="p-8 text-center">
+                        <Inbox className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                        <h3 className="text-lg font-semibold text-gray-700">No hay solicitudes pendientes</h3>
+                        <p className="text-gray-500 text-sm mt-1">Cuando un jugador solicite unirse a tu equipo, aparecera aqui.</p>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Resolved Requests History */}
+                  {resolvedJoinRequests.length > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="text-lg font-semibold text-gray-800">Historial de Solicitudes</h3>
+                      <div className="space-y-2">
+                        {resolvedJoinRequests.slice(0, 10).map((req) => (
+                          <div
+                            key={req.id}
+                            className={`flex items-center justify-between p-3 rounded-lg border text-sm ${
+                              req.status === "accepted"
+                                ? "bg-green-50 border-green-200"
+                                : "bg-red-50 border-red-200"
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              {req.status === "accepted" ? (
+                                <UserCheck className="w-4 h-4 text-green-600" />
+                              ) : (
+                                <UserX className="w-4 h-4 text-red-600" />
+                              )}
+                              <div>
+                                <span className="font-medium text-gray-900">{req.player_name}</span>
+                                <span className="text-gray-500 ml-2">
+                                  {req.position} - #{req.jersey_number}
+                                  {req.is_transfer && " (Transferencia)"}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-gray-500 text-xs hidden sm:inline">
+                                {req.teams?.name}
+                              </span>
+                              <Badge className={`text-xs ${
+                                req.status === "accepted"
+                                  ? "bg-green-100 text-green-800 border-green-200"
+                                  : "bg-red-100 text-red-800 border-red-200"
+                              }`}>
+                                {req.status === "accepted" ? "Aceptado" : "Rechazado"}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
