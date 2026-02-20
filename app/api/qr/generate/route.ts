@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
           const qrDataUrl = await QRCode.toDataURL(profileUrl, {
             width: 300,
             margin: 2,
-            color: { dark: "#000000", light: "#ffffff" },
+            color: { dark: "#2563eb", light: "#ffffff" },
             errorCorrectionLevel: "M",
           })
 
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
     const qrCode = await QRCode.toDataURL(profileUrl, {
       width: 300,
       margin: 2,
-      color: { dark: "#000000", light: "#ffffff" },
+      color: { dark: "#2563eb", light: "#ffffff" },
       errorCorrectionLevel: "M",
     })
 

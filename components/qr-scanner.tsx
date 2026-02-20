@@ -235,10 +235,11 @@ export default function QRScanner({ games }: QRScannerProps) {
   const totalScanned = scanResults.length
 
   return (
-    <Card className="bg-white border border-gray-200">
+    <Card className="bg-white border border-gray-200 overflow-hidden">
+      <div className="h-1" style={{ background: "linear-gradient(135deg, #2563eb 0%, #ec4899 50%, #f97316 100%)" }} />
       <CardHeader>
         <CardTitle className="text-gray-900 flex items-center">
-          <ScanLine className="w-5 h-5 mr-2" />
+          <ScanLine className="w-5 h-5 mr-2 text-[#ec4899]" />
           Escanear QR - Asistencia
         </CardTitle>
       </CardHeader>
@@ -259,7 +260,7 @@ export default function QRScanner({ games }: QRScannerProps) {
             }}
             className={
               categoryFilter === "all"
-                ? "bg-blue-600 hover:bg-blue-700 text-white"
+                ? "bg-[#2563eb] hover:bg-[#1d4ed8] text-white"
                 : "border-gray-300 text-gray-700 hover:bg-gray-100 hover:text-gray-900"
             }
           >
@@ -277,7 +278,7 @@ export default function QRScanner({ games }: QRScannerProps) {
               }}
               className={
                 categoryFilter === cat
-                  ? "bg-blue-600 hover:bg-blue-700 text-white"
+                  ? "bg-[#2563eb] hover:bg-[#1d4ed8] text-white"
                   : "border-gray-300 text-gray-700 hover:bg-gray-100 hover:text-gray-900"
               }
             >
@@ -337,7 +338,7 @@ export default function QRScanner({ games }: QRScannerProps) {
               {!scanning ? (
                 <Button
                   onClick={startScanning}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-6 text-lg"
+                  className="w-full bg-[#ec4899] hover:bg-[#db2777] text-white py-6 text-lg"
                 >
                   <Camera className="w-6 h-6 mr-2" />
                   Iniciar Escaneo con Camara
@@ -353,15 +354,15 @@ export default function QRScanner({ games }: QRScannerProps) {
                     />
                     {/* Scan overlay */}
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <div className="w-56 h-56 border-2 border-blue-400 rounded-lg opacity-70">
-                        <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-blue-400 rounded-tl-lg" />
-                        <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-blue-400 rounded-tr-lg" />
-                        <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-blue-400 rounded-bl-lg" />
-                        <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-blue-400 rounded-br-lg" />
+                      <div className="w-56 h-56 border-2 border-[#ec4899] rounded-lg opacity-70">
+                        <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-[#ec4899] rounded-tl-lg" />
+                        <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-[#f97316] rounded-tr-lg" />
+                        <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-[#2563eb] rounded-bl-lg" />
+                        <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-[#ec4899] rounded-br-lg" />
                       </div>
                     </div>
                     {processing && (
-                      <div className="absolute top-3 right-3 bg-blue-600 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2">
+                      <div className="absolute top-3 right-3 bg-[#f97316] text-white px-3 py-1 rounded-full text-sm flex items-center gap-2">
                         <Loader2 className="w-4 h-4 animate-spin" />
                         Procesando...
                       </div>
@@ -397,7 +398,7 @@ export default function QRScanner({ games }: QRScannerProps) {
                 <Button
                   onClick={handleManualScan}
                   size="sm"
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white"
                   disabled={!manualInput.trim() || processing}
                 >
                   Registrar

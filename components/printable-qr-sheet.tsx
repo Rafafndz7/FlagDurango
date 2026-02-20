@@ -80,7 +80,10 @@ export default function PrintableQRSheet({ teams }: PrintableQRSheetProps) {
     fetchTeamQRs(teamId)
   }
 
-  const teamColor = teamInfo?.color1 || selectedTeam?.color1 || "#1e40af"
+  // Page brand colors instead of team color
+  const brandBlue = "#2563eb"
+  const brandPink = "#ec4899"
+  const brandOrange = "#f97316"
 
   const handlePrint = () => {
     if (!printRef.current) return
@@ -106,13 +109,13 @@ export default function PrintableQRSheet({ teams }: PrintableQRSheetProps) {
             justify-content: space-between;
             padding-bottom: 16px;
             margin-bottom: 20px;
-            border-bottom: 3px solid ${teamColor};
+            border-bottom: 3px solid ${brandBlue};
           }
           .page-header-left { display: flex; align-items: center; gap: 14px; }
-          .team-logo { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid ${teamColor}; }
+          .team-logo { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid ${brandBlue}; }
           .team-logo-placeholder {
             width: 48px; height: 48px; border-radius: 50%;
-            background: ${teamColor}; display: flex; align-items: center;
+            background: linear-gradient(135deg, ${brandBlue} 0%, ${brandPink} 100%); display: flex; align-items: center;
             justify-content: center; color: white; font-weight: bold; font-size: 18px;
           }
           .page-header h1 { font-size: 20px; font-weight: 800; color: #111; letter-spacing: -0.02em; }
@@ -135,31 +138,23 @@ export default function PrintableQRSheet({ teams }: PrintableQRSheetProps) {
             background: #fff;
           }
           .player-card-header {
-            background: #0a0f1c;
+            background: linear-gradient(135deg, ${brandBlue} 0%, ${brandPink} 50%, ${brandOrange} 100%);
             padding: 14px 12px 12px;
             display: flex;
             flex-direction: column;
             align-items: center;
             position: relative;
           }
-          .player-card-header::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 40px;
-            background: ${teamColor};
-            opacity: 0.3;
-          }
           .player-photo {
             width: 52px; height: 52px; border-radius: 50%;
-            object-fit: cover; border: 2px solid ${teamColor};
-            position: relative; z-index: 1; background: #1e293b;
+            object-fit: cover; border: 2px solid #ffffff;
+            position: relative; z-index: 1; background: #f1f5f9;
           }
           .player-photo-placeholder {
             width: 52px; height: 52px; border-radius: 50%;
-            background: #1e293b; border: 2px solid ${teamColor};
+            background: rgba(255,255,255,0.3); border: 2px solid #ffffff;
             display: flex; align-items: center; justify-content: center;
-            color: #475569; font-size: 22px; position: relative; z-index: 1;
+            color: rgba(255,255,255,0.7); font-size: 22px; position: relative; z-index: 1;
           }
           .player-name {
             font-size: 12px; font-weight: 700; color: #fff;
@@ -167,7 +162,7 @@ export default function PrintableQRSheet({ teams }: PrintableQRSheetProps) {
             line-height: 1.2;
           }
           .player-meta {
-            font-size: 9px; color: rgba(255,255,255,0.4);
+            font-size: 9px; color: rgba(255,255,255,0.8);
             margin-top: 3px; position: relative; z-index: 1;
           }
 
@@ -186,7 +181,7 @@ export default function PrintableQRSheet({ teams }: PrintableQRSheetProps) {
           .signature-section {
             margin-top: 32px;
             padding-top: 20px;
-            border-top: 2px solid ${teamColor};
+            border-top: 2px solid ${brandOrange};
             page-break-inside: avoid;
           }
           .signature-section h3 {
@@ -210,8 +205,7 @@ export default function PrintableQRSheet({ teams }: PrintableQRSheetProps) {
 
           @media print {
             body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .player-card-header { background: #0a0f1c !important; }
-            .player-card-header::before { background: ${teamColor} !important; opacity: 0.3 !important; }
+            .player-card-header { background: linear-gradient(135deg, ${brandBlue} 0%, ${brandPink} 50%, ${brandOrange} 100%) !important; }
           }
         </style>
       </head>
@@ -234,10 +228,11 @@ export default function PrintableQRSheet({ teams }: PrintableQRSheetProps) {
   })
 
   return (
-    <Card className="bg-white border border-gray-200">
+    <Card className="bg-white border border-gray-200 overflow-hidden">
+      <div className="h-1" style={{ background: `linear-gradient(135deg, ${brandBlue} 0%, ${brandPink} 50%, ${brandOrange} 100%)` }} />
       <CardHeader>
         <CardTitle className="text-gray-900 flex items-center">
-          <QrCode className="w-5 h-5 mr-2" />
+          <QrCode className="w-5 h-5 mr-2 text-[#2563eb]" />
           Hoja de QR por Equipo (Imprimir)
         </CardTitle>
       </CardHeader>
@@ -287,7 +282,8 @@ export default function PrintableQRSheet({ teams }: PrintableQRSheetProps) {
             <div className="mb-6">
               <Button
                 onClick={handlePrint}
-                className="w-full bg-gray-900 hover:bg-gray-800 text-white py-3"
+                className="w-full text-white py-3"
+                style={{ background: brandBlue }}
               >
                 <Printer className="w-4 h-4 mr-2" />
                 Imprimir Hoja de QR ({playersWithQR.length} jugadores)
@@ -305,33 +301,27 @@ export default function PrintableQRSheet({ teams }: PrintableQRSheetProps) {
                     key={player.id}
                     className="bg-white border border-gray-200 rounded-xl overflow-hidden"
                   >
-                    {/* Mini dark header */}
-                    <div className="bg-[#0a0f1c] p-3 flex flex-col items-center relative">
-                      <div
-                        className="absolute top-0 left-0 right-0 h-6 opacity-30"
-                        style={{ backgroundColor: teamColor }}
-                      />
+                    {/* Mini gradient header */}
+                    <div className="p-3 flex flex-col items-center relative" style={{ background: `linear-gradient(135deg, ${brandBlue} 0%, ${brandPink} 50%, ${brandOrange} 100%)` }}>
                       <div className="relative z-10">
                         {player.photo_url ? (
                           <img
                             src={player.photo_url}
                             alt={player.name}
-                            className="w-10 h-10 rounded-full object-cover border-2"
-                            style={{ borderColor: teamColor }}
+                            className="w-10 h-10 rounded-full object-cover border-2 border-white"
                           />
                         ) : (
                           <div
-                            className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center border-2"
-                            style={{ borderColor: teamColor }}
+                            className="w-10 h-10 rounded-full bg-white/30 flex items-center justify-center border-2 border-white"
                           >
-                            <User className="w-5 h-5 text-slate-600" />
+                            <User className="w-5 h-5 text-white/70" />
                           </div>
                         )}
                       </div>
                       <p className="text-[10px] font-bold text-white mt-1.5 truncate w-full text-center relative z-10">
                         {player.name}
                       </p>
-                      <p className="text-[9px] text-white/30 relative z-10">
+                      <p className="text-[9px] text-white/70 relative z-10">
                         {player.jersey_number ? `#${player.jersey_number}` : ""}{" "}
                         {player.position || ""}
                       </p>
