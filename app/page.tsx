@@ -227,9 +227,9 @@ export default function HomePage() {
                 <Button
                   size="lg"
                   className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold text-lg px-8 py-4"
-                  onClick={() => (window.location.href = "/register-team")}
+                  onClick={() => (window.location.href = "/register")}
                 >
-                  <UserPlus className="w-6 h-6 mr-2" /> Registrar Equipo
+                  <UserPlus className="w-6 h-6 mr-2" /> Registrar Jugador
                 </Button>
                 <Button
                   size="lg"

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Trophy, Users, Calendar, Plus, Edit, Trash2, DollarSign, Clock, Target, Star, UserPlus, Key, Copy, Check, Upload, Loader2, Medal } from "lucide-react"
+import { Trophy, Users, Calendar, Plus, Edit, Trash2, DollarSign, Clock, Target, Star, UserPlus, Key, Copy, Check, Upload, Loader2, Medal, UserCheck, UserX, Inbox } from "lucide-react"
 import CoachChampionships from "@/components/coach-championships"
 
 interface CoachDashboardUser {
@@ -97,6 +97,26 @@ interface PlayerForm {
   team_id: string // Changed to string to match the input value type
 }
 
+interface JoinRequest {
+  id: number
+  player_user_id: number
+  player_id?: number
+  team_id: number
+  player_name: string
+  position: string
+  jersey_number: number
+  phone?: string
+  message?: string
+  status: string
+  created_at: string
+  updated_at?: string
+  teams?: {
+    id: number
+    name: string
+    category: string
+  }
+}
+
 interface CoachUser {
   id: number
   username: string
@@ -132,6 +152,8 @@ export default function CoachDashboard() {
   const [playerCredentials, setPlayerCredentials] = useState<PlayerCredentials | null>(null)
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [showAccountForm, setShowAccountForm] = useState<Player | null>(null)
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([])
+  const [processingRequest, setProcessingRequest] = useState<number | null>(null)
   const [accountForm, setAccountForm] = useState({ email: "", password: "" })
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const logoInputRef = useRef<HTMLInputElement>(null)
@@ -330,6 +352,20 @@ export default function CoachDashboard() {
       if (gamesData.success) {
         setGames(gamesData.data || [])
       }
+
+      // Cargar solicitudes de ingreso para los equipos del coach
+      if (teamsData.success && teamsData.data && teamsData.data.length > 0) {
+        const teamIds = teamsData.data.map((t: Team) => t.id)
+        const allRequests: JoinRequest[] = []
+        for (const tid of teamIds) {
+          const reqRes = await fetch(`/api/team-join-requests?team_id=${tid}`)
+          const reqData = await reqRes.json()
+          if (reqData.success) {
+            allRequests.push(...reqData.data)
+          }
+        }
+        setJoinRequests(allRequests)
+      }
     } catch (error) {
       console.error("💥 Error cargando datos:", error)
       setError("Error al cargar datos: " + (error instanceof Error ? error.message : "Error desconocido"))
@@ -337,6 +373,39 @@ export default function CoachDashboard() {
       setLoading(false)
     }
   }
+
+  const handleJoinRequest = async (requestId: number, status: "accepted" | "rejected") => {
+    if (!user) return
+    setProcessingRequest(requestId)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const res = await fetch("/api/team-join-requests", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: requestId,
+          status,
+          coach_user_id: user.id,
+        }),
+      })
+
+      const data = await res.json()
+      if (data.success) {
+        setSuccess(data.message)
+        await loadDataOld()
+      } else {
+        setError(data.message)
+      }
+    } catch {
+      setError("Error al procesar la solicitud")
+    } finally {
+      setProcessingRequest(null)
+    }
+  }
+
+  const pendingJoinRequests = joinRequests.filter(r => r.status === "pending")
 
   const autoAssignBestMatches = async () => {
     if (potentialMatches.length === 0) return
