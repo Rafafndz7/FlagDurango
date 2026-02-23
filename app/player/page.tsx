@@ -29,6 +29,10 @@ import {
   Clock,
   XCircle,
   Users,
+  ArrowRightLeft,
+  Info,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react"
 import PlayerQRCard from "@/components/player-qr-card"
 
@@ -115,6 +119,7 @@ export default function PlayerPortal() {
   const [requestMessage, setRequestMessage] = useState("")
   const [requestingTeamId, setRequestingTeamId] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [showTransferView, setShowTransferView] = useState(false)
 
   const photoInputRef = useRef<HTMLInputElement>(null)
   const cedulaInputRef = useRef<HTMLInputElement>(null)
@@ -176,13 +181,13 @@ export default function PlayerPortal() {
     fetchPlayerProfile(userData.id, userData.email)
   }, [router, fetchPlayerProfile])
 
-  // Load teams and join requests when player has no team
+  // Load teams and join requests for all players (needed for transfers too)
   useEffect(() => {
-    if (player && !player.team_id && user) {
+    if (player && user) {
       loadTeamsAndRequests()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [player?.team_id, user?.id])
+  }, [player?.id, user?.id])
 
   const loadTeamsAndRequests = async () => {
     if (!user) return
@@ -208,7 +213,67 @@ export default function PlayerPortal() {
     }
   }
 
-  const handleSendRequest = async (teamId: number) => {
+  const handleSendRequest = async (teamId: number, isTransferRequest = false) => {
+    if (!user || !player) return
+    setSendingRequest(teamId)
+
+    try {
+      const body: Record<string, unknown> = {
+        player_user_id: user.id,
+        player_id: player.id,
+        team_id: teamId,
+        player_name: player.name,
+        position: player.position || "QB",
+        jersey_number: player.jersey_number || 0,
+        phone: player.phone || null,
+        message: requestMessage || null,
+      }
+
+      // If player already has a team and wants to transfer (change team), add transfer fields
+      if (isTransferRequest && player.team_id) {
+        body.is_transfer = true
+        body.from_team_id = player.team_id
+      }
+
+      const res = await fetch("/api/team-join-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+
+      const data = await res.json()
+      if (data.success) {
+        setMessage({ type: "success", text: data.message || "Solicitud enviada exitosamente" })
+        setRequestMessage("")
+        setRequestingTeamId(null)
+        await loadTeamsAndRequests()
+      } else {
+        setMessage({ type: "error", text: data.message })
+      }
+    } catch {
+      setMessage({ type: "error", text: "Error al enviar la solicitud" })
+    } finally {
+      setSendingRequest(null)
+    }
+  }
+
+  // Helper: get category branch for transfer logic
+  const getCategoryBranch = (category: string): string => {
+    if (!category) return "unknown"
+    const cat = category.toLowerCase()
+    if (cat.startsWith("femenil")) return "femenil"
+    if (cat.startsWith("varonil")) return "varonil"
+    if (cat.startsWith("mixto")) return "mixto"
+    if (cat.startsWith("teens")) return "teens"
+    return "unknown"
+  }
+
+  const isTransferSameBranch = (targetTeam: TeamItem): boolean => {
+    if (!player?.teams?.category || !targetTeam.category) return false
+    return getCategoryBranch(player.teams.category) === getCategoryBranch(targetTeam.category)
+  }
+
+  const handleSendTransferRequest = async (teamId: number) => {
     if (!user || !player) return
     setSendingRequest(teamId)
 
@@ -225,12 +290,14 @@ export default function PlayerPortal() {
           jersey_number: player.jersey_number || 0,
           phone: player.phone || null,
           message: requestMessage || null,
+          is_transfer: true,
+          from_team_id: player.team_id,
         }),
       })
 
       const data = await res.json()
       if (data.success) {
-        setMessage({ type: "success", text: "Solicitud enviada exitosamente" })
+        setMessage({ type: "success", text: data.message || "Solicitud de transferencia enviada" })
         setRequestMessage("")
         setRequestingTeamId(null)
         await loadTeamsAndRequests()
@@ -238,7 +305,7 @@ export default function PlayerPortal() {
         setMessage({ type: "error", text: data.message })
       }
     } catch {
-      setMessage({ type: "error", text: "Error al enviar la solicitud" })
+      setMessage({ type: "error", text: "Error al enviar la solicitud de transferencia" })
     } finally {
       setSendingRequest(null)
     }
@@ -391,7 +458,7 @@ export default function PlayerPortal() {
   )
 
   const pendingRequestTeamIds = joinRequests
-    .filter(r => r.status === "pending")
+    .filter(r => r.status === "pending" || r.status === "pending_coordinator")
     .map(r => r.team_id)
 
   const getRequestStatus = (teamId: number) => {
@@ -1009,6 +1076,257 @@ export default function PlayerPortal() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Join Another Team Section */}
+            <Card className="mt-6">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Unirse a Otro Equipo
+                  </CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowTransferView(!showTransferView)}
+                    className="flex items-center gap-1"
+                  >
+                    {showTransferView ? (
+                      <>
+                        <ChevronUp className="h-4 w-4" />
+                        Ocultar
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="h-4 w-4" />
+                        Ver Equipos
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <CardDescription>
+                  Puedes pertenecer a varios equipos a la vez. Envia tu solicitud y espera la confirmacion del coach.
+                </CardDescription>
+              </CardHeader>
+
+              {showTransferView && (
+                <CardContent className="space-y-4">
+                  {/* Pending requests from this player */}
+                  {joinRequests.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                        <Send className="h-4 w-4" />
+                        Mis Solicitudes
+                      </h4>
+                      {joinRequests.map((req) => (
+                        <div
+                          key={req.id}
+                          className="flex items-center justify-between p-3 rounded-lg border bg-card"
+                        >
+                          <div className="flex items-center gap-3">
+                            {req.teams?.logo_url ? (
+                              <img
+                                src={req.teams.logo_url}
+                                alt={req.teams?.name}
+                                className="w-8 h-8 rounded-lg object-cover"
+                              />
+                            ) : (
+                              <div
+                                className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold"
+                                style={{
+                                  backgroundColor: req.teams?.color1 || "#3B82F6",
+                                  color: "#fff",
+                                }}
+                              >
+                                {req.teams?.name?.charAt(0) || "?"}
+                              </div>
+                            )}
+                            <div>
+                              <p className="font-medium text-sm">{req.teams?.name || "Equipo"}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {req.teams?.category} - {new Date(req.created_at).toLocaleDateString("es-MX")}
+                              </p>
+                            </div>
+                          </div>
+                          <Badge
+                            variant={
+                              req.status === "pending" || req.status === "pending_coordinator"
+                                ? "secondary"
+                                : req.status === "accepted"
+                                ? "default"
+                                : "destructive"
+                            }
+                            className="flex items-center gap-1 text-xs"
+                          >
+                            {(req.status === "pending" || req.status === "pending_coordinator") && <Clock className="h-3 w-3" />}
+                            {req.status === "accepted" && <CheckCircle className="h-3 w-3" />}
+                            {req.status === "rejected" && <XCircle className="h-3 w-3" />}
+                            {req.status === "pending"
+                              ? "Pendiente"
+                              : req.status === "pending_coordinator"
+                              ? "Esperando Coordinador"
+                              : req.status === "accepted"
+                              ? "Aceptada"
+                              : "Rechazada"}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Search */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar equipo por nombre o categoria..."
+                      className="pl-10"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Teams List */}
+                  {loadingTeams ? (
+                    <div className="flex justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    </div>
+                  ) : (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {filteredTeams
+                        .filter(t => t.id !== player.team_id)
+                        .map((team) => {
+                          const reqStatus = getRequestStatus(team.id)
+                          const isPending = pendingRequestTeamIds.includes(team.id)
+                          const sameBranch = isTransferSameBranch(team)
+
+                          return (
+                            <div key={team.id} className="rounded-lg border bg-card overflow-hidden">
+                              <div
+                                className="h-1.5"
+                                style={{
+                                  background: `linear-gradient(to right, ${team.color1 || "#3B82F6"}, ${team.color2 || "#1E40AF"})`,
+                                }}
+                              />
+                              <div className="p-3">
+                                <div className="flex items-start gap-3">
+                                  {team.logo_url ? (
+                                    <img
+                                      src={team.logo_url}
+                                      alt={team.name}
+                                      className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                                    />
+                                  ) : (
+                                    <div
+                                      className="w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0"
+                                      style={{
+                                        backgroundColor: team.color1 || "#3B82F6",
+                                        color: "#fff",
+                                      }}
+                                    >
+                                      {team.name.charAt(0)}
+                                    </div>
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="font-semibold text-sm truncate">{team.name}</h4>
+                                    <Badge variant="outline" className="mt-0.5 text-xs">
+                                      {team.category || "Sin categoria"}
+                                    </Badge>
+                                    {team.coach_name && (
+                                      <p className="text-xs text-muted-foreground mt-0.5">
+                                        Coach: {team.coach_name}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Transfer warning for same branch */}
+                                {sameBranch && (
+                                  <div className="mt-2 p-2 bg-amber-500/10 border border-amber-500/20 rounded text-xs flex items-start gap-1.5">
+                                    <Info className="h-3.5 w-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
+                                    <span className="text-amber-700">
+                                      Misma rama de categoria. Requiere aprobacion del coordinador de liga y ambos capitanes.
+                                    </span>
+                                  </div>
+                                )}
+
+                                <div className="mt-3">
+                                  {reqStatus === "accepted" ? (
+                                    <Badge className="w-full justify-center py-1.5 bg-green-600 text-xs">
+                                      <CheckCircle className="h-3 w-3 mr-1" />
+                                      Ya perteneces a este equipo
+                                    </Badge>
+                                  ) : reqStatus === "rejected" ? (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="w-full text-xs"
+                                      onClick={() => setRequestingTeamId(team.id)}
+                                    >
+                                      <Send className="h-3 w-3 mr-1" />
+                                      Solicitar de Nuevo
+                                    </Button>
+                                  ) : isPending ? (
+                                    <Badge variant="secondary" className="w-full justify-center py-1.5 text-xs">
+                                      <Clock className="h-3 w-3 mr-1" />
+                                      Solicitud Pendiente
+                                    </Badge>
+                                  ) : requestingTeamId === team.id ? (
+                                    <div className="space-y-2">
+                                      <Textarea
+                                        placeholder="Mensaje al coach (opcional)..."
+                                        value={requestMessage}
+                                        onChange={(e) => setRequestMessage(e.target.value)}
+                                        className="text-xs"
+                                        rows={2}
+                                      />
+                                      <div className="flex gap-2">
+                                        <Button
+                                          size="sm"
+                                          className="flex-1 text-xs"
+                                          onClick={() => handleSendRequest(team.id, sameBranch)}
+                                          disabled={sendingRequest === team.id}
+                                        >
+                                          {sendingRequest === team.id ? (
+                                            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                          ) : (
+                                            <Send className="h-3 w-3 mr-1" />
+                                          )}
+                                          {sameBranch ? "Solicitar Transferencia" : "Solicitar Unirme"}
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="text-xs"
+                                          onClick={() => {
+                                            setRequestingTeamId(null)
+                                            setRequestMessage("")
+                                          }}
+                                        >
+                                          Cancelar
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="w-full text-xs"
+                                      onClick={() => setRequestingTeamId(team.id)}
+                                    >
+                                      <Send className="h-3 w-3 mr-1" />
+                                      {sameBranch ? "Solicitar Transferencia" : "Solicitar Unirme"}
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                    </div>
+                  )}
+                </CardContent>
+              )}
+            </Card>
           </>
         )}
       </main>

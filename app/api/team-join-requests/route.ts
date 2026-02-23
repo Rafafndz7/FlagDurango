@@ -58,11 +58,35 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// Helper: determine category branch
+function getCategoryBranch(category: string): string {
+  if (!category) return "unknown"
+  const cat = category.toLowerCase()
+  if (cat.startsWith("femenil")) return "femenil"
+  if (cat.startsWith("varonil")) return "varonil"
+  if (cat.startsWith("mixto")) return "mixto"
+  if (cat.startsWith("teens")) return "teens"
+  return "unknown"
+}
+
+// Helper: determine if transfer requires coordinator approval
+function requiresCoordinatorApproval(fromCategory: string, toCategory: string): boolean {
+  const fromBranch = getCategoryBranch(fromCategory)
+  const toBranch = getCategoryBranch(toCategory)
+  // Same branch transfers need coordinator + both captains approval
+  // e.g. femenil->femenil, varonil->varonil, mixto->mixto
+  return fromBranch === toBranch
+}
+
 // POST: Create a new join request
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { player_user_id, player_id, team_id, player_name, position, jersey_number, phone, message } = body
+    const {
+      player_user_id, player_id, team_id, player_name, position,
+      jersey_number, phone, message,
+      is_transfer, from_team_id
+    } = body
 
     if (!player_user_id || !team_id || !player_name || !position || !jersey_number) {
       return NextResponse.json(
@@ -71,17 +95,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check the player doesn't already have a team
+    // Check if the player already belongs to this specific team
     if (player_id) {
       const { data: existingPlayer } = await supabase
         .from("players")
         .select("team_id")
-        .eq("id", Number(player_id))
-        .single()
+        .eq("user_id", Number(player_user_id))
+        .eq("team_id", Number(team_id))
+        .maybeSingle()
 
-      if (existingPlayer?.team_id) {
+      if (existingPlayer) {
         return NextResponse.json(
-          { success: false, message: "Ya perteneces a un equipo" },
+          { success: false, message: "Ya perteneces a este equipo." },
           { status: 400 }
         )
       }
@@ -103,6 +128,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Determine if coordinator approval is needed for transfers
+    let needsCoordinatorApproval = false
+    let fromTeamCategory = null
+    let toTeamCategory = null
+
+    if (is_transfer && from_team_id) {
+      // Get both team categories
+      const { data: fromTeam } = await supabase
+        .from("teams")
+        .select("category")
+        .eq("id", Number(from_team_id))
+        .single()
+
+      const { data: toTeam } = await supabase
+        .from("teams")
+        .select("category")
+        .eq("id", Number(team_id))
+        .single()
+
+      fromTeamCategory = fromTeam?.category || null
+      toTeamCategory = toTeam?.category || null
+
+      if (fromTeamCategory && toTeamCategory) {
+        needsCoordinatorApproval = requiresCoordinatorApproval(fromTeamCategory, toTeamCategory)
+      }
+    }
+
     const { data, error } = await supabase
       .from("team_join_requests")
       .insert({
@@ -114,12 +166,50 @@ export async function POST(request: NextRequest) {
         jersey_number: Number(jersey_number),
         phone: phone || null,
         message: message || null,
-        status: "pending",
+        status: needsCoordinatorApproval ? "pending_coordinator" : "pending",
+        is_transfer: is_transfer || false,
+        from_team_id: from_team_id ? Number(from_team_id) : null,
+        requires_coordinator_approval: needsCoordinatorApproval,
       })
       .select()
       .single()
 
     if (error) {
+      // If columns don't exist yet, fallback to basic insert
+      if (error.message?.includes("column") || error.code === "PGRST204") {
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from("team_join_requests")
+          .insert({
+            player_user_id: Number(player_user_id),
+            player_id: player_id ? Number(player_id) : null,
+            team_id: Number(team_id),
+            player_name: player_name.trim(),
+            position,
+            jersey_number: Number(jersey_number),
+            phone: phone || null,
+            message: message || null,
+            status: "pending",
+          })
+          .select()
+          .single()
+
+        if (fallbackError) {
+          console.error("Error creating join request (fallback):", fallbackError)
+          return NextResponse.json(
+            { success: false, message: "Error al crear la solicitud: " + fallbackError.message },
+            { status: 500 }
+          )
+        }
+
+        return NextResponse.json({
+          success: true,
+          data: fallbackData,
+          message: is_transfer
+            ? "Solicitud de transferencia enviada exitosamente"
+            : "Solicitud enviada exitosamente",
+        })
+      }
+
       console.error("Error creating join request:", error)
       return NextResponse.json(
         { success: false, message: "Error al crear la solicitud: " + error.message },
@@ -130,7 +220,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data,
-      message: "Solicitud enviada exitosamente",
+      message: needsCoordinatorApproval
+        ? "Solicitud de transferencia enviada. Requiere aprobacion del coordinador de liga y ambos capitanes."
+        : is_transfer
+          ? "Solicitud de transferencia enviada exitosamente"
+          : "Solicitud enviada exitosamente",
     })
   } catch (error) {
     console.error("Error in POST join request:", error)
@@ -205,55 +299,85 @@ export async function PUT(request: NextRequest) {
 
     // If accepted, assign the player to the team
     if (status === "accepted") {
-      const updateData: Record<string, unknown> = {
-        team_id: joinRequest.team_id,
-        position: joinRequest.position,
-        jersey_number: joinRequest.jersey_number,
-      }
+      const isTransfer = joinRequest.is_transfer || false
 
-      if (joinRequest.player_id) {
-        // Update existing player record
+      // Check if player already has a record for this team
+      const { data: existingTeamPlayer } = await supabase
+        .from("players")
+        .select("id")
+        .eq("user_id", joinRequest.player_user_id)
+        .eq("team_id", joinRequest.team_id)
+        .maybeSingle()
+
+      if (existingTeamPlayer) {
+        // Already on this team, just update position/jersey
+        await supabase
+          .from("players")
+          .update({
+            position: joinRequest.position,
+            jersey_number: joinRequest.jersey_number,
+          })
+          .eq("id", existingTeamPlayer.id)
+      } else if (isTransfer && joinRequest.player_id) {
+        // Transfer: update the existing player record to new team
         const { error: playerError } = await supabase
           .from("players")
-          .update(updateData)
+          .update({
+            team_id: joinRequest.team_id,
+            position: joinRequest.position,
+            jersey_number: joinRequest.jersey_number,
+          })
           .eq("id", joinRequest.player_id)
 
         if (playerError) {
-          console.error("Error updating player:", playerError)
+          console.error("Error updating player for transfer:", playerError)
         }
-      } else if (joinRequest.player_user_id) {
-        // Try to find by user_id
-        const { data: existingPlayer } = await supabase
-          .from("players")
-          .select("id")
-          .eq("user_id", joinRequest.player_user_id)
-          .maybeSingle()
+      } else {
+        // New join to additional team: get the original player data and create a new record
+        let playerName = joinRequest.player_name
+        let photoUrl = null
+        let userId = joinRequest.player_user_id
 
-        if (existingPlayer) {
-          const { error: playerError } = await supabase
+        if (joinRequest.player_id) {
+          const { data: originalPlayer } = await supabase
             .from("players")
-            .update(updateData)
-            .eq("id", existingPlayer.id)
+            .select("name, photo_url, user_id")
+            .eq("id", joinRequest.player_id)
+            .single()
 
-          if (playerError) {
-            console.error("Error updating player:", playerError)
+          if (originalPlayer) {
+            playerName = originalPlayer.name
+            photoUrl = originalPlayer.photo_url
+            userId = originalPlayer.user_id
           }
+        }
+
+        const { error: createError } = await supabase
+          .from("players")
+          .insert({
+            name: playerName,
+            team_id: joinRequest.team_id,
+            position: joinRequest.position,
+            jersey_number: joinRequest.jersey_number,
+            photo_url: photoUrl,
+            user_id: userId,
+          })
+
+        if (createError) {
+          console.error("Error creating player record for new team:", createError)
         }
       }
 
-      // Reject all other pending requests from this player
-      await supabase
-        .from("team_join_requests")
-        .update({ status: "rejected", updated_at: new Date().toISOString() })
-        .eq("player_user_id", joinRequest.player_user_id)
-        .eq("status", "pending")
-        .neq("id", Number(id))
+      // Do NOT reject other pending requests - players can be on multiple teams
     }
 
+    const isTransfer = joinRequest.is_transfer || false
     return NextResponse.json({
       success: true,
       message: status === "accepted"
-        ? "Jugador aceptado al equipo exitosamente"
+        ? isTransfer
+          ? "Transferencia completada exitosamente"
+          : "Jugador aceptado al equipo exitosamente"
         : "Solicitud rechazada",
     })
   } catch (error) {
