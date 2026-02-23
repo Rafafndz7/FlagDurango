@@ -117,46 +117,40 @@ export default function QRScanner({ games }: QRScannerProps) {
 
   /* ================= START ================= */
 
-  const startScanning = useCallback(async () => {
-    if (!videoRef.current) return
-    if (!selectedGameId) {
-      setError("Selecciona un partido")
-      return
-    }
+ const startScanning = useCallback(async () => {
+  if (!selectedGameId) {
+    setError("Selecciona un partido")
+    return
+  }
 
-    try {
-      scannerRef.current = new QrScanner(
-        videoRef.current,
-        (result) => {
-          if (result?.data) processQRData(result.data)
-        },
-        {
-          preferredCamera: "environment",
-          highlightScanRegion: true,
-          highlightCodeOutline: true,
-        }
-      )
+  const video = videoRef.current
+  if (!video) return
 
-      await scannerRef.current.start()
-      setScanning(true)
-    } catch (e) {
-      setError("No se pudo acceder a la cámara")
-    }
-  }, [selectedGameId, processQRData])
+  try {
+    // 🔥 fuerza popup permisos
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" },
+    })
 
-  /* ================= STOP ================= */
+    video.srcObject = stream
+    await video.play()
 
-  const stopScanning = useCallback(() => {
-    scannerRef.current?.stop()
-    scannerRef.current?.destroy()
-    scannerRef.current = null
-    setScanning(false)
-  }, [])
+    scannerRef.current = new QrScanner(
+      video,
+      (result) => {
+        if (result?.data) processQRData(result.data)
+      },
+      { preferredCamera: "environment" }
+    )
 
-  useEffect(() => {
-    return () => stopScanning()
-  }, [stopScanning])
+    await scannerRef.current.start()
+    setScanning(true)
 
+  } catch (e) {
+    console.error(e)
+    setError("Permiso de cámara bloqueado")
+  }
+}, [selectedGameId, processQRData])
   /* ================= UI ================= */
 
   const selectedGame = games.find((g) => g.id === selectedGameId)
