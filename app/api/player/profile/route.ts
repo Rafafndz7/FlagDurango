@@ -27,7 +27,9 @@ export async function GET(request: NextRequest) {
         )
       `)
       .eq("user_id", Number(userId))
-      .single()
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle()
 
     if (error || !player) {
       return NextResponse.json(
@@ -92,7 +94,8 @@ export async function PUT(request: NextRequest) {
       .from("players")
       .select("id")
       .eq("user_id", Number(user_id))
-      .single()
+      .limit(1)
+      .maybeSingle()
 
     if (checkError || !existingPlayer) {
       return NextResponse.json(
@@ -127,10 +130,23 @@ export async function PUT(request: NextRequest) {
     delete updateData.emergency_contact
     delete updateData.emergency_phone
 
-    const { data: updatedPlayer, error } = await supabase
+    // Update ALL player rows for this user (they may be on multiple teams)
+    const { error: updateError } = await supabase
       .from("players")
       .update(updateData)
       .eq("user_id", Number(user_id))
+
+    if (updateError) {
+      console.error("Error updating player profile:", updateError)
+      return NextResponse.json(
+        { success: false, message: "Error al actualizar el perfil" },
+        { status: 500 }
+      )
+    }
+
+    // Fetch the first row back to return to the frontend
+    const { data: updatedPlayer } = await supabase
+      .from("players")
       .select(`
         *,
         teams!players_team_id_fkey (
@@ -140,15 +156,10 @@ export async function PUT(request: NextRequest) {
           logo_url
         )
       `)
-      .single()
-
-    if (error) {
-      console.error("Error updating player profile:", error)
-      return NextResponse.json(
-        { success: false, message: "Error al actualizar el perfil" },
-        { status: 500 }
-      )
-    }
+      .eq("user_id", Number(user_id))
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle()
 
     return NextResponse.json({
       success: true,

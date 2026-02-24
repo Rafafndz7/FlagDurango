@@ -118,39 +118,56 @@ export default function QRScanner({ games }: QRScannerProps) {
   /* ================= START ================= */
 
  const startScanning = useCallback(async () => {
-  if (!selectedGameId) {
-    setError("Selecciona un partido")
-    return
-  }
+    if (!selectedGameId) {
+      setError("Selecciona un partido")
+      return
+    }
 
-  const video = videoRef.current
-  if (!video) return
+    const video = videoRef.current
+    if (!video) return
 
-  try {
-    // 🔥 fuerza popup permisos
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "environment" },
-    })
+    try {
+      // Let QrScanner handle the camera stream — do NOT call getUserMedia manually.
+      // Setting playsInline/muted on the element is done in JSX for iOS Safari.
+      scannerRef.current = new QrScanner(
+        video,
+        (result) => {
+          if (result?.data) processQRData(result.data)
+        },
+        { preferredCamera: "environment", highlightScanRegion: true }
+      )
 
-    video.srcObject = stream
-    await video.play()
+      await scannerRef.current.start()
+      setScanning(true)
+      setError(null)
+    } catch (e) {
+      console.error(e)
+      setError("Permiso de camara bloqueado o no disponible")
+    }
+  }, [selectedGameId, processQRData])
 
-    scannerRef.current = new QrScanner(
-      video,
-      (result) => {
-        if (result?.data) processQRData(result.data)
-      },
-      { preferredCamera: "environment" }
-    )
+  /* ================= STOP ================= */
 
-    await scannerRef.current.start()
-    setScanning(true)
+  const stopScanning = useCallback(() => {
+    if (scannerRef.current) {
+      scannerRef.current.stop()
+      scannerRef.current.destroy()
+      scannerRef.current = null
+    }
+    setScanning(false)
+  }, [])
+  /* ================= CLEANUP ================= */
 
-  } catch (e) {
-    console.error(e)
-    setError("Permiso de cámara bloqueado")
-  }
-}, [selectedGameId, processQRData])
+  useEffect(() => {
+    return () => {
+      if (scannerRef.current) {
+        scannerRef.current.stop()
+        scannerRef.current.destroy()
+        scannerRef.current = null
+      }
+    }
+  }, [])
+
   /* ================= UI ================= */
 
   const selectedGame = games.find((g) => g.id === selectedGameId)
@@ -185,7 +202,7 @@ export default function QRScanner({ games }: QRScannerProps) {
         ) : (
           <>
             <div className="relative bg-black rounded overflow-hidden aspect-video">
-              <video ref={videoRef} className="w-full h-full object-cover" />
+              <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
               {processing && (
                 <div className="absolute top-2 right-2 bg-orange-500 text-white px-2 py-1 rounded flex items-center gap-1">
                   <Loader2 className="w-4 h-4 animate-spin" />
