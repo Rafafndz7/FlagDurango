@@ -444,7 +444,7 @@ export default function HomePage() {
                   <CardContent className="p-6 text-center">
                     <img src="/images/inicio.png" alt="Inicio de Temporada" className="w-12 h-12 mx-auto mb-4" />
                     <h3 className="font-bold text-gray-900 mb-2">Inicio de Torneo</h3>
-                    <div className="text-3xl font-black text-gray-900">21 y 22 de Feb</div>
+                    <div className="text-3xl font-black text-gray-900">28 de Feb y 1 de Mar</div>
                     <div className="text-gray-600">2026</div>
                   </CardContent>
                 </Card>
@@ -453,8 +453,8 @@ export default function HomePage() {
                   <CardContent className="p-6 text-center">
                     <img src="/images/sede.png" alt="Sede" className="w-12 h-12 mx-auto mb-4" />
                     <h3 className="font-bold text-gray-900 mb-2">Sede</h3>
-                    <div className="text-xl font-black text-gray-900">UAD</div>
-                    <div className="text-gray-600">Jaridnes</div>
+                    <div className="text-xl font-black text-gray-900">Polideportivo</div>
+                    <div className="text-gray-600">Mario Vazquez Raña</div>
                   </CardContent>
                 </Card>
 

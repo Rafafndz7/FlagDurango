@@ -95,16 +95,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if the player already belongs to this specific team
-    if (player_id) {
-      const { data: existingPlayer } = await supabase
+    // Check if the player already belongs to this specific team (by user_id or name)
+    {
+      let alreadyOnTeam = false
+
+      // Check by user_id
+      const { data: byUserId } = await supabase
         .from("players")
-        .select("team_id")
+        .select("id")
         .eq("user_id", Number(player_user_id))
         .eq("team_id", Number(team_id))
         .maybeSingle()
 
-      if (existingPlayer) {
+      if (byUserId) alreadyOnTeam = true
+
+      // Fallback: check by name
+      if (!alreadyOnTeam) {
+        const { data: byName } = await supabase
+          .from("players")
+          .select("id")
+          .ilike("name", player_name.trim())
+          .eq("team_id", Number(team_id))
+          .maybeSingle()
+
+        if (byName) alreadyOnTeam = true
+      }
+
+      if (alreadyOnTeam) {
         return NextResponse.json(
           { success: false, message: "Ya perteneces a este equipo." },
           { status: 400 }
@@ -301,22 +318,43 @@ export async function PUT(request: NextRequest) {
     if (status === "accepted") {
       const isTransfer = joinRequest.is_transfer || false
 
-      // Check if player already has a record for this team
-      const { data: existingTeamPlayer } = await supabase
-        .from("players")
-        .select("id")
-        .eq("user_id", joinRequest.player_user_id)
-        .eq("team_id", joinRequest.team_id)
-        .maybeSingle()
+      // --- Robust deduplication: check by user_id OR by player_name + team_id ---
+      let existingTeamPlayer: Record<string, any> | null = null
+
+      // 1. Check by user_id (if the player already has a linked account)
+      if (joinRequest.player_user_id) {
+        const { data } = await supabase
+          .from("players")
+          .select("id, user_id")
+          .eq("user_id", joinRequest.player_user_id)
+          .eq("team_id", joinRequest.team_id)
+          .maybeSingle()
+        existingTeamPlayer = data
+      }
+
+      // 2. Fallback: check by player_name + team_id (covers coach-added players without user_id)
+      if (!existingTeamPlayer) {
+        const { data } = await supabase
+          .from("players")
+          .select("id, user_id")
+          .ilike("name", joinRequest.player_name.trim())
+          .eq("team_id", joinRequest.team_id)
+          .maybeSingle()
+        existingTeamPlayer = data
+      }
 
       if (existingTeamPlayer) {
-        // Already on this team, just update position/jersey
+        // Already on this team -- just update position/jersey and ensure user_id is linked
+        const updatePayload: Record<string, any> = {
+          position: joinRequest.position,
+          jersey_number: joinRequest.jersey_number,
+        }
+        if (!existingTeamPlayer.user_id && joinRequest.player_user_id) {
+          updatePayload.user_id = joinRequest.player_user_id
+        }
         await supabase
           .from("players")
-          .update({
-            position: joinRequest.position,
-            jersey_number: joinRequest.jersey_number,
-          })
+          .update(updatePayload)
           .eq("id", existingTeamPlayer.id)
       } else if (isTransfer && joinRequest.player_id) {
         // Transfer: update the existing player record to new team
@@ -333,38 +371,85 @@ export async function PUT(request: NextRequest) {
           console.error("Error updating player for transfer:", playerError)
         }
       } else {
-        // New join to additional team: get the original player data and create a new record
-        let playerName = joinRequest.player_name
-        let photoUrl = null
-        let userId = joinRequest.player_user_id
-
-        if (joinRequest.player_id) {
-          const { data: originalPlayer } = await supabase
+        // New join to additional team
+        // First: check if there's an orphan row (same user_id, team_id IS NULL) we can reuse
+        let orphanRow: Record<string, any> | null = null
+        if (joinRequest.player_user_id) {
+          const { data } = await supabase
             .from("players")
-            .select("name, photo_url, user_id")
-            .eq("id", joinRequest.player_id)
-            .single()
-
-          if (originalPlayer) {
-            playerName = originalPlayer.name
-            photoUrl = originalPlayer.photo_url
-            userId = originalPlayer.user_id
-          }
+            .select("id")
+            .eq("user_id", joinRequest.player_user_id)
+            .is("team_id", null)
+            .limit(1)
+            .maybeSingle()
+          orphanRow = data
         }
 
-        const { error: createError } = await supabase
-          .from("players")
-          .insert({
-            name: playerName,
+        if (orphanRow) {
+          // Reuse the orphan row: just set its team_id + position + jersey
+          await supabase
+            .from("players")
+            .update({
+              team_id: joinRequest.team_id,
+              position: joinRequest.position,
+              jersey_number: joinRequest.jersey_number,
+            })
+            .eq("id", orphanRow.id)
+        } else {
+          // Copy ALL profile fields from the original player record
+          let originalPlayer: Record<string, any> | null = null
+
+          // Try by player_id first
+          if (joinRequest.player_id) {
+            const { data } = await supabase
+              .from("players")
+              .select("*")
+              .eq("id", joinRequest.player_id)
+              .maybeSingle()
+            originalPlayer = data
+          }
+
+          // Fallback: find any existing player row for this user
+          if (!originalPlayer && joinRequest.player_user_id) {
+            const { data } = await supabase
+              .from("players")
+              .select("*")
+              .eq("user_id", joinRequest.player_user_id)
+              .order("created_at", { ascending: true })
+              .limit(1)
+              .maybeSingle()
+            originalPlayer = data
+          }
+
+          // Build the new record copying every profile field from the original
+          const newRecord: Record<string, any> = {
+            name: originalPlayer?.name || joinRequest.player_name,
             team_id: joinRequest.team_id,
             position: joinRequest.position,
             jersey_number: joinRequest.jersey_number,
-            photo_url: photoUrl,
-            user_id: userId,
-          })
+            user_id: originalPlayer?.user_id ?? joinRequest.player_user_id ?? null,
+            photo_url: originalPlayer?.photo_url || null,
+            phone: originalPlayer?.phone || null,
+            personal_email: originalPlayer?.personal_email || null,
+            birth_date: originalPlayer?.birth_date || null,
+            address: originalPlayer?.address || null,
+            emergency_contact_name: originalPlayer?.emergency_contact_name || null,
+            emergency_contact_phone: originalPlayer?.emergency_contact_phone || null,
+            blood_type: originalPlayer?.blood_type || null,
+            seasons_played: originalPlayer?.seasons_played ?? null,
+            playing_since: originalPlayer?.playing_since || null,
+            medical_conditions: originalPlayer?.medical_conditions || null,
+            cedula_url: originalPlayer?.cedula_url || null,
+            profile_completed: originalPlayer?.profile_completed || false,
+          }
 
-        if (createError) {
-          console.error("Error creating player record for new team:", createError)
+          const { error: createError } = await supabase
+            .from("players")
+            .insert(newRecord)
+
+          if (createError) {
+            console.error("Error creating player record for new team:", createError)
+          }
         }
       }
 

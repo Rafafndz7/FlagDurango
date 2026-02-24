@@ -15,7 +15,8 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const { data: player, error } = await supabase
+    // Fetch ALL player rows for this user (one per team)
+    const { data: allPlayerRows, error } = await supabase
       .from("players")
       .select(`
         *,
@@ -27,14 +28,28 @@ export async function GET(request: NextRequest) {
         )
       `)
       .eq("user_id", Number(userId))
-      .single()
+      .order("created_at", { ascending: true })
 
-    if (error || !player) {
+    if (error || !allPlayerRows || allPlayerRows.length === 0) {
       return NextResponse.json(
         { success: false, message: "Perfil de jugador no encontrado" },
         { status: 404 }
       )
     }
+
+    // Prefer a row that actually has a team assigned (team_id is not null)
+    const player = allPlayerRows.find((p: any) => p.team_id !== null) || allPlayerRows[0]
+
+    // Collect ALL teams the player belongs to
+    const playerTeams = allPlayerRows
+      .filter((p: any) => p.team_id !== null && p.teams)
+      .map((p: any) => ({
+        player_row_id: p.id,
+        team_id: p.team_id,
+        team: p.teams,
+        position: p.position,
+        jersey_number: p.jersey_number,
+      }))
 
     // Mapear nombres de columnas de BD a nombres del frontend
     const mappedPlayer = {
@@ -47,6 +62,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: mappedPlayer,
+      playerTeams,
     })
   } catch (error) {
     console.error("Error fetching player profile:", error)
@@ -92,7 +108,8 @@ export async function PUT(request: NextRequest) {
       .from("players")
       .select("id")
       .eq("user_id", Number(user_id))
-      .single()
+      .limit(1)
+      .maybeSingle()
 
     if (checkError || !existingPlayer) {
       return NextResponse.json(
@@ -127,10 +144,23 @@ export async function PUT(request: NextRequest) {
     delete updateData.emergency_contact
     delete updateData.emergency_phone
 
-    const { data: updatedPlayer, error } = await supabase
+    // Update ALL player rows for this user (they may be on multiple teams)
+    const { error: updateError } = await supabase
       .from("players")
       .update(updateData)
       .eq("user_id", Number(user_id))
+
+    if (updateError) {
+      console.error("Error updating player profile:", updateError)
+      return NextResponse.json(
+        { success: false, message: "Error al actualizar el perfil" },
+        { status: 500 }
+      )
+    }
+
+    // Fetch ALL rows back to return to the frontend  
+    const { data: allRows } = await supabase
+      .from("players")
       .select(`
         *,
         teams!players_team_id_fkey (
@@ -140,19 +170,25 @@ export async function PUT(request: NextRequest) {
           logo_url
         )
       `)
-      .single()
+      .eq("user_id", Number(user_id))
+      .order("created_at", { ascending: true })
 
-    if (error) {
-      console.error("Error updating player profile:", error)
-      return NextResponse.json(
-        { success: false, message: "Error al actualizar el perfil" },
-        { status: 500 }
-      )
-    }
+    const updatedPlayer = allRows?.find((p: any) => p.team_id !== null) || allRows?.[0] || null
+
+    const playerTeams = (allRows || [])
+      .filter((p: any) => p.team_id !== null && p.teams)
+      .map((p: any) => ({
+        player_row_id: p.id,
+        team_id: p.team_id,
+        team: p.teams,
+        position: p.position,
+        jersey_number: p.jersey_number,
+      }))
 
     return NextResponse.json({
       success: true,
       data: updatedPlayer,
+      playerTeams,
       message: "Perfil actualizado exitosamente",
     })
   } catch (error) {
