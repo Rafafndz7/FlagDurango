@@ -125,13 +125,26 @@ export async function POST(req: NextRequest) {
       .eq("id", player_id)
 
     if (updateError) {
-      console.error("❌ Error vinculando jugador con usuario:", updateError)
-      // Eliminar el usuario creado si falla la vinculación
+      console.error("Error vinculando jugador con usuario:", updateError)
+      // Eliminar el usuario creado si falla la vinculacion
       await supabase.from("users").delete().eq("id", newUser.id)
       return NextResponse.json(
         { success: false, message: "Error al vincular la cuenta con el jugador" },
         { status: 500 }
       )
+    }
+
+    // Propagate user_id to ALL other player rows with the same name
+    // (e.g. player was added by coaches to multiple teams before getting an account)
+    const { error: propagateError } = await supabase
+      .from("players")
+      .update({ user_id: newUser.id })
+      .ilike("name", player.name.trim())
+      .is("user_id", null)
+
+    if (propagateError) {
+      console.error("Warning: could not propagate user_id to other player rows:", propagateError)
+      // Non-fatal: the primary row is already linked
     }
 
     console.log("✅ Cuenta de jugador creada exitosamente:", newUser.id)
