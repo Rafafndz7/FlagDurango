@@ -101,10 +101,24 @@ interface JoinRequest {
   }
 }
 
+interface PlayerTeamEntry {
+  player_row_id: number
+  team_id: number
+  team: {
+    id: number
+    name: string
+    category: string
+    logo_url?: string
+  }
+  position: string
+  jersey_number: number
+}
+
 export default function PlayerPortal() {
   const router = useRouter()
   const [user, setUser] = useState<UserData | null>(null)
   const [player, setPlayer] = useState<PlayerProfile | null>(null)
+  const [playerTeams, setPlayerTeams] = useState<PlayerTeamEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
@@ -144,6 +158,7 @@ export default function PlayerPortal() {
 
       if (data.success && data.data) {
         setPlayer(data.data)
+        setPlayerTeams(data.playerTeams || [])
         setForm({
           birth_date: data.data.birth_date || "",
           phone: data.data.phone || "",
@@ -449,8 +464,8 @@ export default function PlayerPortal() {
     )
   }
 
-  // If the player doesn't have a team, show team browsing view
-  const hasTeam = player.team_id !== null && player.team_id !== undefined
+  // If the player has any team (including from other rows), show the profile form
+  const hasTeam = (player.team_id !== null && player.team_id !== undefined) || playerTeams.length > 0
 
   const filteredTeams = teams.filter(t =>
     t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -800,7 +815,34 @@ export default function PlayerPortal() {
                   </div>
 
                   {/* Team Info */}
-                  {player.teams && (
+                  {playerTeams.length > 0 ? (
+                    <div className="pt-4 border-t space-y-3">
+                      <p className="text-sm text-muted-foreground">
+                        {playerTeams.length === 1 ? "Equipo" : "Equipos"}
+                      </p>
+                      {playerTeams.map((pt) => (
+                        <div key={pt.team_id} className="flex items-center gap-2">
+                          {pt.team.logo_url ? (
+                            <img
+                              src={pt.team.logo_url}
+                              alt={pt.team.name}
+                              className="w-8 h-8 rounded object-cover"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded bg-primary/20 flex items-center justify-center text-xs font-bold">
+                              {pt.team.name.charAt(0)}
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-medium text-sm">{pt.team.name}</p>
+                            <Badge variant="outline" className="text-xs">
+                              {pt.team.category}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : player.teams ? (
                     <div className="pt-4 border-t">
                       <p className="text-sm text-muted-foreground">Equipo</p>
                       <p className="font-medium">{player.teams.name}</p>
@@ -808,7 +850,7 @@ export default function PlayerPortal() {
                         {player.teams.category}
                       </Badge>
                     </div>
-                  )}
+                  ) : null}
 
                   {/* Status */}
                   <div className="pt-4 border-t space-y-2">
@@ -1193,7 +1235,12 @@ export default function PlayerPortal() {
                   ) : (
                     <div className="grid gap-3 sm:grid-cols-2">
                       {filteredTeams
-                        .filter(t => t.id !== player.team_id)
+                        .filter(t => {
+                          // Exclude ALL teams the player already belongs to
+                          const myTeamIds = playerTeams.map(pt => pt.team_id)
+                          if (player.team_id) myTeamIds.push(player.team_id)
+                          return !myTeamIds.includes(t.id)
+                        })
                         .map((team) => {
                           const reqStatus = getRequestStatus(team.id)
                           const isPending = pendingRequestTeamIds.includes(team.id)

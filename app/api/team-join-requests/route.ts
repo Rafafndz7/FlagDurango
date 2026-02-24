@@ -371,59 +371,85 @@ export async function PUT(request: NextRequest) {
           console.error("Error updating player for transfer:", playerError)
         }
       } else {
-        // New join to additional team: copy ALL profile fields from the original player record
-        let originalPlayer: Record<string, any> | null = null
-
-        // Try by player_id first
-        if (joinRequest.player_id) {
+        // New join to additional team
+        // First: check if there's an orphan row (same user_id, team_id IS NULL) we can reuse
+        let orphanRow: Record<string, any> | null = null
+        if (joinRequest.player_user_id) {
           const { data } = await supabase
             .from("players")
-            .select("*")
-            .eq("id", joinRequest.player_id)
-            .maybeSingle()
-          originalPlayer = data
-        }
-
-        // Fallback: find any existing player row for this user
-        if (!originalPlayer && joinRequest.player_user_id) {
-          const { data } = await supabase
-            .from("players")
-            .select("*")
+            .select("id")
             .eq("user_id", joinRequest.player_user_id)
-            .order("created_at", { ascending: true })
+            .is("team_id", null)
             .limit(1)
             .maybeSingle()
-          originalPlayer = data
+          orphanRow = data
         }
 
-        // Build the new record copying every profile field from the original
-        const newRecord: Record<string, any> = {
-          name: originalPlayer?.name || joinRequest.player_name,
-          team_id: joinRequest.team_id,
-          position: joinRequest.position,
-          jersey_number: joinRequest.jersey_number,
-          user_id: originalPlayer?.user_id ?? joinRequest.player_user_id ?? null,
-          photo_url: originalPlayer?.photo_url || null,
-          phone: originalPlayer?.phone || null,
-          personal_email: originalPlayer?.personal_email || null,
-          birth_date: originalPlayer?.birth_date || null,
-          address: originalPlayer?.address || null,
-          emergency_contact_name: originalPlayer?.emergency_contact_name || null,
-          emergency_contact_phone: originalPlayer?.emergency_contact_phone || null,
-          blood_type: originalPlayer?.blood_type || null,
-          seasons_played: originalPlayer?.seasons_played ?? null,
-          playing_since: originalPlayer?.playing_since || null,
-          medical_conditions: originalPlayer?.medical_conditions || null,
-          cedula_url: originalPlayer?.cedula_url || null,
-          profile_completed: originalPlayer?.profile_completed || false,
-        }
+        if (orphanRow) {
+          // Reuse the orphan row: just set its team_id + position + jersey
+          await supabase
+            .from("players")
+            .update({
+              team_id: joinRequest.team_id,
+              position: joinRequest.position,
+              jersey_number: joinRequest.jersey_number,
+            })
+            .eq("id", orphanRow.id)
+        } else {
+          // Copy ALL profile fields from the original player record
+          let originalPlayer: Record<string, any> | null = null
 
-        const { error: createError } = await supabase
-          .from("players")
-          .insert(newRecord)
+          // Try by player_id first
+          if (joinRequest.player_id) {
+            const { data } = await supabase
+              .from("players")
+              .select("*")
+              .eq("id", joinRequest.player_id)
+              .maybeSingle()
+            originalPlayer = data
+          }
 
-        if (createError) {
-          console.error("Error creating player record for new team:", createError)
+          // Fallback: find any existing player row for this user
+          if (!originalPlayer && joinRequest.player_user_id) {
+            const { data } = await supabase
+              .from("players")
+              .select("*")
+              .eq("user_id", joinRequest.player_user_id)
+              .order("created_at", { ascending: true })
+              .limit(1)
+              .maybeSingle()
+            originalPlayer = data
+          }
+
+          // Build the new record copying every profile field from the original
+          const newRecord: Record<string, any> = {
+            name: originalPlayer?.name || joinRequest.player_name,
+            team_id: joinRequest.team_id,
+            position: joinRequest.position,
+            jersey_number: joinRequest.jersey_number,
+            user_id: originalPlayer?.user_id ?? joinRequest.player_user_id ?? null,
+            photo_url: originalPlayer?.photo_url || null,
+            phone: originalPlayer?.phone || null,
+            personal_email: originalPlayer?.personal_email || null,
+            birth_date: originalPlayer?.birth_date || null,
+            address: originalPlayer?.address || null,
+            emergency_contact_name: originalPlayer?.emergency_contact_name || null,
+            emergency_contact_phone: originalPlayer?.emergency_contact_phone || null,
+            blood_type: originalPlayer?.blood_type || null,
+            seasons_played: originalPlayer?.seasons_played ?? null,
+            playing_since: originalPlayer?.playing_since || null,
+            medical_conditions: originalPlayer?.medical_conditions || null,
+            cedula_url: originalPlayer?.cedula_url || null,
+            profile_completed: originalPlayer?.profile_completed || false,
+          }
+
+          const { error: createError } = await supabase
+            .from("players")
+            .insert(newRecord)
+
+          if (createError) {
+            console.error("Error creating player record for new team:", createError)
+          }
         }
       }
 
