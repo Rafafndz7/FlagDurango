@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { sendExpoNotification } from "@/lib/notifications";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -151,7 +153,6 @@ export async function POST(request: NextRequest) {
     let toTeamCategory = null
 
     if (is_transfer && from_team_id) {
-      // Get both team categories
       const { data: fromTeam } = await supabase
         .from("teams")
         .select("category")
@@ -192,7 +193,6 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) {
-      // If columns don't exist yet, fallback to basic insert
       if (error.message?.includes("column") || error.code === "PGRST204") {
         const { data: fallbackData, error: fallbackError } = await supabase
           .from("team_join_requests")
@@ -272,7 +272,6 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    // Get the join request
     const { data: joinRequest, error: fetchError } = await supabase
       .from("team_join_requests")
       .select("*")
@@ -286,10 +285,10 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    // Verify the coach owns this team
+    // MODIFICACIÓN IMPORTANTE: Traemos el 'name' del equipo para usarlo en la notificación
     const { data: team } = await supabase
       .from("teams")
-      .select("id, coach_id")
+      .select("id, coach_id, name")
       .eq("id", joinRequest.team_id)
       .single()
 
@@ -300,7 +299,6 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    // Update the request status
     const { error: updateError } = await supabase
       .from("team_join_requests")
       .update({ status, updated_at: new Date().toISOString() })
@@ -314,14 +312,10 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    // If accepted, assign the player to the team
     if (status === "accepted") {
       const isTransfer = joinRequest.is_transfer || false
-
-      // --- Robust deduplication: check by user_id OR by player_name + team_id ---
       let existingTeamPlayer: Record<string, any> | null = null
 
-      // 1. Check by user_id (if the player already has a linked account)
       if (joinRequest.player_user_id) {
         const { data } = await supabase
           .from("players")
@@ -332,7 +326,6 @@ export async function PUT(request: NextRequest) {
         existingTeamPlayer = data
       }
 
-      // 2. Fallback: check by player_name + team_id (covers coach-added players without user_id)
       if (!existingTeamPlayer) {
         const { data } = await supabase
           .from("players")
@@ -344,7 +337,6 @@ export async function PUT(request: NextRequest) {
       }
 
       if (existingTeamPlayer) {
-        // Already on this team -- just update position/jersey and ensure user_id is linked
         const updatePayload: Record<string, any> = {
           position: joinRequest.position,
           jersey_number: joinRequest.jersey_number,
@@ -357,7 +349,6 @@ export async function PUT(request: NextRequest) {
           .update(updatePayload)
           .eq("id", existingTeamPlayer.id)
       } else if (isTransfer && joinRequest.player_id) {
-        // Transfer: update the existing player record to new team
         const { error: playerError } = await supabase
           .from("players")
           .update({
@@ -371,8 +362,6 @@ export async function PUT(request: NextRequest) {
           console.error("Error updating player for transfer:", playerError)
         }
       } else {
-        // New join to additional team
-        // First: check if there's an orphan row (same user_id, team_id IS NULL) we can reuse
         let orphanRow: Record<string, any> | null = null
         if (joinRequest.player_user_id) {
           const { data } = await supabase
@@ -386,7 +375,6 @@ export async function PUT(request: NextRequest) {
         }
 
         if (orphanRow) {
-          // Reuse the orphan row: just set its team_id + position + jersey
           await supabase
             .from("players")
             .update({
@@ -396,10 +384,8 @@ export async function PUT(request: NextRequest) {
             })
             .eq("id", orphanRow.id)
         } else {
-          // Copy ALL profile fields from the original player record
           let originalPlayer: Record<string, any> | null = null
 
-          // Try by player_id first
           if (joinRequest.player_id) {
             const { data } = await supabase
               .from("players")
@@ -409,7 +395,6 @@ export async function PUT(request: NextRequest) {
             originalPlayer = data
           }
 
-          // Fallback: find any existing player row for this user
           if (!originalPlayer && joinRequest.player_user_id) {
             const { data } = await supabase
               .from("players")
@@ -421,7 +406,6 @@ export async function PUT(request: NextRequest) {
             originalPlayer = data
           }
 
-          // Build the new record copying every profile field from the original
           const newRecord: Record<string, any> = {
             name: originalPlayer?.name || joinRequest.player_name,
             team_id: joinRequest.team_id,
@@ -452,9 +436,37 @@ export async function PUT(request: NextRequest) {
           }
         }
       }
-
-      // Do NOT reject other pending requests - players can be on multiple teams
     }
+
+    // -------------------------------------------------------------------
+    // NUEVO: ENVIAR NOTIFICACIÓN PUSH AL JUGADOR DESDE EXPO
+    // -------------------------------------------------------------------
+    if (joinRequest.player_user_id) {
+      try {
+        const { data: userData } = await supabaseAdmin
+          .from("users")
+          .select("expo_push_token")
+          .eq("id", joinRequest.player_user_id)
+          .single();
+
+        if (userData?.expo_push_token) {
+          const title = status === "accepted" ? "¡Felicidades! 🎉" : "Actualización de Solicitud";
+          const body = status === "accepted"
+            ? `Has sido aceptado en el equipo ${team.name}. ¡Bienvenido!`
+            : `Tu solicitud para unirte a ${team.name} ha sido rechazada.`;
+
+          await sendExpoNotification(userData.expo_push_token, {
+            title,
+            body,
+            data: { screen: "dashboard" }
+          });
+        }
+      } catch (pushError) {
+        console.error("Error enviando push notification:", pushError);
+        // No bloqueamos la respuesta si la notificación falla
+      }
+    }
+    // -------------------------------------------------------------------
 
     const isTransfer = joinRequest.is_transfer || false
     return NextResponse.json({
