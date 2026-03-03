@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status")
     const season = searchParams.get("season") || "2025"
 
-    let query = supabase
+let query = supabase
       .from("games")
       .select(`
         id,
@@ -30,7 +30,11 @@ export async function GET(request: NextRequest) {
         stage,
         season,
         created_at,
-        updated_at
+        updated_at,
+        current_period,
+        clock_running,
+        clock_last_started_at,
+        seconds_remaining
       `)
       .eq("season", season)
 

@@ -276,34 +276,33 @@ export default function TeamsPage() {
                   <div className="w-20 h-20 mx-auto mb-4 rounded-full overflow-hidden border-4 border-gray-200">
                     {team.logo_url ? (
                       <img
-                        src={team.logo_url || "/placeholder.svg"}
+                        src={team.logo_url}
                         alt={`Logo de ${team.name}`}
                         className="w-full h-full object-cover"
+                        crossOrigin="anonymous"
+                        referrerPolicy="no-referrer"
+                        loading="lazy"
                         onError={(e) => {
-                          // Fallback a iniciales si la imagen falla
                           const target = e.target as HTMLImageElement
                           target.style.display = "none"
                           const parent = target.parentElement
                           if (parent) {
-                            parent.innerHTML = `
-                              <div class="w-full h-full flex items-center justify-center text-white font-bold text-2xl" 
-                                   style="background: linear-gradient(to right, ${team.color1}, ${team.color2})">
-                                ${team.name.split(" ")[0].charAt(0)}
-                              </div>
-                            `
+                            const fallback = parent.querySelector('[data-fallback]') as HTMLElement
+                            if (fallback) fallback.style.display = "flex"
                           }
                         }}
                       />
-                    ) : (
-                      <div
-                        className="w-full h-full flex items-center justify-center text-white font-bold text-2xl"
-                        style={{
-                          background: `linear-gradient(to right, ${team.color1}, ${team.color2})`,
-                        }}
-                      >
-                        {team.name.split(" ")[0].charAt(0)}
-                      </div>
-                    )}
+                    ) : null}
+                    <div
+                      data-fallback
+                      className="w-full h-full items-center justify-center text-white font-bold text-2xl"
+                      style={{
+                        display: team.logo_url ? "none" : "flex",
+                        background: `linear-gradient(to right, ${team.color1}, ${team.color2})`,
+                      }}
+                    >
+                      {team.name.split(" ")[0].charAt(0)}
+                    </div>
                   </div>
 
                   <CardTitle className="text-gray-900 text-lg mb-2">{team.name}</CardTitle>
@@ -375,13 +374,31 @@ export default function TeamsPage() {
                       <div className="space-y-3">
                         {(team.coach_name || team.coach_photo_url) && (
                           <div className="flex items-center gap-2">
-                            {team.coach_photo_url ? (
-                              <img src={team.coach_photo_url} alt={`Coach ${team.coach_name || "del equipo"}`} className="w-10 h-10 rounded-full object-cover border-2 border-blue-300" />
-                            ) : (
-                              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center border-2 border-blue-300">
+                            <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-blue-300 flex-shrink-0">
+                              {team.coach_photo_url ? (
+                                <img
+                                  src={team.coach_photo_url}
+                                  alt={`Coach ${team.coach_name || "del equipo"}`}
+                                  className="w-full h-full object-cover"
+                                  crossOrigin="anonymous"
+                                  referrerPolicy="no-referrer"
+                                  loading="lazy"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement
+                                    target.style.display = "none"
+                                    const fallback = target.parentElement?.querySelector('[data-fallback]') as HTMLElement
+                                    if (fallback) fallback.style.display = "flex"
+                                  }}
+                                />
+                              ) : null}
+                              <div
+                                data-fallback
+                                className="w-full h-full bg-blue-100 items-center justify-center"
+                                style={{ display: team.coach_photo_url ? "none" : "flex" }}
+                              >
                                 <Trophy className="w-4 h-4 text-blue-400" />
                               </div>
-                            )}
+                            </div>
                             <div className="text-sm">
                               <p className="text-xs text-blue-600 font-medium">Coach</p>
                               <p className="text-gray-900 font-medium">{team.coach_name || "Coach"}</p>
@@ -390,13 +407,31 @@ export default function TeamsPage() {
                         )}
                         {(team.captain_name || team.captain_photo_url) && (
                           <div className="flex items-center gap-2">
-                            {team.captain_photo_url ? (
-                              <img src={team.captain_photo_url} alt={`Cap ${team.captain_name || "del equipo"}`} className="w-10 h-10 rounded-full object-cover border-2 border-yellow-400" />
-                            ) : (
-                              <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center border-2 border-yellow-400">
+                            <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-yellow-400 flex-shrink-0">
+                              {team.captain_photo_url ? (
+                                <img
+                                  src={team.captain_photo_url}
+                                  alt={`Cap ${team.captain_name || "del equipo"}`}
+                                  className="w-full h-full object-cover"
+                                  crossOrigin="anonymous"
+                                  referrerPolicy="no-referrer"
+                                  loading="lazy"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement
+                                    target.style.display = "none"
+                                    const fallback = target.parentElement?.querySelector('[data-fallback]') as HTMLElement
+                                    if (fallback) fallback.style.display = "flex"
+                                  }}
+                                />
+                              ) : null}
+                              <div
+                                data-fallback
+                                className="w-full h-full bg-yellow-100 items-center justify-center"
+                                style={{ display: team.captain_photo_url ? "none" : "flex" }}
+                              >
                                 <Users className="w-4 h-4 text-yellow-500" />
                               </div>
-                            )}
+                            </div>
                             <div className="text-sm">
                               <p className="text-xs text-yellow-700 font-medium">Capitan</p>
                               <p className="text-gray-900 font-medium">{team.captain_name || "Capitan"}</p>

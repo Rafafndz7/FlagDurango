@@ -161,6 +161,10 @@ interface Game {
   created_at?: string
   mvp?: string
   game_type?: string
+  current_period?: string
+  clock_running?: boolean
+  clock_last_started_at?: string | null
+  seconds_remaining?: number
 }
 
 interface NewsArticle {
@@ -325,6 +329,7 @@ export default function AdminPage() {
     venue: "",
     field: "",
     category: "varonil-libre",
+    jornada: "",
     referee1: "",
     referee2: "",
     status: "programado",
@@ -919,42 +924,34 @@ export default function AdminPage() {
 
   const createGame = async () => {
     try {
-      console.log("🎮 Creando partido con datos:", gameForm)
+      // Formatear body enviando jornada convertida a entero si existe
+      const payload = {
+        ...gameForm,
+        jornada: gameForm.jornada ? parseInt(gameForm.jornada) : null
+      }
 
       const response = await fetch("/api/games", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(gameForm),
+        body: JSON.stringify(payload), // Usamos el payload formateado
       })
 
       const data = await response.json()
-      console.log("📤 Respuesta del servidor:", data)
 
       if (data.success) {
         setGameForm({
-          home_team: "",
-          away_team: "",
-          game_date: "",
-          game_time: "",
-          venue: "",
-          field: "",
-          category: "varonil-libre",
-          referee1: "",
-          referee2: "",
-          status: "programado",
-          match_type: "jornada",
-          game_type: "flag",
-          mvp: "",
+          home_team: "", away_team: "", game_date: "", game_time: "", 
+          venue: "", field: "", jornada: "", // <-- reseteamos jornada
+          category: "varonil-libre", referee1: "", referee2: "", 
+          status: "programado", match_type: "jornada", game_type: "flag", mvp: "",
         })
         loadData()
         alert("Partido creado exitosamente")
       } else {
-        console.error("❌ Error del servidor:", data.message)
         alert(data.message || "Error al crear partido")
       }
     } catch (error) {
-      console.error("💥 Error creating game:", error)
-      alert("Error al crear partido: " + (error instanceof Error ? error.message : "Error desconocido"))
+      alert("Error al crear partido")
     }
   }
 
@@ -966,6 +963,9 @@ export default function AdminPage() {
     mvp?: string,
     referee1?: string,
     referee2?: string,
+    jornada?: string | number,       // <-- JORNADA
+    current_period?: string,         // <-- TIEMPO
+    seconds_remaining?: number       // <-- TIEMPO
   ) => {
     try {
       const updateData: any = { id, status }
@@ -974,6 +974,9 @@ export default function AdminPage() {
       if (mvp) updateData.mvp = mvp
       if (referee1 !== undefined) updateData.referee1 = referee1
       if (referee2 !== undefined) updateData.referee2 = referee2
+      if (jornada !== undefined) updateData.jornada = jornada ? Number(jornada) : null
+      if (current_period !== undefined) updateData.current_period = current_period
+      if (seconds_remaining !== undefined) updateData.seconds_remaining = seconds_remaining
 
       const response = await fetch("/api/games", {
         method: "PUT",
@@ -993,6 +996,47 @@ export default function AdminPage() {
     } catch (error) {
       console.error("Error updating game:", error)
       alert("Error al actualizar partido")
+    }
+  }
+  // Función para arrancar o pausar el tiempo en vivo
+  const handleToggleClock = async () => {
+    if (!editingGame) return
+
+    let newRunning = !editingGame.clock_running
+    let newSeconds = editingGame.seconds_remaining ?? 1200 // 20 minutos por defecto
+    let newLastStarted = newRunning ? new Date().toISOString() : null
+
+    // Si pausamos el reloj, calculamos el tiempo que pasó y se lo restamos al total
+    if (!newRunning && editingGame.clock_last_started_at) {
+      const started = new Date(editingGame.clock_last_started_at).getTime()
+      const now = new Date().getTime()
+      const elapsed = Math.floor((now - started) / 1000)
+      newSeconds = Math.max(0, newSeconds - elapsed)
+    }
+
+    try {
+      const updateData = {
+        id: editingGame.id,
+        clock_running: newRunning,
+        clock_last_started_at: newLastStarted,
+        seconds_remaining: newSeconds,
+      }
+
+      const response = await fetch("/api/games", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updateData),
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        setEditingGame({ ...editingGame, ...updateData })
+        loadData() // Recargar datos de fondo para sincronizar
+      } else {
+        alert("Error al actualizar el reloj")
+      }
+    } catch (error) {
+      console.error("Error toggling clock:", error)
     }
   }
 
@@ -2092,6 +2136,17 @@ export default function AdminPage() {
                       />
                     </div>
                     <div>
+                      <Label className="text-gray-700">Número de Jornada</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={gameForm.jornada}
+                        onChange={(e) => setGameForm({ ...gameForm, jornada: e.target.value })}
+                        className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500"
+                        placeholder="Ej: 1, 2, 3..."
+                      />
+                    </div>
+                    <div>
                       <Label className="text-gray-700">Hora</Label>
                       <Input
                         type="time"
@@ -2245,6 +2300,16 @@ export default function AdminPage() {
                       </div>
                       <div />
                       <div>
+                        <Label className="text-black">Jornada</Label>
+                        <Input
+                          type="number"
+                          value={editingGame.jornada || ""}
+                          onChange={(e) => setEditingGame({ ...editingGame, jornada: e.target.value })}
+                          className="bg-black/10 border-black/20 text-black placeholder:text-black/50"
+                          placeholder="Ej: 1"
+                        />
+                      </div>
+                      <div>
                         <Label className="text-black">Árbitro Principal</Label>
                         <Input
                           value={editingGame.referee1 || ""}
@@ -2300,6 +2365,64 @@ export default function AdminPage() {
                         </div>
                       )}
                     </div>
+                    {/* --- PANEL DE CRONÓMETRO EN VIVO --- */}
+                      {editingGame.status === "en vivo" && (
+                        <div className="col-span-2 bg-black/5 p-4 rounded-lg border border-black/10 mt-2">
+                          <h4 className="text-black font-bold mb-3 flex items-center gap-2">
+                            <Clock className="w-4 h-4" /> Panel de Cronómetro
+                          </h4>
+                          
+                          <div className="grid grid-cols-3 gap-4 mb-4">
+                            <div>
+                              <Label className="text-black">Periodo</Label>
+                              <select
+                                value={editingGame.current_period || "1H"}
+                                onChange={(e) => setEditingGame({ ...editingGame, current_period: e.target.value })}
+                                className="w-full p-2 rounded bg-white border border-black/20 text-black"
+                              >
+                                <option value="1H">1ra Mitad</option>
+                                <option value="2H">2da Mitad</option>
+                                <option value="OT">Tiempo Extra</option>
+                              </select>
+                            </div>
+                            <div>
+                              <Label className="text-black">Minutos</Label>
+                              <Input
+                                type="number"
+                                value={Math.floor((editingGame.seconds_remaining ?? 1200) / 60)}
+                                onChange={(e) => {
+                                  const mins = parseInt(e.target.value || "0");
+                                  const secs = (editingGame.seconds_remaining ?? 1200) % 60;
+                                  setEditingGame({ ...editingGame, seconds_remaining: mins * 60 + secs });
+                                }}
+                                className="bg-white border-black/20 text-black"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-black">Segundos</Label>
+                              <Input
+                                type="number"
+                                max="59"
+                                value={(editingGame.seconds_remaining ?? 1200) % 60}
+                                onChange={(e) => {
+                                  const mins = Math.floor((editingGame.seconds_remaining ?? 1200) / 60);
+                                  const secs = parseInt(e.target.value || "0");
+                                  setEditingGame({ ...editingGame, seconds_remaining: mins * 60 + secs });
+                                }}
+                                className="bg-white border-black/20 text-black"
+                              />
+                            </div>
+                          </div>
+
+                          <Button
+                            type="button"
+                            onClick={handleToggleClock}
+                            className={`w-full ${editingGame.clock_running ? "bg-red-600 hover:bg-red-700" : "bg-emerald-600 hover:bg-emerald-700"} text-white`}
+                          >
+                            {editingGame.clock_running ? "Pausar Reloj" : "Iniciar Reloj"}
+                          </Button>
+                        </div>
+                      )}
 
                     <div className="flex gap-3 justify-end">
                       <Button
@@ -2319,6 +2442,9 @@ export default function AdminPage() {
                             editingGame.mvp,
                             editingGame.referee1,
                             editingGame.referee2,
+                            editingGame.jornada,
+                            editingGame.current_period,        // <-- NUEVO
+                            editingGame.seconds_remaining      // <-- NUEVO
                           )
                         }
                         className="bg-green-600 hover:bg-green-700 text-white"

@@ -542,14 +542,14 @@ export default function EstadisticasPage() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               {item.player.photo_url && (
-                                <img src={item.player.photo_url} alt="" className="w-8 h-8 rounded-full object-cover" />
+                                <img src={item.player.photo_url} alt="" className="w-8 h-8 rounded-full object-cover" crossOrigin="anonymous" referrerPolicy="no-referrer" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }} />
                               )}
                               <h3 className="font-bold text-gray-900 truncate">{item.player.name}</h3>
                               <Badge variant="outline" className="text-xs">#{item.player.jersey_number}</Badge>
                             </div>
                             <div className="flex items-center gap-2 mt-1">
                               {item.player.teams?.logo_url && (
-                                <img src={item.player.teams.logo_url} alt="" className="w-5 h-5 rounded object-cover" />
+                                <img src={item.player.teams.logo_url} alt="" className="w-5 h-5 rounded object-cover" crossOrigin="anonymous" referrerPolicy="no-referrer" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }} />
                               )}
                               <span className="text-sm text-gray-500">{item.player.teams?.name}</span>
                             </div>
@@ -633,7 +633,7 @@ export default function EstadisticasPage() {
                           <td className="py-2 px-3">
                             <div className="flex items-center gap-2">
                               {item.player.photo_url ? (
-                                <img src={item.player.photo_url} alt="" className="w-7 h-7 rounded-full object-cover" />
+                                <img src={item.player.photo_url} alt="" className="w-7 h-7 rounded-full object-cover" crossOrigin="anonymous" referrerPolicy="no-referrer" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }} />
                               ) : (
                                 <span className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600">
                                   {item.player.jersey_number}
@@ -981,6 +981,9 @@ export default function EstadisticasPage() {
                                   src={player.photo_url || "/placeholder.svg?height=40&width=40&query=foto-jugador"}
                                   alt={player.player_name}
                                   className="object-cover w-10 h-10"
+                                  crossOrigin="anonymous"
+                                  referrerPolicy="no-referrer"
+                                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
                                 />
                               </div>
                               <div className="text-gray-900 font-semibold">{player.player_name}</div>

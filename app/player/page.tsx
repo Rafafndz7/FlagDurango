@@ -564,6 +564,9 @@ export default function PlayerPortal() {
                               src={req.teams.logo_url}
                               alt={req.teams?.name}
                               className="w-10 h-10 rounded-lg object-cover"
+                              crossOrigin="anonymous"
+                              referrerPolicy="no-referrer"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
                             />
                           ) : (
                             <div
@@ -654,6 +657,9 @@ export default function PlayerPortal() {
                               src={team.logo_url}
                               alt={team.name}
                               className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+                              crossOrigin="anonymous"
+                              referrerPolicy="no-referrer"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
                             />
                           ) : (
                             <div
@@ -782,6 +788,9 @@ export default function PlayerPortal() {
                             src={player.photo_url}
                             alt={player.name}
                             className="w-full h-full object-cover"
+                            crossOrigin="anonymous"
+                            referrerPolicy="no-referrer"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
                           />
                         ) : (
                           <User className="h-16 w-16 text-muted-foreground" />
@@ -827,6 +836,9 @@ export default function PlayerPortal() {
                               src={pt.team.logo_url}
                               alt={pt.team.name}
                               className="w-8 h-8 rounded object-cover"
+                              crossOrigin="anonymous"
+                              referrerPolicy="no-referrer"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
                             />
                           ) : (
                             <div className="w-8 h-8 rounded bg-primary/20 flex items-center justify-center text-xs font-bold">
@@ -1171,6 +1183,9 @@ export default function PlayerPortal() {
                                 src={req.teams.logo_url}
                                 alt={req.teams?.name}
                                 className="w-8 h-8 rounded-lg object-cover"
+                                crossOrigin="anonymous"
+                                referrerPolicy="no-referrer"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
                               />
                             ) : (
                               <div
@@ -1261,6 +1276,9 @@ export default function PlayerPortal() {
                                       src={team.logo_url}
                                       alt={team.name}
                                       className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                                      crossOrigin="anonymous"
+                                      referrerPolicy="no-referrer"
+                                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
                                     />
                                   ) : (
                                     <div

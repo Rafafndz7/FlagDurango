@@ -309,6 +309,9 @@ export default function PrintableQRSheet({ teams }: PrintableQRSheetProps) {
                             src={player.photo_url}
                             alt={player.name}
                             className="w-10 h-10 rounded-full object-cover border-2 border-white"
+                            crossOrigin="anonymous"
+                            referrerPolicy="no-referrer"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
                           />
                         ) : (
                           <div
@@ -350,6 +353,9 @@ export default function PrintableQRSheet({ teams }: PrintableQRSheetProps) {
                         src={teamInfo.logo_url}
                         alt={teamInfo.name}
                         className="team-logo"
+                        crossOrigin="anonymous"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
                       />
                     ) : (
                       <div className="team-logo-placeholder">
@@ -381,6 +387,9 @@ export default function PrintableQRSheet({ teams }: PrintableQRSheetProps) {
                             src={player.photo_url}
                             alt={player.name}
                             className="player-photo"
+                            crossOrigin="anonymous"
+                            referrerPolicy="no-referrer"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
                           />
                         ) : (
                           <div className="player-photo-placeholder">

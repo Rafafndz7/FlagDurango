@@ -297,20 +297,24 @@ export default function TeamPage() {
               <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white/20 shadow-2xl">
                 {team.logo_url ? (
                   <img
-                    src={team.logo_url || "/placeholder.svg"}
+                    src={team.logo_url}
                     alt={`Logo de ${team.name}`}
                     className="w-full h-full object-cover"
+                    crossOrigin="anonymous"
+                    referrerPolicy="no-referrer"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement
                       target.style.display = "none"
-                      const fallback = target.nextElementSibling as HTMLElement
-                      if (fallback) fallback.classList.remove("hidden")
+                      const fallback = target.parentElement?.querySelector('[data-fallback]') as HTMLElement
+                      if (fallback) fallback.style.display = "flex"
                     }}
                   />
                 ) : null}
                 <div
-                  className={`w-full h-full flex items-center justify-center text-white font-bold text-4xl ${team.logo_url ? "hidden" : ""}`}
+                  data-fallback
+                  className="w-full h-full items-center justify-center text-white font-bold text-4xl"
                   style={{
+                    display: team.logo_url ? "none" : "flex",
                     background: `linear-gradient(135deg, ${team.color1}, ${team.color2})`,
                   }}
                 >
@@ -404,17 +408,30 @@ export default function TeamPage() {
                 {(team.coach_name || team.coach_photo_url || isCoach) && (
                   <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
                     <div className="relative flex-shrink-0">
-                      {team.coach_photo_url ? (
-                        <img
-                          src={team.coach_photo_url}
-                          alt={`Coach ${team.coach_name || "del equipo"}`}
-                          className="w-14 h-14 rounded-full object-cover border-2 border-blue-300"
-                        />
-                      ) : (
-                        <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center border-2 border-blue-300">
+                      <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-blue-300">
+                        {team.coach_photo_url ? (
+                          <img
+                            src={team.coach_photo_url}
+                            alt={`Coach ${team.coach_name || "del equipo"}`}
+                            className="w-full h-full object-cover"
+                            crossOrigin="anonymous"
+                            referrerPolicy="no-referrer"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement
+                              target.style.display = "none"
+                              const fallback = target.parentElement?.querySelector('[data-fallback]') as HTMLElement
+                              if (fallback) fallback.style.display = "flex"
+                            }}
+                          />
+                        ) : null}
+                        <div
+                          data-fallback
+                          className="w-full h-full bg-blue-100 items-center justify-center"
+                          style={{ display: team.coach_photo_url ? "none" : "flex" }}
+                        >
                           <User className="w-6 h-6 text-blue-400" />
                         </div>
-                      )}
+                      </div>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-blue-600 font-medium uppercase tracking-wide">Coach</p>
@@ -449,17 +466,30 @@ export default function TeamPage() {
                 {/* Captain */}
                 {(team.captain_name || team.captain_photo_url) && (
                   <div className="flex items-center gap-3 p-3 bg-yellow-50 rounded-lg">
-                    {team.captain_photo_url ? (
-                      <img
-                        src={team.captain_photo_url}
-                        alt={`Capitan ${team.captain_name || "del equipo"}`}
-                        className="w-14 h-14 rounded-full object-cover border-2 border-yellow-400"
-                      />
-                    ) : (
-                      <div className="w-14 h-14 rounded-full bg-yellow-100 flex items-center justify-center border-2 border-yellow-400">
+                    <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-yellow-400 flex-shrink-0">
+                      {team.captain_photo_url ? (
+                        <img
+                          src={team.captain_photo_url}
+                          alt={`Capitan ${team.captain_name || "del equipo"}`}
+                          className="w-full h-full object-cover"
+                          crossOrigin="anonymous"
+                          referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement
+                            target.style.display = "none"
+                            const fallback = target.parentElement?.querySelector('[data-fallback]') as HTMLElement
+                            if (fallback) fallback.style.display = "flex"
+                          }}
+                        />
+                      ) : null}
+                      <div
+                        data-fallback
+                        className="w-full h-full bg-yellow-100 items-center justify-center"
+                        style={{ display: team.captain_photo_url ? "none" : "flex" }}
+                      >
                         <Star className="w-6 h-6 text-yellow-500" />
                       </div>
-                    )}
+                    </div>
                     <div>
                       <p className="text-xs text-yellow-700 font-medium uppercase tracking-wide">Capitan</p>
                       <p className="font-semibold text-gray-900">{team.captain_name || "Capitan"}</p>
@@ -540,23 +570,28 @@ export default function TeamPage() {
                 <div className="grid gap-3 max-h-96 overflow-y-auto">
                   {players.map((player) => (
                     <div key={player.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                      <div className="relative">
+                      <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-gray-200 flex-shrink-0">
                         {player.photo_url ? (
                           <img
-                            src={player.photo_url || "/placeholder.svg"}
+                            src={player.photo_url}
                             alt={`Foto de ${player.name}`}
-                            className="w-12 h-12 rounded-full object-cover border-2 border-gray-200"
+                            className="w-full h-full object-cover"
+                            crossOrigin="anonymous"
+                            referrerPolicy="no-referrer"
+                            loading="lazy"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement
                               target.style.display = "none"
-                              const fallback = target.nextElementSibling as HTMLElement
-                              if (fallback) fallback.classList.remove("hidden")
+                              const fallback = target.parentElement?.querySelector('[data-fallback]') as HTMLElement
+                              if (fallback) fallback.style.display = "flex"
                             }}
                           />
                         ) : null}
                         <div
-                          className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold border-2 border-gray-200 ${player.photo_url ? "hidden" : ""}`}
+                          data-fallback
+                          className="w-full h-full items-center justify-center text-white font-bold"
                           style={{
+                            display: player.photo_url ? "none" : "flex",
                             background: `linear-gradient(135deg, ${team.color1}, ${team.color2})`,
                           }}
                         >

@@ -38,6 +38,11 @@ interface Game {
   referee2?: string | null
   mvp?: string | null
   stage?: string | null
+  // Nuevos campos del cronómetro
+  current_period?: string | null
+  clock_running?: boolean | null
+  clock_last_started_at?: string | null
+  seconds_remaining?: number | null
 }
 
 interface Team {
@@ -48,6 +53,58 @@ interface Team {
   color2: string
   logo_url?: string | null
 }
+
+// --- HOOK Y COMPONENTE PARA EL CRONÓMETRO EN VIVO ---
+function useLiveTimer(game: Game) {
+  const [displayTime, setDisplayTime] = useState("");
+
+  useEffect(() => {
+    const status = game.status?.toLowerCase() ?? "";
+    if (status !== "en vivo" && status !== "en_vivo") {
+      setDisplayTime("EN VIVO");
+      return;
+    }
+
+    const updateClock = () => {
+      let remaining = game.seconds_remaining ?? 1200;
+
+      if (game.clock_running && game.clock_last_started_at) {
+        const startedAt = new Date(game.clock_last_started_at).getTime();
+        const now = new Date().getTime();
+        const elapsedSeconds = Math.floor((now - startedAt) / 1000);
+        remaining = Math.max(0, remaining - elapsedSeconds);
+      }
+
+      const minutes = Math.floor(remaining / 60);
+      const seconds = remaining % 60;
+      const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+      setDisplayTime(`${game.current_period ?? '1H'} • ${timeString}`);
+    };
+
+    updateClock();
+
+    let interval: NodeJS.Timeout;
+    if (game.clock_running) {
+      interval = setInterval(updateClock, 1000);
+    }
+
+    return () => clearInterval(interval);
+  }, [game.status, game.clock_running, game.seconds_remaining, game.clock_last_started_at, game.current_period]);
+
+  return displayTime;
+}
+
+function LiveTimerDisplay({ game }: { game: Game }) {
+  const timeString = useLiveTimer(game);
+  return (
+    <div className="text-sm font-bold text-red-600 mt-1 bg-red-100 px-3 py-1 rounded-full border border-red-200">
+      {timeString}
+    </div>
+  );
+}
+// ----------------------------------------------------
+
 
 export default function GamesPage() {
   const [games, setGames] = useState<Game[]>([])
@@ -83,7 +140,8 @@ export default function GamesPage() {
       }
     }
     loadData()
-    const i = setInterval(loadData, 30000)
+    // Aumentamos un poco la frecuencia a 15 seg si quieres que los puntajes se actualicen más rápido
+    const i = setInterval(loadData, 15000) 
     return () => clearInterval(i)
   }, [])
 
@@ -527,7 +585,8 @@ export default function GamesPage() {
                               <div className="text-4xl font-bold text-red-500 animate-pulse text-center">
                                 {game.home_score ?? 0} - {game.away_score ?? 0}
                               </div>
-                              <div className="text-xs text-gray-500 mt-1">EN VIVO</div>
+                              {/* AQUÍ REEMPLAZAMOS EL TEXTO ESTÁTICO POR EL RELOJ EN VIVO */}
+                              <LiveTimerDisplay game={game} />
                             </div>
 
                             {renderTeam(game.away_team, false)}
