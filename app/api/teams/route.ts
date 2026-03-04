@@ -104,11 +104,13 @@ export async function POST(req: NextRequest) {
     const categoryMap: { [key: string]: string } = {
       "varonil-gold": "VG",
       "varonil-silver": "VS",
+      "varonil-cooper": "VC", // <--- NUEVA
       "femenil-gold": "FG",
       "femenil-silver": "FS",
       "femenil-cooper": "FC",
       "mixto-gold": "MG",
       "mixto-silver": "MS",
+      "mixto-cooper": "MC",   // <--- NUEVA
       teens: "T",
     }
 

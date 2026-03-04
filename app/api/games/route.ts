@@ -1,5 +1,58 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { supabase } from "@/lib/supabase-admin"
+import { sendExpoNotification } from "@/lib/notifications";
+
+// -------------------------------------------------------------------
+// FUNCIÓN AUXILIAR PARA ENVIAR NOTIFICACIONES A UN EQUIPO
+// -------------------------------------------------------------------
+async function notifyTeamPlayers(teamName: string, title: string, body: string) {
+  if (!teamName) return;
+
+  try {
+    // 1. Buscar el ID del equipo por su nombre
+    const { data: teamData } = await supabase
+      .from("teams")
+      .select("id")
+      .ilike("name", teamName.trim())
+      .maybeSingle();
+
+    if (!teamData) return;
+
+    // 2. Buscar a todos los jugadores de ese equipo que tengan cuenta de usuario
+    const { data: players } = await supabase
+      .from("players")
+      .select("user_id")
+      .eq("team_id", teamData.id)
+      .not("user_id", "is", null);
+
+    if (!players || players.length === 0) return;
+
+    // 3. Obtener los tokens de esos usuarios
+    const userIds = players.map(p => p.user_id);
+    const { data: users } = await supabase
+      .from("users")
+      .select("expo_push_token")
+      .in("id", userIds)
+      .not("expo_push_token", "is", null);
+
+    if (!users || users.length === 0) return;
+
+    // 4. Enviar notificación a todos los que tengan token
+    for (const user of users) {
+      if (user.expo_push_token) {
+        await sendExpoNotification(user.expo_push_token, {
+          title,
+          body,
+          data: { screen: "matches" } // Para que al tocarla, abra la pestaña de partidos
+        });
+      }
+    }
+  } catch (error) {
+    console.error("Error al notificar al equipo:", error);
+  }
+}
+// -------------------------------------------------------------------
+
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,7 +61,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status")
     const season = searchParams.get("season") || "2025"
 
-let query = supabase
+    let query = supabase
       .from("games")
       .select(`
         id,
@@ -141,9 +194,15 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, message: "ID del juego es requerido" }, { status: 400 })
     }
 
+    // OBTENEMOS EL ESTADO ACTUAL DEL JUEGO PARA SABER SI CAMBIÓ
+    const { data: currentGame } = await supabase
+      .from("games")
+      .select("status, home_team, away_team")
+      .eq("id", id)
+      .single()
+
     // Si el juego se marca como finalizado y tiene MVP, crear entrada en tabla mvps
     if (updateData.status === "finalizado" && updateData.mvp) {
-      // Buscar el jugador por nombre
       const { data: playerData, error: playerError } = await supabase
         .from("players")
         .select("id, team_id, teams!players_team_id_fkey(category)")
@@ -151,7 +210,10 @@ export async function PUT(request: NextRequest) {
         .single()
 
       if (!playerError && playerData) {
-        // Crear entrada de MVP de juego
+        // Usamos los nombres actualizados o los existentes
+        const homeTeamName = updateData.home_team || currentGame?.home_team;
+        const awayTeamName = updateData.away_team || currentGame?.away_team;
+        
         await supabase.from("mvps").insert([
           {
             player_id: playerData.id,
@@ -159,12 +221,13 @@ export async function PUT(request: NextRequest) {
             category: playerData.teams.category,
             game_id: id,
             season: "2025",
-            notes: `MVP del juego ${updateData.home_team} vs ${updateData.away_team}`,
+            notes: `MVP del juego ${homeTeamName} vs ${awayTeamName}`,
           },
         ])
       }
     }
 
+    // SE ACTUALIZA LA BASE DE DATOS
     const { data, error } = await supabase.from("games").update(updateData).eq("id", id).select()
 
     if (error) {
@@ -176,7 +239,36 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, message: "Juego no encontrado" }, { status: 404 })
     }
 
-    return NextResponse.json({ success: true, data: data[0] })
+    const updatedGame = data[0];
+
+    // -------------------------------------------------------------------
+    // DISPARADOR DE NOTIFICACIONES PUSH
+    // -------------------------------------------------------------------
+    // Solo se manda si mandaron un status nuevo y es diferente al que ya tenía
+    if (currentGame && updateData.status && currentGame.status !== updateData.status) {
+      const homeTeam = updatedGame.home_team;
+      const awayTeam = updatedGame.away_team;
+      
+      if (updateData.status === "en_vivo" || updateData.status === "en vivo") {
+        const title = "🔴 ¡Kickoff!";
+        const bodyMsg = `El partido entre ${homeTeam} y ${awayTeam} acaba de comenzar.`;
+        
+        notifyTeamPlayers(homeTeam, title, bodyMsg);
+        notifyTeamPlayers(awayTeam, title, bodyMsg);
+      } 
+      else if (updateData.status === "finalizado") {
+        const title = "🏆 Marcador Final";
+        const homeScore = updatedGame.home_score || 0;
+        const awayScore = updatedGame.away_score || 0;
+        const bodyMsg = `${homeTeam} ${homeScore} - ${awayScore} ${awayTeam}`;
+        
+        notifyTeamPlayers(homeTeam, title, bodyMsg);
+        notifyTeamPlayers(awayTeam, title, bodyMsg);
+      }
+    }
+    // -------------------------------------------------------------------
+
+    return NextResponse.json({ success: true, data: updatedGame })
   } catch (error: any) {
     console.error("PUT /api/games error:", error)
     return NextResponse.json({ success: false, message: error.message || "Error interno" }, { status: 500 })
