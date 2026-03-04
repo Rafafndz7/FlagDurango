@@ -172,12 +172,14 @@ export default function EstadisticasPage() {
   const ALL_CATEGORIES: { value: string; label: string }[] = [
     { value: "varonil-libre", label: "Varonil Libre" },
     { value: "varonil-gold", label: "Varonil Gold" },
+    { value: "varonil-cooper", label: "Varonil Cooper" },
     { value: "varonil-silver", label: "Varonil Silver" },
     { value: "femenil-gold", label: "Femenil Gold" },
     { value: "femenil-silver", label: "Femenil Silver" },
     { value: "femenil-cooper", label: "Femenil Cooper" },
     { value: "mixto-gold", label: "Mixto Gold" },
     { value: "mixto-silver", label: "Mixto Silver" },
+    { value: "mixto-cooper", label: "Mixto Cooper" },
     { value: "mixto-recreativo", label: "Mixto Recreativo" },
     { value: "teens", label: "Teens" },
   ]
