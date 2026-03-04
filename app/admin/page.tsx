@@ -1386,11 +1386,13 @@ export default function AdminPage() {
                         <option value="varonil-libre">Varonil Libre (VL)</option>
                         <option value="varonil-gold">Varonil Gold (VG)</option>
                         <option value="varonil-silver">Varonil Silver (VS)</option>
+                        <option value="varonil-cooper">Varonil Cooper (VC)</option> {/* NUEVA */}
                         <option value="femenil-gold">Femenil Gold (FG)</option>
                         <option value="femenil-silver">Femenil Silver (FS)</option>
+                        <option value="femenil-cooper">Femenil Cooper (FC)</option>
                         <option value="mixto-gold">Mixto Gold (MG)</option>
                         <option value="mixto-silver">Mixto Silver (MS)</option>
-                        <option value="femenil-cooper">Femenil Cooper (FC)</option>
+                        <option value="mixto-cooper">Mixto Cooper (MC)</option> {/* NUEVA */}
                         <option value="mixto-recreativo">Mixto Recreativo (MR)</option>
                         <option value="teens">Teens (T)</option>
                       </select>
@@ -1515,11 +1517,13 @@ export default function AdminPage() {
                                 <option value="varonil-libre">Varonil Libre (VL)</option>
                                 <option value="varonil-gold">Varonil Gold (VG)</option>
                                 <option value="varonil-silver">Varonil Silver (VS)</option>
+                                <option value="varonil-cooper">Varonil Cooper (VC)</option> {/* NUEVA */}
                                 <option value="femenil-gold">Femenil Gold (FG)</option>
                                 <option value="femenil-silver">Femenil Silver (FS)</option>
+                                <option value="femenil-cooper">Femenil Cooper (FC)</option>
                                 <option value="mixto-gold">Mixto Gold (MG)</option>
                                 <option value="mixto-silver">Mixto Silver (MS)</option>
-                                <option value="femenil-cooper">Femenil Cooper (FC)</option>
+                                <option value="mixto-cooper">Mixto Cooper (MC)</option> {/* NUEVA */}
                                 <option value="mixto-recreativo">Mixto Recreativo (MR)</option>
                                 <option value="teens">Teens (T)</option>
                               </select>
@@ -2039,16 +2043,18 @@ export default function AdminPage() {
                         onChange={(e) => setGameForm({ ...gameForm, category: e.target.value })}
                         className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900"
                       >
-                        <option value="varonil-libre">Varonil Libre</option>
-                        <option value="varonil-gold">Varonil Gold</option>
-                        <option value="varonil-silver">Varonil Silver</option>
-                        <option value="femenil-gold">Femenil Gold</option>
-                        <option value="femenil-silver">Femenil Silver</option>
-                        <option value="mixto-gold">Mixto Gold</option>
-                        <option value="mixto-silver">Mixto Silver</option>
-                        <option value="femenil-cooper">Femenil Cooper</option>
-                        <option value="mixto-recreativo">Mixto Recreativo</option>
-                        <option value="teens">Teens</option>
+                        <option value="varonil-libre">Varonil Libre (VL)</option>
+                        <option value="varonil-gold">Varonil Gold (VG)</option>
+                        <option value="varonil-silver">Varonil Silver (VS)</option>
+                        <option value="varonil-cooper">Varonil Cooper (VC)</option> {/* NUEVA */}
+                        <option value="femenil-gold">Femenil Gold (FG)</option>
+                        <option value="femenil-silver">Femenil Silver (FS)</option>
+                        <option value="femenil-cooper">Femenil Cooper (FC)</option>
+                        <option value="mixto-gold">Mixto Gold (MG)</option>
+                        <option value="mixto-silver">Mixto Silver (MS)</option>
+                        <option value="mixto-cooper">Mixto Cooper (MC)</option> {/* NUEVA */}
+                        <option value="mixto-recreativo">Mixto Recreativo (MR)</option>
+                        <option value="teens">Teens (T)</option>
                       </select>
                     </div>
                     <div>
@@ -2212,11 +2218,13 @@ export default function AdminPage() {
                       <option value="varonil-libre">Varonil Libre</option>
                       <option value="varonil-gold">Varonil Gold</option>
                       <option value="varonil-silver">Varonil Silver</option>
+                      <option value="varonil-cooper">Varonil Cooper</option> {/* NUEVA */}
                       <option value="femenil-gold">Femenil Gold</option>
                       <option value="femenil-silver">Femenil Silver</option>
                       <option value="femenil-cooper">Femenil Cooper</option>
                       <option value="mixto-gold">Mixto Gold</option>
                       <option value="mixto-silver">Mixto Silver</option>
+                      <option value="mixto-cooper">Mixto Cooper</option> {/* NUEVA */}
                       <option value="mixto-recreativo">Mixto Recreativo</option>
                       <option value="teens">Teens</option>
                     </select>
@@ -2688,12 +2696,14 @@ export default function AdminPage() {
                       { value: "varonil-libre", label: "Varonil Libre" },
                       { value: "varonil-gold", label: "Varonil Gold" },
                       { value: "varonil-silver", label: "Varonil Silver" },
+                      { value: "varonil-cooper", label: "Varonil Cooper" }, // <-- NUEVA
                       { value: "femenil-gold", label: "Femenil Gold" },
                       { value: "femenil-silver", label: "Femenil Silver" },
+                      { value: "femenil-cooper", label: "Femenil Cooper" },
                       { value: "mixto-gold", label: "Mixto Gold" },
                       { value: "mixto-silver", label: "Mixto Silver" },
+                      { value: "mixto-cooper", label: "Mixto Cooper" }, // <-- NUEVA
                       { value: "mixto-recreativo", label: "Mixto Recreativo" },
-                      { value: "femenil-cooper", label: "Femenil Cooper" },
                       { value: "teens", label: "Teens" },
                     ].map((cat) => {
                       const enabledCats: string[] = (() => {
