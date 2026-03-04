@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import sharp from "sharp" // <-- Importamos la librería de compresión
 
 // Conectamos con tu Supabase usando las variables de entorno que ya tienes en tu proyecto
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -30,29 +31,46 @@ export async function POST(request: Request): Promise<NextResponse> {
       )
     }
 
-    // Validar tamaño (max 5MB es ideal para logos)
+    // Validar tamaño inicial (max 5MB por si intentan subir archivos masivos)
     const maxSize = 5 * 1024 * 1024
     if (file.size > maxSize) {
       return NextResponse.json(
-        { success: false, message: "El archivo es muy grande. Máximo 5MB" },
+        { success: false, message: "El archivo es muy grande. Máximo 5MB antes de compresión." },
         { status: 400 }
       )
     }
 
     // Convertir el archivo a un formato que Supabase entienda (Buffer)
     const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
+    let buffer = Buffer.from(arrayBuffer)
+    
+    let contentType = file.type
+    let extension = file.name.split(".").pop()
+
+    // 👇 MAGIA DE COMPRESIÓN (Ignoramos los SVG porque ya son vectores ligeros) 👇
+    if (file.type !== "image/svg+xml") {
+      buffer = await sharp(buffer)
+        .resize(800, 800, { 
+          fit: 'inside', 
+          withoutEnlargement: true // No hace más grandes las imágenes pequeñas
+        }) 
+        .webp({ quality: 80 }) // Convertir a WebP con 80% de calidad (Súper ligero sin perder nitidez)
+        .toBuffer();
+      
+      // Actualizamos el tipo y extensión porque ahora es WebP
+      contentType = "image/webp";
+      extension = "webp";
+    }
 
     // Generar nombre único
     const timestamp = Date.now()
-    const extension = file.name.split(".").pop()
     const filename = `${folder}/${timestamp}-${Math.random().toString(36).substring(7)}.${extension}`
 
-    // 1. Subir a Supabase Storage (al bucket 'uploads' que acabamos de crear)
+    // 1. Subir a Supabase Storage (al bucket 'uploads')
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('uploads')
       .upload(filename, buffer, {
-        contentType: file.type,
+        contentType: contentType,
         upsert: false
       })
 
@@ -68,8 +86,8 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     return NextResponse.json({
       success: true,
-      url: publicUrl, // Este es el link hermoso que irá a tu base de datos
-      message: "Archivo subido exitosamente a Supabase",
+      url: publicUrl, // Este es el link optimizado que irá a tu base de datos
+      message: "Archivo subido y comprimido exitosamente",
     })
     
   } catch (error) {
