@@ -9,8 +9,6 @@ const supabase = createClient(
 )
 
 // GET: Fetch join requests
-// ?team_id=X  -> for coaches: get requests for their team
-// ?player_user_id=X -> for players: get their own requests
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -75,8 +73,6 @@ function getCategoryBranch(category: string): string {
 function requiresCoordinatorApproval(fromCategory: string, toCategory: string): boolean {
   const fromBranch = getCategoryBranch(fromCategory)
   const toBranch = getCategoryBranch(toCategory)
-  // Same branch transfers need coordinator + both captains approval
-  // e.g. femenil->femenil, varonil->varonil, mixto->mixto
   return fromBranch === toBranch
 }
 
@@ -98,37 +94,32 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if the player already belongs to this specific team (by user_id or name)
-    {
-      let alreadyOnTeam = false
+    let alreadyOnTeam = false
+    const { data: byUserId } = await supabase
+      .from("players")
+      .select("id")
+      .eq("user_id", Number(player_user_id))
+      .eq("team_id", Number(team_id))
+      .maybeSingle()
 
-      // Check by user_id
-      const { data: byUserId } = await supabase
+    if (byUserId) alreadyOnTeam = true
+
+    if (!alreadyOnTeam) {
+      const { data: byName } = await supabase
         .from("players")
         .select("id")
-        .eq("user_id", Number(player_user_id))
+        .ilike("name", player_name.trim())
         .eq("team_id", Number(team_id))
         .maybeSingle()
 
-      if (byUserId) alreadyOnTeam = true
+      if (byName) alreadyOnTeam = true
+    }
 
-      // Fallback: check by name
-      if (!alreadyOnTeam) {
-        const { data: byName } = await supabase
-          .from("players")
-          .select("id")
-          .ilike("name", player_name.trim())
-          .eq("team_id", Number(team_id))
-          .maybeSingle()
-
-        if (byName) alreadyOnTeam = true
-      }
-
-      if (alreadyOnTeam) {
-        return NextResponse.json(
-          { success: false, message: "Ya perteneces a este equipo." },
-          { status: 400 }
-        )
-      }
+    if (alreadyOnTeam) {
+      return NextResponse.json(
+        { success: false, message: "Ya perteneces a este equipo." },
+        { status: 400 }
+      )
     }
 
     // Check for existing pending request to this team
@@ -153,17 +144,8 @@ export async function POST(request: NextRequest) {
     let toTeamCategory = null
 
     if (is_transfer && from_team_id) {
-      const { data: fromTeam } = await supabase
-        .from("teams")
-        .select("category")
-        .eq("id", Number(from_team_id))
-        .single()
-
-      const { data: toTeam } = await supabase
-        .from("teams")
-        .select("category")
-        .eq("id", Number(team_id))
-        .single()
+      const { data: fromTeam } = await supabase.from("teams").select("category").eq("id", Number(from_team_id)).single()
+      const { data: toTeam } = await supabase.from("teams").select("category").eq("id", Number(team_id)).single()
 
       fromTeamCategory = fromTeam?.category || null
       toTeamCategory = toTeam?.category || null
@@ -173,6 +155,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Insert the join request
     const { data, error } = await supabase
       .from("team_join_requests")
       .insert({
@@ -193,40 +176,6 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) {
-      if (error.message?.includes("column") || error.code === "PGRST204") {
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from("team_join_requests")
-          .insert({
-            player_user_id: Number(player_user_id),
-            player_id: player_id ? Number(player_id) : null,
-            team_id: Number(team_id),
-            player_name: player_name.trim(),
-            position,
-            jersey_number: Number(jersey_number),
-            phone: phone || null,
-            message: message || null,
-            status: "pending",
-          })
-          .select()
-          .single()
-
-        if (fallbackError) {
-          console.error("Error creating join request (fallback):", fallbackError)
-          return NextResponse.json(
-            { success: false, message: "Error al crear la solicitud: " + fallbackError.message },
-            { status: 500 }
-          )
-        }
-
-        return NextResponse.json({
-          success: true,
-          data: fallbackData,
-          message: is_transfer
-            ? "Solicitud de transferencia enviada exitosamente"
-            : "Solicitud enviada exitosamente",
-        })
-      }
-
       console.error("Error creating join request:", error)
       return NextResponse.json(
         { success: false, message: "Error al crear la solicitud: " + error.message },
@@ -234,11 +183,45 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // -------------------------------------------------------------------
+    // NUEVO: ENVIAR NOTIFICACIÓN PUSH AL COACH
+    // -------------------------------------------------------------------
+    try {
+      // 1. Obtenemos los datos del equipo para saber quién es el coach
+      const { data: teamData } = await supabaseAdmin
+        .from("teams")
+        .select("coach_id, name")
+        .eq("id", Number(team_id))
+        .single();
+
+      if (teamData?.coach_id) {
+        // 2. Obtenemos el token del coach
+        const { data: coachData } = await supabaseAdmin
+          .from("users")
+          .select("expo_push_token")
+          .eq("id", teamData.coach_id)
+          .single();
+
+        if (coachData?.expo_push_token) {
+          // 3. Enviamos la notificación
+          await sendExpoNotification(coachData.expo_push_token, {
+            title: "¡Nueva Solicitud de Ingreso! 🏈",
+            body: `${player_name.trim()} ha solicitado unirse a tu equipo: ${teamData.name}. Entra a tu bandeja para aceptarlo.`,
+            data: { screen: "coachDashboard", tab: "solicitudes" }
+          });
+        }
+      }
+    } catch (pushError) {
+      console.error("Error enviando push notification al coach:", pushError);
+      // No bloqueamos la respuesta al jugador si falla la notificación
+    }
+    // -------------------------------------------------------------------
+
     return NextResponse.json({
       success: true,
       data,
       message: needsCoordinatorApproval
-        ? "Solicitud de transferencia enviada. Requiere aprobacion del coordinador de liga y ambos capitanes."
+        ? "Solicitud de transferencia enviada. Requiere aprobación del coordinador de liga y ambos capitanes."
         : is_transfer
           ? "Solicitud de transferencia enviada exitosamente"
           : "Solicitud enviada exitosamente",
@@ -285,7 +268,6 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    // MODIFICACIÓN IMPORTANTE: Traemos el 'name' del equipo para usarlo en la notificación
     const { data: team } = await supabase
       .from("teams")
       .select("id, coach_id, name")
@@ -439,7 +421,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // -------------------------------------------------------------------
-    // NUEVO: ENVIAR NOTIFICACIÓN PUSH AL JUGADOR DESDE EXPO
+    // ENVIAR NOTIFICACIÓN PUSH AL JUGADOR DESDE EXPO
     // -------------------------------------------------------------------
     if (joinRequest.player_user_id) {
       try {
@@ -463,7 +445,6 @@ export async function PUT(request: NextRequest) {
         }
       } catch (pushError) {
         console.error("Error enviando push notification:", pushError);
-        // No bloqueamos la respuesta si la notificación falla
       }
     }
     // -------------------------------------------------------------------
