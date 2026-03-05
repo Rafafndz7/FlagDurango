@@ -149,11 +149,13 @@ export default function HomePage() {
     const labels: { [key: string]: string } = {
       "varonil-gold": "Varonil Gold",
       "varonil-silver": "Varonil Silver",
+      "varonil-cooper": "Varonil Cooper",
       "femenil-gold": "Femenil Gold",
       "femenil-silver": "Femenil Silver",
       "femenil-cooper": "Femenil Cooper",
       "mixto-gold": "Mixto Gold",
       "mixto-silver": "Mixto Silver",
+      "mixto-cooper": "Mixto Cooper",
       "1v1": "1v1",
     }
     return labels[category] || category
@@ -190,11 +192,11 @@ export default function HomePage() {
 
             <div className="container mx-auto px-4 relative z-10 text-center">
               <div className="inline-block bg-yellow-400/95 backdrop-blur-sm text-gray-900 px-8 py-3 rounded-full font-bold mb-8 border border-black/10 shadow-lg">
-                {"🏆 Torneo Super Tazón - Express 2026 - ¡Inscripciones Abiertas!"}
+                {"🏆 Torneo Flag Durango - Primavera 2026 - ¡Inscripciones Abiertas!"}
               </div>
               <h1 className="text-5xl md:text-7xl font-black text-white mb-6 leading-tight">
-                <span className="block">Torneo Super Tazón</span>
-                <span className="block text-white">Express 2026</span>
+                <span className="block">Torneo Flag Durango</span>
+                <span className="block text-white">Temporada Primavera 2026</span>
               </h1>
 
               {/* Countdown */}
@@ -409,7 +411,7 @@ export default function HomePage() {
           <section className="py-20 bg-gray-50">
             <div className="container mx-auto px-4">
               <h2 className="text-4xl md:text-5xl font-black text-center text-gray-900 mb-4">
-                Convocatoria Torneo Super Tazón - Express 2026
+                Convocatoria Torneo FlagDurango primavera 2026
               </h2>
               <p className="text-xl text-center text-gray-600 mb-16">Todo lo que necesitas saber para participar</p>
               <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -417,7 +419,7 @@ export default function HomePage() {
                   <CardContent className="p-6 text-center">
                     <img src="/images/cierre.png" alt="Cierre de Inscripción" className="w-12 h-12 mx-auto mb-4" />
                     <h3 className="font-bold text-gray-900 mb-2">Cierre de Inscripción</h3>
-                    <div className="text-3xl font-black text-gray-900">17 Feb</div>
+                    <div className="text-3xl font-black text-gray-900">17 marzo</div>
                     <div className="text-gray-600">2026</div>
                   </CardContent>
                 </Card>
@@ -426,16 +428,7 @@ export default function HomePage() {
                   <CardContent className="p-6 text-center">
                     <img src="/images/inscripciones.png" alt="Inscripción" className="w-12 h-12 mx-auto mb-4" />
                     <h3 className="font-bold text-gray-900 mb-2">Inscripción</h3>
-                    <div className="text-3xl font-black text-gray-900">$600</div>
-                    <div className="text-gray-600">Por equipo</div>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-white border border-gray-200 hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-                  <CardContent className="p-6 text-center">
-                    <img src="/images/fianza.png" alt="Fianza" className="w-12 h-12 mx-auto mb-4" />
-                    <h3 className="font-bold text-gray-900 mb-2">Fianza</h3>
-                    <div className="text-3xl font-black text-gray-900">$300</div>
+                    <div className="text-3xl font-black text-gray-900">$1900</div>
                     <div className="text-gray-600">Por equipo</div>
                   </CardContent>
                 </Card>
@@ -444,7 +437,7 @@ export default function HomePage() {
                   <CardContent className="p-6 text-center">
                     <img src="/images/inicio.png" alt="Inicio de Temporada" className="w-12 h-12 mx-auto mb-4" />
                     <h3 className="font-bold text-gray-900 mb-2">Inicio de Torneo</h3>
-                    <div className="text-3xl font-black text-gray-900">28 de Feb y 1 de Mar</div>
+                    <div className="text-3xl font-black text-gray-900">22 de marzo</div>
                     <div className="text-gray-600">2026</div>
                   </CardContent>
                 </Card>
@@ -453,8 +446,8 @@ export default function HomePage() {
                   <CardContent className="p-6 text-center">
                     <img src="/images/sede.png" alt="Sede" className="w-12 h-12 mx-auto mb-4" />
                     <h3 className="font-bold text-gray-900 mb-2">Sede</h3>
-                    <div className="text-xl font-black text-gray-900">Polideportivo</div>
-                    <div className="text-gray-600">Mario Vazquez Raña</div>
+                    <div className="text-xl font-black text-gray-900">Deportivo</div>
+                    <div className="text-gray-600">Tapias</div>
                   </CardContent>
                 </Card>
 
@@ -471,7 +464,7 @@ export default function HomePage() {
                   <CardContent className="p-6 text-center">
                     <img src="/images/arbitraje.png" alt="Arbitraje" className="w-12 h-12 mx-auto mb-4" />
                     <h3 className="font-bold text-gray-900 mb-2">Arbitraje</h3>
-                    <div className="text-3xl font-black text-gray-900">$180</div>
+                    <div className="text-3xl font-black text-gray-900">$320</div>
                     <div className="text-gray-600">Por juego</div>
                   </CardContent>
                 </Card>
@@ -544,6 +537,24 @@ export default function HomePage() {
                   <CardContent className="p-6 text-center">
                     <img src="/images/femenilcopper.png" alt="Cooper Femenil" className="w-16 h-16 mx-auto mb-4" />
                     <h4 className="font-bold text-gray-900">Cooper Femenil</h4>
+                  </CardContent>
+                </Card>
+                                <Card className="bg-white border border-gray-200 hover:shadow-xl transition-all duration-300 transform hover:scale-105 relative">
+                  <div className="absolute -top-2 -right-2 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold animate-pulse shadow-lg">
+                    {"¡NUEVO!"}
+                  </div>
+                  <CardContent className="p-6 text-center">
+                    <img src="/images/1vs1.png" alt="1v1" className="w-16 h-16 mx-auto mb-4" />
+                    <h4 className="font-bold text-gray-900">Varonil Cooper</h4>
+                  </CardContent>
+                </Card>
+                                <Card className="bg-white border border-gray-200 hover:shadow-xl transition-all duration-300 transform hover:scale-105 relative">
+                  <div className="absolute -top-2 -right-2 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold animate-pulse shadow-lg">
+                    {"¡NUEVO!"}
+                  </div>
+                  <CardContent className="p-6 text-center">
+                    <img src="/images/1vs1.png" alt="1v1" className="w-16 h-16 mx-auto mb-4" />
+                    <h4 className="font-bold text-gray-900">MIxto Cooper</h4>
                   </CardContent>
                 </Card>
 
