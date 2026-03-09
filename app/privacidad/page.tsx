@@ -63,7 +63,7 @@ export default function PrivacyPolicyPage() {
               </p>
             </section>
 
-            <section>
+           <section>
               <h2 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-2">
                 <Trash2 className="h-6 w-6 text-blue-600" />
                 4. Tus Derechos y Eliminación de Cuenta
@@ -71,11 +71,17 @@ export default function PrivacyPolicyPage() {
               <p>
                 Como usuario, tienes el control total sobre tu información. Puedes solicitar la eliminación definitiva de tu cuenta y todos tus datos personales asociados en cualquier momento.
               </p>
-              <p className="mt-4">
-                <strong>¿Cómo eliminar tu cuenta?</strong>
-                <br />
-                Directamente desde la aplicación móvil: Ve a <em>Mi Perfil &gt; Configuración</em> y selecciona el botón <strong>"Eliminar mi cuenta"</strong>. Al hacerlo, se borrarán tus accesos y tu información personal de nuestros servidores.
-              </p>
+              <div className="mt-4 text-slate-600">
+                <p className="font-semibold text-slate-800 mb-2">¿Cómo solicitar la eliminación de tu cuenta y datos?</p>
+                <ul className="list-disc pl-5 space-y-3">
+                  <li>
+                    <strong>Opción 1 (Desde la aplicación):</strong> Ve a <em>Mi Perfil &gt; Configuración</em> y selecciona el botón <strong>"Eliminar mi cuenta"</strong>. Al hacerlo, se borrarán tus accesos y tu información personal de nuestros servidores.
+                  </li>
+                  <li>
+                    <strong>Opción 2 (Vía Web / Correo Electrónico):</strong> Si ya no tienes la aplicación instalada, puedes solicitar la eliminación total de tus datos enviando un correo electrónico a <strong>rafafndz07@gmail.com</strong> con el asunto <em>"Solicitud de Eliminación de Cuenta"</em>. Por favor, incluye en el mensaje el correo electrónico con el que te registraste y tu nombre completo. Tu cuenta y todos los datos asociados (incluyendo fotos y tipo de sangre) serán eliminados permanentemente en un plazo máximo de 7 días hábiles.
+                  </li>
+                </ul>
+              </div>
             </section>
 
             <section>
