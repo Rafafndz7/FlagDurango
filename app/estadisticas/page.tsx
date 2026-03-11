@@ -171,6 +171,7 @@ export default function EstadisticasPage() {
 
   const ALL_CATEGORIES: { value: string; label: string }[] = [
     { value: "varonil-libre", label: "Varonil Libre" },
+    { value: "varonil-master", label: "Varonil Master" },
     { value: "varonil-gold", label: "Varonil Gold" },
     { value: "varonil-cooper", label: "Varonil Cooper" },
     { value: "varonil-silver", label: "Varonil Silver" },
