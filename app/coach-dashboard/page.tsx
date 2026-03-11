@@ -755,7 +755,7 @@ export default function CoachDashboard() {
           team_name: team.name,
           user_email: user?.email || "coach@ligaflagdurango.com",
           title: `Inscripción Liga Flag Durango - ${team.name}`,
-          amount: 600,
+          amount: 1900,
         }),
       })
 
@@ -813,6 +813,8 @@ export default function CoachDashboard() {
       varonil_silver: "Varonil Silver",
       "mixto-recreativo": "Mixto Recreativo",
       mixto_recreativo: "Mixto Recreativo",
+      "Varonil-master":"Varonil Master",
+      varonil_master:"Varonil Master",
     }
     return labels[category] || category
   }
@@ -1389,7 +1391,7 @@ export default function CoachDashboard() {
                                   ) : (
                                     <>
                                       <DollarSign className="w-4 h-4 mr-2" />
-                                      Pagar Inscripción ($600)
+                                      Pagar Inscripción ($1900)
                                     </>
                                   )}
                                 </Button>
