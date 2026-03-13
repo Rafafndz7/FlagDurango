@@ -81,6 +81,7 @@ export function Navigation() {
     { href: "/equipos", label: "Equipos" },
     ...(wildbrowlEnabled ? [{ href: "/wildbrowl", label: "WildBrowl 1v1" } as const] : []),
     { href: "/estadisticas", label: "Estadísticas" },
+    { href: "/reglamento", label: "Reglamento" }, // <-- ¡Aquí está el nuevo enlace!
   ]
 
   return (
