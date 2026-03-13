@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     // Nota: Si usas el dominio gratuito de Resend, el "from" debe ser 'onboarding@resend.dev'
     // Si ya configuraste tu dominio, usa 'soporte@flagdurango.com.mx'
     const { error: mailError } = await resend.emails.send({
-      from: 'Flag Durango <onboarding@resend.dev>', 
+      from: 'Flag Durango <soporte@flagdurango.com.mx>', 
       to: email,
       subject: 'Código de Recuperación 🏈 - Flag Durango',
       html: `

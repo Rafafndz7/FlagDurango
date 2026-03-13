@@ -1384,6 +1384,7 @@ export default function AdminPage() {
                         className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900"
                       >
                         <option value="varonil-libre">Varonil Libre (VL)</option>
+                        <option value="varonil-master">Varonil Master (VM)</option>
                         <option value="varonil-gold">Varonil Gold (VG)</option>
                         <option value="varonil-silver">Varonil Silver (VS)</option>
                         <option value="varonil-cooper">Varonil Cooper (VC)</option> {/* NUEVA */}
@@ -1515,6 +1516,7 @@ export default function AdminPage() {
                                 className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900"
                               >
                                 <option value="varonil-libre">Varonil Libre (VL)</option>
+                                <option value="varonil-master">Varonil Master (VM)</option>
                                 <option value="varonil-gold">Varonil Gold (VG)</option>
                                 <option value="varonil-silver">Varonil Silver (VS)</option>
                                 <option value="varonil-cooper">Varonil Cooper (VC)</option> {/* NUEVA */}
@@ -2044,6 +2046,7 @@ export default function AdminPage() {
                         className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900"
                       >
                         <option value="varonil-libre">Varonil Libre (VL)</option>
+                        <option value="varonil-master">Varonil Master (VM)</option>
                         <option value="varonil-gold">Varonil Gold (VG)</option>
                         <option value="varonil-silver">Varonil Silver (VS)</option>
                         <option value="varonil-cooper">Varonil Cooper (VC)</option> {/* NUEVA */}
@@ -2216,6 +2219,7 @@ export default function AdminPage() {
                     >
                       <option value="">Todas</option>
                       <option value="varonil-libre">Varonil Libre</option>
+                      <option value="varonil-master">Varonil Master</option>
                       <option value="varonil-gold">Varonil Gold</option>
                       <option value="varonil-silver">Varonil Silver</option>
                       <option value="varonil-cooper">Varonil Cooper</option> {/* NUEVA */}
@@ -2694,6 +2698,7 @@ export default function AdminPage() {
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                     {[
                       { value: "varonil-libre", label: "Varonil Libre" },
+                      { value: "varonil-master", label: "Varonil Master" },
                       { value: "varonil-gold", label: "Varonil Gold" },
                       { value: "varonil-silver", label: "Varonil Silver" },
                       { value: "varonil-cooper", label: "Varonil Cooper" }, // <-- NUEVA
