@@ -2,7 +2,7 @@ import React from 'react';
 import { 
   ShieldAlert, Users, Gavel, Scale, AlertTriangle, FileText, 
   Monitor, CheckSquare, Clock, CreditCard, UserCheck, 
-  FileWarning, HeartPulse, Camera, ClipboardList, Info
+  FileWarning, HeartPulse, Camera, ClipboardList, Ban
 } from 'lucide-react';
 
 export const metadata = {
@@ -103,12 +103,27 @@ export default function ReglamentoPage() {
           <section>
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center mb-4 border-b pb-2">
               <Clock className="w-6 h-6 mr-3 text-blue-600 dark:text-blue-400" />
-              6. Reglas de Juego, Asistencia y Uniformes
+              6. Calendario, Reglas IFAF y Equipamiento Ilegal
             </h2>
-            <ol className="list-decimal pl-6 space-y-3">
+            <ol className="list-decimal pl-6 space-y-4">
+              <li><strong>Reglamento IFAF:</strong> El desarrollo de los partidos y las reglas de juego se rigen estrictamente bajo el reglamento oficial de la <strong>IFAF (International Federation of American Football)</strong> en su formato 5 vs 5 (sin contacto intencional ni bloqueos), salvo las adecuaciones administrativas específicas mencionadas en este documento.</li>
+              <li><strong>Rol de Juego y Reprogramaciones:</strong> Una vez que todos los equipos aprueben el rol de juego (calendario de partidos), <strong>no se podrá modificar bajo ninguna circunstancia</strong>. La única excepción permitida para realizar un cambio será si tanto el Coach como el Capitán del equipo contrario aprueban la modificación.</li>
               <li><strong>Tolerancia y Forfeit:</strong> Habrá un tiempo de espera máximo de <strong>5 minutos</strong> respecto al horario programado. Si un equipo no se presenta a tiempo, perderá el partido por <strong>Forfeit</strong>, arrojando un resultado oficial de <strong>18-0</strong> en su contra.</li>
               <li><strong>Mínimo de Jugadores:</strong> Un equipo podrá iniciar y jugar el primer tiempo con un mínimo de <strong>4 jugadores</strong>. Si para el inicio del segundo tiempo no logran completar el mínimo reglamentario en el campo, perderán el partido automáticamente.</li>
-              <li><strong>Uniformes:</strong> Es de carácter obligatorio presentarse con <strong>uniformes completos</strong>. Esto es indispensable para facilitar las marcaciones de los árbitros y para el correcto registro de asistencias y estadísticas de los jugadores.</li>
+              <li><strong>Uniformes y Banderas:</strong> Es obligatorio presentarse con uniformes completos (mismo color). Las playeras deben estar <strong>fajadas en todo momento</strong> o ser lo suficientemente cortas para no cubrir o interferir con las banderas. Las banderas deben colocarse a los costados de la cadera.</li>
+              
+              <li className="bg-red-50 dark:bg-red-950/20 p-4 rounded-md border-l-4 border-red-500 mt-4">
+                <strong className="text-red-800 dark:text-red-400 flex items-center mb-2"><Ban className="w-5 h-5 mr-2" /> Equipamiento y Accesorios Ilegales (IFAF):</strong>
+                <p className="text-sm md:text-base mb-2">Queda <strong>estrictamente prohibido</strong> ingresar al campo con el siguiente equipamiento. El árbitro obligará al jugador a salir del terreno de juego hasta que corrija la infracción:</p>
+                <ul className="list-disc pl-5 space-y-2 text-sm md:text-base">
+                  <li><strong>Bolsillos y Cierres:</strong> Shorts o pantalones con bolsillos, trabillas o cierres. (Si tienen bolsillos, deben estar completamente cosidos de fábrica. <em>No se permite taparlos con cinta/tape</em>).</li>
+                  <li><strong>Joyería:</strong> Uso de anillos, collares, aretes, pulseras o relojes (las alertas médicas deben ir cubiertas con cinta).</li>
+                  <li><strong>Calzado Ilegal:</strong> Tacos (cleats) de metal o con tachones removibles de metal.</li>
+                  <li><strong>Sustancias Pegajosas:</strong> Uso de resina, pegamento o cualquier sustancia adherente en manos, cuerpo, banderas o uniforme.</li>
+                  <li><strong>Gorras y Protecciones:</strong> Gorras con visera rígida. Además, cualquier rodillera, férula o protección rígida debe estar cubierta en su totalidad por material acolchado suave.</li>
+                </ul>
+              </li>
+              <li><strong>Protector Bucal:</strong> Se exige y recomienda ampliamente el uso de protector bucal en todo momento durante las jugadas para prevenir lesiones dentales o maxilares.</li>
             </ol>
           </section>
 
@@ -166,6 +181,7 @@ export default function ReglamentoPage() {
             </h2>
             <p className="mb-4">La liga se rige por el respeto y la deportividad. Se aplicarán las siguientes reglas:</p>
             <ul className="list-disc pl-6 space-y-4">
+              <li><strong>Faltas de respeto y Conducta Antideportiva:</strong> Cualquier falta de respeto al árbitro o conducta antideportiva por parte de jugadores, coaches, padres de familia o porra (afición), <strong>facultará al árbitro para detener y finalizar el juego inmediatamente</strong>. El equipo infractor perderá el partido por <strong>Forfeit (18-0)</strong> y recibirá una sanción económica. Si el problema o la indisciplina se considera grave, el equipo completo podrá ser suspendido o dado de baja del torneo de manera definitiva.</li>
               <li><strong>Expulsiones Comunes:</strong> Un jugador expulsado recibirá un partido de suspensión automático. Aunque pague su multa correspondiente, <strong>no tiene derecho a jugar el siguiente partido</strong> y no podrá regresar al campo hasta que la sanción económica haya sido cubierta en su totalidad.</li>
               <li><strong>Faltas de respeto desde la banca:</strong> Si el árbitro escucha insultos o faltas de respeto provenientes de la banca y no se identifica al culpable directo, <strong>el Capitán del equipo será expulsado</strong>. (En el caso exclusivo de la <strong>categoría Teens</strong>, quien será expulsado será el <strong>Coach</strong>).</li>
               <li><strong>Lenguaje y Palabras Altisonantes:</strong> Queda estrictamente prohibido el uso de palabras altisonantes, insultos o lenguaje ofensivo en el campo. Esta conducta amerita expulsión o castigo inmediato. Tanto los Árbitros en el terreno de juego como el Coordinador Disciplinario tienen total autoridad para marcar la falta y expulsar a cualquier jugador infractor.</li>
@@ -192,6 +208,7 @@ export default function ReglamentoPage() {
               <li>El Tocho Bandera es un deporte de contacto. Cada jugador participa bajo su propio riesgo y responsabilidad.</li>
               <li><strong>Deslinde de Responsabilidad:</strong> La liga se deslinda totalmente de cualquier accidente, lesión o eventualidad médica ocurrida dentro del terreno de juego o instalaciones.</li>
               <li><strong>Apoyo de Primeros Auxilios:</strong> Como medida de apoyo, la liga contará con la presencia de un <strong>paramédico de primer instante</strong> en el campo, con la única finalidad de brindar una intervención rápida y estabilización en lo que el jugador afectado se traslada por sus propios medios a su médico familiar o institución de salud.</li>
+              <li><strong>Protocolo de Atención Médica en el Campo:</strong> En caso de que un jugador resulte lesionado, <strong>el único personal autorizado para acercarse es el Coach o el Capitán</strong>. Su acercamiento será <em>exclusivamente</em> para informar al personal médico sobre posibles alergias o condiciones de salud previas del jugador. Queda <strong>estrictamente prohibido</strong> intentar ordenar qué procedimiento realizar, ya que las paramédicas cuentan con la certificación adecuada para la atención. El Coach o Capitán solo podrán auxiliar físicamente si el personal médico lo solicita explícitamente. El resto del equipo deberá mantener distancia para no entorpecer las labores de auxilio.</li>
               <li>Se recomienda encarecidamente a los equipos contar con seguro deportivo y exigir una revisión médica previa a sus jugadores (notificando cualquier condición al coach).</li>
             </ol>
           </section>
@@ -219,7 +236,7 @@ export default function ReglamentoPage() {
 
           {/* Footer del reglamento */}
           <div className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-800 text-sm text-center text-slate-500">
-            <p className="font-semibold text-slate-700 dark:text-slate-300">Mesa Directiva • Liga Flag Durango</p>
+            <p className="font-semibold text-slate-700 dark:text-slate-300">Rafael Ortega Bañuelos • Liga Flag Durango</p>
             <p className="mt-2">Última actualización: Temporada en curso</p>
           </div>
 
