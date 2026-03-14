@@ -106,7 +106,10 @@ export default function ReglamentoPage() {
               6. Calendario, Reglas IFAF y Equipamiento Ilegal
             </h2>
             <ol className="list-decimal pl-6 space-y-4">
-              <li><strong>Reglamento IFAF:</strong> El desarrollo de los partidos y las reglas de juego se rigen estrictamente bajo el reglamento oficial de la <strong>IFAF (International Federation of American Football)</strong> en su formato 5 vs 5 (sin contacto intencional ni bloqueos), salvo las adecuaciones administrativas específicas mencionadas en este documento.</li>
+              <li>
+                <strong>Reglamento IFAF y Contacto Accidental:</strong> El desarrollo de los partidos se rige estrictamente bajo el reglamento oficial de la <strong>IFAF (International Federation of American Football)</strong> en su formato 5 vs 5 (sin contacto intencional ni bloqueos). 
+                <strong>Cabe aclarar que, aunque el Flag Football es un deporte sin contacto, por la naturaleza, inercia y velocidad del juego no está exento de que ocurran contactos accidentales.</strong> Estos incidentes serán interpretados y juzgados exclusivamente por los árbitros en el campo para determinar si existió intención, negligencia o si fue una acción fortuita propia del deporte.
+              </li>
               <li><strong>Rol de Juego y Reprogramaciones:</strong> Una vez que todos los equipos aprueben el rol de juego (calendario de partidos), <strong>no se podrá modificar bajo ninguna circunstancia</strong>. La única excepción permitida para realizar un cambio será si tanto el Coach como el Capitán del equipo contrario aprueban la modificación.</li>
               <li><strong>Tolerancia y Forfeit:</strong> Habrá un tiempo de espera máximo de <strong>5 minutos</strong> respecto al horario programado. Si un equipo no se presenta a tiempo, perderá el partido por <strong>Forfeit</strong>, arrojando un resultado oficial de <strong>18-0</strong> en su contra.</li>
               <li><strong>Mínimo de Jugadores:</strong> Un equipo podrá iniciar y jugar el primer tiempo con un mínimo de <strong>4 jugadores</strong>. Si para el inicio del segundo tiempo no logran completar el mínimo reglamentario en el campo, perderán el partido automáticamente.</li>
@@ -236,7 +239,7 @@ export default function ReglamentoPage() {
 
           {/* Footer del reglamento */}
           <div className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-800 text-sm text-center text-slate-500">
-            <p className="font-semibold text-slate-700 dark:text-slate-300">Rafael Ortega Bañuelos • Liga Flag Durango</p>
+            <p className="font-semibold text-slate-700 dark:text-slate-300">Mesa Directiva • Liga Flag Durango</p>
             <p className="mt-2">Última actualización: Temporada en curso</p>
           </div>
 
