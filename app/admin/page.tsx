@@ -246,6 +246,8 @@ export default function AdminPage() {
   const [showAccountForm, setShowAccountForm] = useState<Player | null>(null)
   const [accountForm, setAccountForm] = useState({ email: "", password: "" })
 
+  const [isUploading, setIsUploading] = useState(false)
+
   // Estados nuevos para edición y filtrado de jugadores
   const [playersTeamFilter, setPlayersTeamFilter] = useState<string>("")
   const [editingPlayerId, setEditingPlayerId] = useState<string | number | null>(null)
@@ -378,6 +380,35 @@ export default function AdminPage() {
   })
 
   const canCreatePlayer = useMemo(() => !!newPlayer.team_id, [newPlayer.team_id])
+
+  // Función genérica para subir imágenes
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, folder: string, callback: (url: string) => void) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsUploading(true)
+    const formData = new FormData()
+    formData.append("file", file)
+    formData.append("folder", folder)
+
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      })
+      const data = await res.json()
+      if (data.success) {
+        callback(data.url)
+      } else {
+        alert("Error al subir imagen: " + data.message)
+      }
+    } catch (error) {
+      console.error("Error uploading file:", error)
+      alert("Error de conexión al subir la imagen")
+    } finally {
+      setIsUploading(false)
+    }
+  }
 
   const fetchData = async () => {
     setLoading(true)
@@ -664,6 +695,7 @@ export default function AdminPage() {
           jersey_number: editPlayerData.jersey_number,
           position: editPlayerData.position,
           team_id: editPlayerData.team_id,
+          photo_url: editPlayerData.photo_url,
         }),
       })
 
@@ -1565,6 +1597,26 @@ export default function AdminPage() {
                               </select>
                             </div>
                             <div>
+                              <Label className="text-gray-700">Logo del Equipo</Label>
+                              <div className="flex items-center gap-4 mt-1">
+                                {editTeamData.logo_url && (
+                                  <img 
+                                    src={editTeamData.logo_url} 
+                                    alt="Logo" 
+                                    className="w-10 h-10 rounded-full object-cover border" 
+                                  />
+                                )}
+                                <Input
+                                  type="file"
+                                  accept="image/*"
+                                  disabled={isUploading}
+                                  onChange={(e) => handleFileUpload(e, "logos", (url) => setEditTeamData({ ...editTeamData, logo_url: url }))}
+                                  className="bg-white border-gray-300 text-gray-900 cursor-pointer"
+                                />
+                              </div>
+                              {isUploading && <p className="text-xs text-blue-500 mt-1">Subiendo imagen...</p>}
+                            </div>
+                            <div>
                               <Label className="text-gray-700">Nombre del Coach</Label>
                               <Input
                                 value={editTeamData.coach_name || ""}
@@ -1653,14 +1705,18 @@ export default function AdminPage() {
                       ) : (
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-4">
-                            <div
-                              className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold"
-                              style={{
-                                background: `linear-gradient(to right, ${team.color1}, ${team.color2})`,
-                              }}
-                            >
-                              {team.name.charAt(0)}
-                            </div>
+                            {team.logo_url ? (
+                              <img src={team.logo_url} alt={team.name} className="w-12 h-12 rounded-full object-cover" />
+                            ) : (
+                              <div
+                                className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold"
+                                style={{
+                                  background: `linear-gradient(to right, ${team.color1}, ${team.color2})`,
+                                }}
+                              >
+                                {team.name.charAt(0)}
+                              </div>
+                            )}
                             <div>
                               <h3 className="text-gray-900 font-semibold text-lg">{team.name}</h3>
                               <div className="flex items-center gap-2 flex-wrap">
@@ -1695,6 +1751,7 @@ export default function AdminPage() {
                                   coach_id: team.coach_id || null,
                                   captain_name: team.captain_name || "",
                                   captain_phone: team.captain_phone || "",
+                                  logo_url: team.logo_url || "",
                                 })
                               }}
                               className="border-gray-300 text-gray-700 hover:bg-gray-100"
@@ -1809,6 +1866,26 @@ export default function AdminPage() {
                                       </option>
                                     ))}
                                   </select>
+                                </div>
+                                <div className="md:col-span-2 lg:col-span-4">
+                                  <Label className="text-gray-700">Foto del Jugador</Label>
+                                  <div className="flex items-center gap-4 mt-1">
+                                    {editPlayerData.photo_url && (
+                                      <img 
+                                        src={editPlayerData.photo_url} 
+                                        alt="Foto" 
+                                        className="w-12 h-12 rounded-lg object-cover border" 
+                                      />
+                                    )}
+                                    <Input
+                                      type="file"
+                                      accept="image/*"
+                                      disabled={isUploading}
+                                      onChange={(e) => handleFileUpload(e, "players", (url) => setEditPlayerData({ ...editPlayerData, photo_url: url }))}
+                                      className="bg-white border-gray-300 text-gray-900 cursor-pointer max-w-sm"
+                                    />
+                                  </div>
+                                  {isUploading && <p className="text-xs text-blue-500 mt-1">Subiendo imagen...</p>}
                                 </div>
                               </div>
                               <div className="flex gap-2">
@@ -1975,6 +2052,7 @@ export default function AdminPage() {
                                           jersey_number: player.jersey_number || player.number || "",
                                           position: player.position || "",
                                           team_id: player.team_id || "",
+                                          photo_url: player.photo_url || "",
                                         })
                                       }}
                                       className="bg-blue-600 hover:bg-blue-700 text-white"
