@@ -246,6 +246,13 @@ export default function AdminPage() {
   const [showAccountForm, setShowAccountForm] = useState<Player | null>(null)
   const [accountForm, setAccountForm] = useState({ email: "", password: "" })
 
+  const [isUploading, setIsUploading] = useState(false)
+
+  // Estados nuevos para edición y filtrado de jugadores
+  const [playersTeamFilter, setPlayersTeamFilter] = useState<string>("")
+  const [editingPlayerId, setEditingPlayerId] = useState<string | number | null>(null)
+  const [editPlayerData, setEditPlayerData] = useState<any>({})
+
   // Form states
   const [teamForm, setTeamForm] = useState({
     name: "",
@@ -373,6 +380,35 @@ export default function AdminPage() {
   })
 
   const canCreatePlayer = useMemo(() => !!newPlayer.team_id, [newPlayer.team_id])
+
+  // Función genérica para subir imágenes
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, folder: string, callback: (url: string) => void) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsUploading(true)
+    const formData = new FormData()
+    formData.append("file", file)
+    formData.append("folder", folder)
+
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      })
+      const data = await res.json()
+      if (data.success) {
+        callback(data.url)
+      } else {
+        alert("Error al subir imagen: " + data.message)
+      }
+    } catch (error) {
+      console.error("Error uploading file:", error)
+      alert("Error de conexión al subir la imagen")
+    } finally {
+      setIsUploading(false)
+    }
+  }
 
   const fetchData = async () => {
     setLoading(true)
@@ -645,6 +681,36 @@ export default function AdminPage() {
       alert("Error al crear la cuenta del jugador")
     } finally {
       setCreatingAccount(null)
+    }
+  }
+
+  const updatePlayerInfo = async (playerId: string | number) => {
+    try {
+      const response = await fetch("/api/players", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: playerId,
+          name: editPlayerData.name,
+          jersey_number: editPlayerData.jersey_number,
+          position: editPlayerData.position,
+          team_id: editPlayerData.team_id,
+          photo_url: editPlayerData.photo_url,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setEditingPlayerId(null)
+        loadData()
+        alert("Jugador actualizado exitosamente")
+      } else {
+        alert(data.message || "Error al actualizar jugador")
+      }
+    } catch (error) {
+      console.error("Error updating player:", error)
+      alert("Error al actualizar jugador")
     }
   }
 
@@ -1531,6 +1597,26 @@ export default function AdminPage() {
                               </select>
                             </div>
                             <div>
+                              <Label className="text-gray-700">Logo del Equipo</Label>
+                              <div className="flex items-center gap-4 mt-1">
+                                {editTeamData.logo_url && (
+                                  <img 
+                                    src={editTeamData.logo_url} 
+                                    alt="Logo" 
+                                    className="w-10 h-10 rounded-full object-cover border" 
+                                  />
+                                )}
+                                <Input
+                                  type="file"
+                                  accept="image/*"
+                                  disabled={isUploading}
+                                  onChange={(e) => handleFileUpload(e, "logos", (url) => setEditTeamData({ ...editTeamData, logo_url: url }))}
+                                  className="bg-white border-gray-300 text-gray-900 cursor-pointer"
+                                />
+                              </div>
+                              {isUploading && <p className="text-xs text-blue-500 mt-1">Subiendo imagen...</p>}
+                            </div>
+                            <div>
                               <Label className="text-gray-700">Nombre del Coach</Label>
                               <Input
                                 value={editTeamData.coach_name || ""}
@@ -1619,14 +1705,18 @@ export default function AdminPage() {
                       ) : (
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-4">
-                            <div
-                              className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold"
-                              style={{
-                                background: `linear-gradient(to right, ${team.color1}, ${team.color2})`,
-                              }}
-                            >
-                              {team.name.charAt(0)}
-                            </div>
+                            {team.logo_url ? (
+                              <img src={team.logo_url} alt={team.name} className="w-12 h-12 rounded-full object-cover" />
+                            ) : (
+                              <div
+                                className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold"
+                                style={{
+                                  background: `linear-gradient(to right, ${team.color1}, ${team.color2})`,
+                                }}
+                              >
+                                {team.name.charAt(0)}
+                              </div>
+                            )}
                             <div>
                               <h3 className="text-gray-900 font-semibold text-lg">{team.name}</h3>
                               <div className="flex items-center gap-2 flex-wrap">
@@ -1661,6 +1751,7 @@ export default function AdminPage() {
                                   coach_id: team.coach_id || null,
                                   captain_name: team.captain_name || "",
                                   captain_phone: team.captain_phone || "",
+                                  logo_url: team.logo_url || "",
                                 })
                               }}
                               className="border-gray-300 text-gray-700 hover:bg-gray-100"
@@ -1689,11 +1780,26 @@ export default function AdminPage() {
           <TabsContent value="players">
             <div className="grid gap-6">
               <Card className="bg-white border border-gray-200">
-                <CardHeader>
+                <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                   <CardTitle className="text-gray-900 flex items-center">
                     <User className="w-5 h-5 mr-2" />
                     Información de Jugadores
                   </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-700">Filtrar por equipo:</span>
+                    <select
+                      value={playersTeamFilter}
+                      onChange={(e) => setPlayersTeamFilter(e.target.value)}
+                      className="p-2 rounded bg-white border border-gray-300 text-gray-900"
+                    >
+                      <option value="">Todos los equipos</option>
+                      {teams.map((team) => (
+                        <option key={team.id} value={team.id.toString()}>
+                          {team.name} ({team.category})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <p className="text-gray-600 mb-4">
@@ -1702,165 +1808,272 @@ export default function AdminPage() {
                   
                   {/* Lista de jugadores con información completa */}
                   <div className="space-y-4">
-                    {players.map((player) => (
+                    {players
+                      .filter((player) => !playersTeamFilter || player.team_id?.toString() === playersTeamFilter)
+                      .map((player) => (
                       <Card key={player.id} className="border border-gray-200">
                         <CardContent className="p-4">
-                          <div className="flex items-start gap-4">
-                            {/* Foto del jugador */}
-                            <div className="flex-shrink-0">
-                              <div className="w-20 h-20 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden">
-                                {player.photo_url ? (
-                                  <img
-                                    src={player.photo_url}
-                                    alt={player.name}
-                                    className="w-full h-full object-cover"
+                          {editingPlayerId === player.id ? (
+                            // FORMULARIO DE EDICIÓN
+                            <div className="space-y-4">
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div>
+                                  <Label className="text-gray-700">Nombre</Label>
+                                  <Input
+                                    value={editPlayerData.name || ""}
+                                    onChange={(e) => setEditPlayerData({ ...editPlayerData, name: e.target.value })}
+                                    className="bg-white border-gray-300 text-gray-900"
                                   />
-                                ) : (
-                                  <User className="w-10 h-10 text-gray-400" />
-                                )}
+                                </div>
+                                <div>
+                                  <Label className="text-gray-700">Número</Label>
+                                  <Input
+                                    type="number"
+                                    value={editPlayerData.jersey_number || ""}
+                                    onChange={(e) => setEditPlayerData({ ...editPlayerData, jersey_number: e.target.value })}
+                                    className="bg-white border-gray-300 text-gray-900"
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-gray-700">Posición</Label>
+                                  <select
+                                    value={editPlayerData.position || ""}
+                                    onChange={(e) => setEditPlayerData({ ...editPlayerData, position: e.target.value })}
+                                    className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900"
+                                  >
+                                    <option value="">Seleccionar posición</option>
+                                    <option value="QB">Quarterback (QB)</option>
+                                    <option value="RB">Running Back (RB)</option>
+                                    <option value="WR">Wide Receiver (WR)</option>
+                                    <option value="TE">Tight End (TE)</option>
+                                    <option value="RU">Rush (RU)</option>
+                                    <option value="LB">Linebacker (LB)</option>
+                                    <option value="DB">Defensive Back (DB)</option>
+                                    <option value="CB">Corner Back (CB)</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <Label className="text-gray-700">Equipo</Label>
+                                  <select
+                                    value={editPlayerData.team_id || ""}
+                                    onChange={(e) => setEditPlayerData({ ...editPlayerData, team_id: e.target.value })}
+                                    className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900"
+                                  >
+                                    <option value="">Seleccionar equipo</option>
+                                    {teams.map((team) => (
+                                      <option key={team.id} value={team.id}>
+                                        {team.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div className="md:col-span-2 lg:col-span-4">
+                                  <Label className="text-gray-700">Foto del Jugador</Label>
+                                  <div className="flex items-center gap-4 mt-1">
+                                    {editPlayerData.photo_url && (
+                                      <img 
+                                        src={editPlayerData.photo_url} 
+                                        alt="Foto" 
+                                        className="w-12 h-12 rounded-lg object-cover border" 
+                                      />
+                                    )}
+                                    <Input
+                                      type="file"
+                                      accept="image/*"
+                                      disabled={isUploading}
+                                      onChange={(e) => handleFileUpload(e, "players", (url) => setEditPlayerData({ ...editPlayerData, photo_url: url }))}
+                                      className="bg-white border-gray-300 text-gray-900 cursor-pointer max-w-sm"
+                                    />
+                                  </div>
+                                  {isUploading && <p className="text-xs text-blue-500 mt-1">Subiendo imagen...</p>}
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  onClick={() => updatePlayerInfo(player.id!)}
+                                  className="bg-green-600 hover:bg-green-700 text-white"
+                                >
+                                  Guardar Cambios
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => setEditingPlayerId(null)}
+                                  className="border-gray-300 text-gray-700 hover:bg-gray-100"
+                                >
+                                  Cancelar
+                                </Button>
                               </div>
                             </div>
-
-                            {/* Información principal */}
-                            <div className="flex-1 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                              <div>
-                                <h3 className="font-semibold text-gray-900 text-lg">{player.name}</h3>
-                                {(player.jersey_number || player.number) && (
-                                  <p className="text-2xl font-bold text-blue-600">#{player.jersey_number || player.number}</p>
-                                )}
-                                <p className="text-sm text-gray-500">{player.position || "Sin posición"}</p>
-                                {player.teams && (
-                                  <Badge className="mt-1 bg-blue-100 text-blue-800">
-                                    {player.teams.name}
-                                  </Badge>
-                                )}
-                              </div>
-
-                              <div className="space-y-1 text-sm">
-                                <p className="text-gray-500">Datos personales</p>
-                                {player.birth_date && (
-                                  <p><span className="font-medium">Nacimiento:</span> {player.birth_date}</p>
-                                )}
-                                {player.phone && (
-                                  <p><span className="font-medium">Tel:</span> {player.phone}</p>
-                                )}
-                                {player.personal_email && (
-                                  <p><span className="font-medium">Email:</span> {player.personal_email}</p>
-                                )}
-                                {player.blood_type && (
-                                  <p><span className="font-medium">Sangre:</span> {player.blood_type}</p>
-                                )}
-                              </div>
-
-                              <div className="space-y-1 text-sm">
-                                <p className="text-gray-500">Experiencia</p>
-                                {player.seasons_played !== undefined && player.seasons_played !== null && (
-                                  <p><span className="font-medium">Temporadas:</span> {player.seasons_played}</p>
-                                )}
-                                {player.playing_since && (
-                                  <p><span className="font-medium">Desde:</span> {player.playing_since}</p>
-                                )}
-{player.emergency_contact_name && (
-<p><span className="font-medium">Emergencia:</span> {player.emergency_contact_name}</p>
-  )}
-{player.emergency_contact_phone && (
-<p><span className="font-medium">Tel emergencia:</span> {player.emergency_contact_phone}</p>
-                                )}
-                              </div>
-
-                              <div className="space-y-2">
-                                <p className="text-gray-500 text-sm">Estado</p>
-                                <div className="flex flex-wrap gap-2">
-                                  {player.profile_completed ? (
-                                    <Badge className="bg-green-100 text-green-800 flex items-center gap-1">
-                                      <CheckCircle className="w-3 h-3" />
-                                      Perfil completo
-                                    </Badge>
+                          ) : (
+                            // MODO VISTA
+                            <div className="flex items-start gap-4">
+                              {/* Foto del jugador */}
+                              <div className="flex-shrink-0">
+                                <div className="w-20 h-20 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden">
+                                  {player.photo_url ? (
+                                    <img
+                                      src={player.photo_url}
+                                      alt={player.name}
+                                      className="w-full h-full object-cover"
+                                    />
                                   ) : (
-                                    <Badge className="bg-amber-100 text-amber-800 flex items-center gap-1">
-                                      <Clock className="w-3 h-3" />
-                                      Perfil incompleto
-                                    </Badge>
+                                    <User className="w-10 h-10 text-gray-400" />
                                   )}
-                                  {player.admin_verified ? (
-                                    <Badge className="bg-green-100 text-green-800 flex items-center gap-1">
-                                      <Shield className="w-3 h-3" />
-                                      Verificado
-                                    </Badge>
-                                  ) : (
-                                    <Badge className="bg-gray-100 text-gray-800 flex items-center gap-1">
-                                      <Shield className="w-3 h-3" />
-                                      Sin verificar
-                                    </Badge>
+                                </div>
+                              </div>
+
+                              {/* Información principal */}
+                              <div className="flex-1 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                                <div>
+                                  <h3 className="font-semibold text-gray-900 text-lg">{player.name}</h3>
+                                  {(player.jersey_number || player.number) && (
+                                    <p className="text-2xl font-bold text-blue-600">#{player.jersey_number || player.number}</p>
                                   )}
-                                  {player.user_id ? (
-                                    <Badge className="bg-blue-100 text-blue-800">Con cuenta</Badge>
-                                  ) : (
-                                    <Badge className="bg-gray-100 text-gray-600">Sin cuenta</Badge>
+                                  <p className="text-sm text-gray-500">{player.position || "Sin posición"}</p>
+                                  {player.teams && (
+                                    <Badge className="mt-1 bg-blue-100 text-blue-800">
+                                      {player.teams.name}
+                                    </Badge>
                                   )}
                                 </div>
 
-                                {/* Cédula */}
-                                {player.cedula_url && (
-                                  <a
-                                    href={player.cedula_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
-                                  >
-                                    <FileImage className="w-4 h-4" />
-                                    Ver cédula
-                                  </a>
-                                )}
+                                <div className="space-y-1 text-sm">
+                                  <p className="text-gray-500">Datos personales</p>
+                                  {player.birth_date && (
+                                    <p><span className="font-medium">Nacimiento:</span> {player.birth_date}</p>
+                                  )}
+                                  {player.phone && (
+                                    <p><span className="font-medium">Tel:</span> {player.phone}</p>
+                                  )}
+                                  {player.personal_email && (
+                                    <p><span className="font-medium">Email:</span> {player.personal_email}</p>
+                                  )}
+                                  {player.blood_type && (
+                                    <p><span className="font-medium">Sangre:</span> {player.blood_type}</p>
+                                  )}
+                                </div>
 
-                                {/* Botones de acción */}
-                                <div className="flex flex-wrap gap-2 mt-2">
-                                  {!player.user_id && (
+                                <div className="space-y-1 text-sm">
+                                  <p className="text-gray-500">Experiencia</p>
+                                  {player.seasons_played !== undefined && player.seasons_played !== null && (
+                                    <p><span className="font-medium">Temporadas:</span> {player.seasons_played}</p>
+                                  )}
+                                  {player.playing_since && (
+                                    <p><span className="font-medium">Desde:</span> {player.playing_since}</p>
+                                  )}
+                                  {player.emergency_contact_name && (
+                                    <p><span className="font-medium">Emergencia:</span> {player.emergency_contact_name}</p>
+                                  )}
+                                  {player.emergency_contact_phone && (
+                                    <p><span className="font-medium">Tel emergencia:</span> {player.emergency_contact_phone}</p>
+                                  )}
+                                </div>
+
+                                <div className="space-y-2">
+                                  <p className="text-gray-500 text-sm">Estado</p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {player.profile_completed ? (
+                                      <Badge className="bg-green-100 text-green-800 flex items-center gap-1">
+                                        <CheckCircle className="w-3 h-3" />
+                                        Perfil completo
+                                      </Badge>
+                                    ) : (
+                                      <Badge className="bg-amber-100 text-amber-800 flex items-center gap-1">
+                                        <Clock className="w-3 h-3" />
+                                        Perfil incompleto
+                                      </Badge>
+                                    )}
+                                    {player.admin_verified ? (
+                                      <Badge className="bg-green-100 text-green-800 flex items-center gap-1">
+                                        <Shield className="w-3 h-3" />
+                                        Verificado
+                                      </Badge>
+                                    ) : (
+                                      <Badge className="bg-gray-100 text-gray-800 flex items-center gap-1">
+                                        <Shield className="w-3 h-3" />
+                                        Sin verificar
+                                      </Badge>
+                                    )}
+                                  </div>
+
+                                  {/* Cédula */}
+                                  {player.cedula_url && (
+                                    <a
+                                      href={player.cedula_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
+                                    >
+                                      <FileImage className="w-4 h-4" />
+                                      Ver cédula
+                                    </a>
+                                  )}
+
+                                  {/* Botones de acción */}
+                                  <div className="flex flex-wrap gap-2 mt-2">
+                                    {!player.user_id && (
+                                      <Button
+                                        size="sm"
+                                        onClick={() => {
+                                          setShowAccountForm(player)
+                                          setAccountForm({ email: "", password: "" })
+                                        }}
+                                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                      >
+                                        <UserPlus className="w-3 h-3 mr-1" />
+                                        Cuenta
+                                      </Button>
+                                    )}
+                                    {!player.admin_verified && player.profile_completed && (
+                                      <Button
+                                        size="sm"
+                                        onClick={async () => {
+                                          const res = await fetch("/api/players", {
+                                            method: "PUT",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({ id: player.id, admin_verified: true }),
+                                          })
+                                          if (res.ok) {
+                                            loadData()
+                                          }
+                                        }}
+                                        className="bg-green-600 hover:bg-green-700 text-white"
+                                      >
+                                        <CheckCircle className="w-3 h-3 mr-1" />
+                                        Verificar
+                                      </Button>
+                                    )}
                                     <Button
                                       size="sm"
                                       onClick={() => {
-                                        setShowAccountForm(player)
-                                        setAccountForm({ email: "", password: "" })
+                                        setEditingPlayerId(player.id!)
+                                        setEditPlayerData({
+                                          name: player.name,
+                                          jersey_number: player.jersey_number || player.number || "",
+                                          position: player.position || "",
+                                          team_id: player.team_id || "",
+                                          photo_url: player.photo_url || "",
+                                        })
                                       }}
-                                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                      className="bg-blue-600 hover:bg-blue-700 text-white"
                                     >
-                                      <UserPlus className="w-3 h-3 mr-1" />
-                                      Crear Cuenta
+                                      <Edit className="w-3 h-3" />
                                     </Button>
-                                  )}
-                                  {!player.admin_verified && player.profile_completed && (
                                     <Button
                                       size="sm"
-                                      onClick={async () => {
-                                        const res = await fetch("/api/players", {
-                                          method: "PUT",
-                                          headers: { "Content-Type": "application/json" },
-                                          body: JSON.stringify({ id: player.id, admin_verified: true }),
-                                        })
-                                        if (res.ok) {
-                                          loadData()
-                                        }
-                                      }}
-                                      className="bg-green-600 hover:bg-green-700 text-white"
+                                      variant="destructive"
+                                      onClick={() => handleDelete("players", Number(player.id))}
                                     >
-                                      <CheckCircle className="w-3 h-3 mr-1" />
-                                      Verificar
+                                      <Trash2 className="w-3 h-3" />
                                     </Button>
-                                  )}
-                                  <Button
-                                    size="sm"
-                                    variant="destructive"
-                                    onClick={() => handleDelete("players", Number(player.id))}
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </Button>
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
+                          )}
 
                           {/* Condiciones médicas */}
-                          {player.medical_conditions && (
+                          {player.medical_conditions && !editingPlayerId && (
                             <div className="mt-3 p-2 bg-red-50 rounded text-sm">
                               <span className="font-medium text-red-700">Condiciones médicas:</span>{" "}
                               <span className="text-red-600">{player.medical_conditions}</span>
