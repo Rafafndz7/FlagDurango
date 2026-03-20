@@ -2,13 +2,17 @@ import React from 'react';
 import { 
   ShieldAlert, Users, Gavel, Scale, AlertTriangle, FileText, 
   Monitor, CheckSquare, Clock, CreditCard, UserCheck, 
-  FileWarning, HeartPulse, Camera, ClipboardList, Ban
+  FileWarning, HeartPulse, Camera, ClipboardList, Ban,
+  MapPin, CloudLightning
 } from 'lucide-react';
 
 export const metadata = {
   title: 'Reglamento Administrativo | Flag Durango',
   description: 'Reglamento oficial y normativas administrativas de la Liga Flag Durango.',
 };
+
+// ESTA LÍNEA EVITA QUE VERCEL GUARDE LA PÁGINA EN CACHÉ
+export const dynamic = 'force-dynamic';
 
 export default function ReglamentoPage() {
   return (
@@ -152,8 +156,41 @@ export default function ReglamentoPage() {
 
           <section>
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center mb-4 border-b pb-2">
+              <MapPin className="w-6 h-6 mr-3 text-blue-600 dark:text-blue-400" />
+              8. Sede Oficial, Horarios y Partidos Extraoficiales
+            </h2>
+            <ul className="list-disc pl-6 space-y-4">
+              <li>
+                <strong>Sede y Horarios Oficiales:</strong> El campo oficial de la liga es el <strong>Deportivo Tapias</strong>. La operación formal de la liga se lleva a cabo únicamente los días <strong>domingo en un horario de 8:00 a.m. a 7:00 p.m.</strong> Dentro de este horario y ubicación, la liga garantiza la infraestructura completa: campos marcados, arbitraje, hidratación, paramédicos, staff e instalaciones adecuadas para el desarrollo de los juegos.
+              </li>
+              <li>
+                <strong>Partidos Extraoficiales:</strong> Los juegos realizados fuera de estos días y horarios, como es el caso de los encuentros entre semana, son considerados juegos extraoficiales. Estos se llevan a cabo por solicitud y decisión de los propios equipos, generalmente debido a que no pueden participar en los horarios oficiales del domingo.
+              </li>
+              <li>
+                <strong>Logística fuera de sede:</strong> En los encuentros extraoficiales, la logística, organización y condiciones del juego (renta de campo, marcado, balones, etc.) corresponden <strong>exclusivamente al equipo local</strong>. La liga, en la medida de lo posible y con previo aviso, apoyará únicamente con la asignación del cuerpo arbitral.
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center mb-4 border-b pb-2">
+              <CloudLightning className="w-6 h-6 mr-3 text-blue-600 dark:text-blue-400" />
+              9. Protocolo de Clima y Fuerza Mayor
+            </h2>
+            <p className="mb-4 text-justify">
+              Para salvaguardar la integridad física de todos los asistentes, la liga se reserva el derecho de suspender, retrasar o reprogramar partidos en caso de condiciones climáticas extremas (tormentas eléctricas, lluvias torrenciales que inunden el campo) o situaciones de fuerza mayor.
+            </p>
+            <ul className="list-disc pl-6 space-y-2">
+              <li>Si se detecta actividad eléctrica cercana, el partido se detendrá inmediatamente.</li>
+              <li>Si un partido es suspendido habiéndose jugado <strong>al menos la primera mitad completa</strong>, el marcador al momento de la suspensión se considerará oficial y definitivo.</li>
+              <li>Si el partido es suspendido antes del medio tiempo, la liga determinará fecha y hora para reanudar el tiempo restante con el mismo marcador que se tenía.</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center mb-4 border-b pb-2">
               <UserCheck className="w-6 h-6 mr-3 text-blue-600 dark:text-blue-400" />
-              8. Representantes de Equipo
+              10. Representantes de Equipo
             </h2>
             <p className="leading-relaxed text-justify mb-6">
               Cada equipo nombrará a un Coach y/o Capitán, quienes serán los únicos autorizados para la comunicación con la liga, hacer cumplir el reglamento a sus jugadores y realizar protestas formales.
@@ -180,10 +217,11 @@ export default function ReglamentoPage() {
           <section>
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center mb-4 border-b pb-2">
               <Gavel className="w-6 h-6 mr-3 text-blue-600 dark:text-blue-400" />
-              9. Disciplina, Sanciones y Autoridad Arbitral
+              11. Disciplina, Sanciones y Autoridad Arbitral
             </h2>
             <p className="mb-4">La liga se rige por el respeto y la deportividad. Se aplicarán las siguientes reglas:</p>
             <ul className="list-disc pl-6 space-y-4">
+              <li><strong>Autoridad General para Sancionar:</strong> Tanto el cuerpo arbitral como cualquier coordinador o miembro de la mesa directiva de la liga tienen la plena facultad de marcar faltas, aplicar castigos o expulsar a participantes si detectan el incumplimiento de cualquier norma de este reglamento, dentro y fuera del terreno de juego.</li>
               <li><strong>Faltas de respeto y Conducta Antideportiva:</strong> Cualquier falta de respeto al árbitro o conducta antideportiva por parte de jugadores, coaches, padres de familia o porra (afición), <strong>facultará al árbitro para detener y finalizar el juego inmediatamente</strong>. El equipo infractor perderá el partido por <strong>Forfeit (18-0)</strong> y recibirá una sanción económica. Si el problema o la indisciplina se considera grave, el equipo completo podrá ser suspendido o dado de baja del torneo de manera definitiva.</li>
               <li><strong>Expulsiones Comunes:</strong> Un jugador expulsado recibirá un partido de suspensión automático. Aunque pague su multa correspondiente, <strong>no tiene derecho a jugar el siguiente partido</strong> y no podrá regresar al campo hasta que la sanción económica haya sido cubierta en su totalidad.</li>
               <li><strong>Faltas de respeto desde la banca:</strong> Si el árbitro escucha insultos o faltas de respeto provenientes de la banca y no se identifica al culpable directo, <strong>el Capitán del equipo será expulsado</strong>. (En el caso exclusivo de la <strong>categoría Teens</strong>, quien será expulsado será el <strong>Coach</strong>).</li>
@@ -195,7 +233,7 @@ export default function ReglamentoPage() {
           <section>
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center mb-4 border-b pb-2">
               <FileWarning className="w-6 h-6 mr-3 text-blue-600 dark:text-blue-400" />
-              10. Protestas Administrativas
+              12. Protestas Administrativas
             </h2>
             <p className="leading-relaxed text-justify">
               Toda protesta deberá presentarse por el representante oficial, por escrito, dentro de la <strong>siguiente hora posterior a la finalización del juego</strong>, acompañada de una cuota de protesta de <strong>$200 pesos</strong>. El Comité Disciplinario analizará el caso. Si la protesta procede a favor del equipo, la cuota será reembolsada.
@@ -205,7 +243,7 @@ export default function ReglamentoPage() {
           <section>
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center mb-4 border-b pb-2">
               <HeartPulse className="w-6 h-6 mr-3 text-blue-600 dark:text-blue-400" />
-              11. Riesgos Deportivos, Responsabilidad y Servicios Médicos
+              13. Riesgos Deportivos, Responsabilidad y Servicios Médicos
             </h2>
             <ol className="list-decimal pl-6 space-y-3">
               <li>El Tocho Bandera es un deporte de contacto. Cada jugador participa bajo su propio riesgo y responsabilidad.</li>
@@ -219,7 +257,7 @@ export default function ReglamentoPage() {
           <section>
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center mb-4 border-b pb-2">
               <Camera className="w-6 h-6 mr-3 text-blue-600 dark:text-blue-400" />
-              12. Imagen y Difusión
+              14. Imagen y Difusión
             </h2>
             <p className="leading-relaxed text-justify">
               La liga, a través de su Coordinación de Redes Sociales, podrá utilizar fotografías, videos e imágenes de los juegos y jugadores para fines de promoción deportiva. La participación en la liga implica el consentimiento implícito para el uso de esta imagen.
@@ -229,7 +267,7 @@ export default function ReglamentoPage() {
           <section>
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center mb-4 border-b pb-2">
               <ShieldAlert className="w-6 h-6 mr-3 text-blue-600 dark:text-blue-400" />
-              13. Facultades de la Directiva y Aceptación
+              15. Facultades de la Directiva y Aceptación
             </h2>
             <ul className="list-disc pl-6 space-y-3">
               <li>Las decisiones de la mesa directiva (interpretación del reglamento, situaciones no contempladas y resoluciones disciplinarias) serán definitivas e inapelables.</li>
