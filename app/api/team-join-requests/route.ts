@@ -298,6 +298,28 @@ export async function PUT(request: NextRequest) {
       const isTransfer = joinRequest.is_transfer || false
       let existingTeamPlayer: Record<string, any> | null = null
 
+      // =====================================================================
+      // NUEVA LÓGICA: ASIGNACIÓN DE NÚMERO DE JERSEY AUTOMÁTICA
+      // =====================================================================
+      const { data: teamPlayers } = await supabase
+        .from("players")
+        .select("jersey_number")
+        .eq("team_id", joinRequest.team_id);
+      
+      const takenNumbers = teamPlayers?.map(p => p.jersey_number).filter(n => n !== null) || [];
+      let finalJerseyNumber = joinRequest.jersey_number;
+
+      // Si el número solicitado ya está ocupado en el equipo, encuentra el siguiente disponible (1 a 99)
+      if (takenNumbers.includes(finalJerseyNumber)) {
+        for (let i = 1; i <= 99; i++) {
+          if (!takenNumbers.includes(i)) {
+            finalJerseyNumber = i;
+            break;
+          }
+        }
+      }
+      // =====================================================================
+
       if (joinRequest.player_user_id) {
         const { data } = await supabase
           .from("players")
@@ -321,7 +343,7 @@ export async function PUT(request: NextRequest) {
       if (existingTeamPlayer) {
         const updatePayload: Record<string, any> = {
           position: joinRequest.position,
-          jersey_number: joinRequest.jersey_number,
+          jersey_number: finalJerseyNumber, // Usamos el número validado
         }
         if (!existingTeamPlayer.user_id && joinRequest.player_user_id) {
           updatePayload.user_id = joinRequest.player_user_id
@@ -336,7 +358,7 @@ export async function PUT(request: NextRequest) {
           .update({
             team_id: joinRequest.team_id,
             position: joinRequest.position,
-            jersey_number: joinRequest.jersey_number,
+            jersey_number: finalJerseyNumber, // Usamos el número validado
           })
           .eq("id", joinRequest.player_id)
 
@@ -362,7 +384,7 @@ export async function PUT(request: NextRequest) {
             .update({
               team_id: joinRequest.team_id,
               position: joinRequest.position,
-              jersey_number: joinRequest.jersey_number,
+              jersey_number: finalJerseyNumber, // Usamos el número validado
             })
             .eq("id", orphanRow.id)
         } else {
@@ -392,7 +414,7 @@ export async function PUT(request: NextRequest) {
             name: originalPlayer?.name || joinRequest.player_name,
             team_id: joinRequest.team_id,
             position: joinRequest.position,
-            jersey_number: joinRequest.jersey_number,
+            jersey_number: finalJerseyNumber, // Usamos el número validado
             user_id: originalPlayer?.user_id ?? joinRequest.player_user_id ?? null,
             photo_url: originalPlayer?.photo_url || null,
             phone: originalPlayer?.phone || null,
