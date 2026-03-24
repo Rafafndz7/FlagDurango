@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Trophy, Target, Users, TrendingUp, Award, Star, BarChart3, Shield, ChevronDown, ChevronUp } from "lucide-react"
+import { Trophy, Target, Users, TrendingUp, Award, Star, BarChart3 } from "lucide-react"
 
 interface TeamStats {
   team_id: number
@@ -64,79 +64,6 @@ interface GameLite {
   status: string
 }
 
-interface PlayerRankInfo {
-  id: number
-  name: string
-  jersey_number: number
-  position?: string
-  photo_url?: string
-  team_id: number
-  teams?: { id: number; name: string; logo_url?: string; category?: string }
-}
-
-interface PlayerGameStat {
-  player_id: number
-  pases_completos: number
-  pases_intentados: number
-  yardas_pase: number
-  touchdowns_pase: number
-  intercepciones_lanzadas: number
-  carreras: number
-  yardas_carrera: number
-  touchdowns_carrera: number
-  recepciones: number
-  yardas_recepcion: number
-  touchdowns_recepcion: number
-  puntos_extra: number
-  sacks: number
-  intercepciones: number
-  yardas_intercepcion: number
-  touchdowns_intercepcion: number
-  pases_defendidos: number
-  banderas_jaladas: number
-  touchdowns_totales: number
-  puntos_totales: number
-  players?: PlayerRankInfo
-}
-
-interface AggregatedPlayer {
-  player: PlayerRankInfo
-  games: number
-  pases_completos: number
-  pases_intentados: number
-  yardas_pase: number
-  touchdowns_pase: number
-  intercepciones_lanzadas: number
-  carreras: number
-  yardas_carrera: number
-  touchdowns_carrera: number
-  recepciones: number
-  yardas_recepcion: number
-  touchdowns_recepcion: number
-  puntos_extra: number
-  sacks: number
-  intercepciones: number
-  yardas_intercepcion: number
-  touchdowns_intercepcion: number
-  pases_defendidos: number
-  banderas_jaladas: number
-  touchdowns_totales: number
-  puntos_totales: number
-  yardas_totales: number
-  [key: string]: unknown
-}
-
-// 🔥 COLUMNAS ACTUALIZADAS PARA COINCIDIR CON LA APP MÓVIL 🔥
-const OFFENSE_COLS: { key: string; label: string; short: string }[] = [
-  { key: "touchdowns_totales", label: "Anotaciones (TD)", short: "TD" },
-  { key: "pases_completos", label: "Pases Completos", short: "PC" },
-]
-
-const DEFENSE_COLS: { key: string; label: string; short: string }[] = [
-  { key: "intercepciones", label: "Intercepciones", short: "INT" },
-  { key: "sacks", label: "Sacks", short: "SCK" },
-]
-
 function normalizeCategory(v: string) {
   return (v || "").toLowerCase().replace(/_/g, "-").trim()
 }
@@ -144,15 +71,11 @@ function normalizeCategory(v: string) {
 export default function EstadisticasPage() {
   const [stats, setStats] = useState<TeamStats[]>([])
   const [selectedCategory, setSelectedCategory] = useState("all")
-  const [viewType, setViewType] = useState<"teams" | "mvps" | "ranking">("teams")
+  const [viewType, setViewType] = useState<"teams" | "mvps">("teams")
   const [loading, setLoading] = useState(true)
   const [mvps, setMvps] = useState<WeeklyMVP[]>([])
   const [mvpStats, setMvpStats] = useState<MVPStats[]>([])
   const [games, setGames] = useState<GameLite[]>([])
-  const [playerStats, setPlayerStats] = useState<PlayerGameStat[]>([])
-  const [rankingView, setRankingView] = useState<"offense" | "defense">("offense")
-  const [rankSortKey, setRankSortKey] = useState("touchdowns_totales")
-  const [rankSortDir, setRankSortDir] = useState<"asc" | "desc">("desc")
   const [enabledCategories, setEnabledCategories] = useState<string[]>([])
 
   const ALL_CATEGORIES: { value: string; label: string }[] = [
@@ -206,8 +129,6 @@ export default function EstadisticasPage() {
       fetchStats()
     } else if (viewType === "mvps") {
       fetchMvpStats()
-    } else if (viewType === "ranking") {
-      fetchPlayerStats()
     }
   }, [selectedCategory, viewType])
 
@@ -270,81 +191,6 @@ export default function EstadisticasPage() {
       console.error("Error fetching games:", e)
     }
   }
-
-  const fetchPlayerStats = async () => {
-    try {
-      setLoading(true)
-      const res = await fetch("/api/player-stats?ranking=true")
-      const json = await res.json()
-      if (json.success) setPlayerStats(json.data || [])
-    } catch (e) {
-      console.error("Error fetching player stats:", e)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const aggregatedPlayers: AggregatedPlayer[] = useMemo(() => {
-    const map: Record<number, AggregatedPlayer> = {}
-    for (const stat of playerStats) {
-      const pid = stat.player_id
-      if (!stat.players) continue
-      if (selectedCategory !== "all" && stat.players.teams?.category) {
-        if (normalizeCategory(stat.players.teams.category) !== normalizeCategory(selectedCategory)) continue
-      }
-      if (!map[pid]) {
-        map[pid] = {
-          player: stat.players,
-          games: 0, pases_completos: 0, pases_intentados: 0, yardas_pase: 0,
-          touchdowns_pase: 0, intercepciones_lanzadas: 0, carreras: 0,
-          yardas_carrera: 0, touchdowns_carrera: 0, recepciones: 0,
-          yardas_recepcion: 0, touchdowns_recepcion: 0, puntos_extra: 0,
-          sacks: 0, intercepciones: 0, yardas_intercepcion: 0,
-          touchdowns_intercepcion: 0, pases_defendidos: 0, banderas_jaladas: 0,
-          touchdowns_totales: 0, puntos_totales: 0, yardas_totales: 0,
-        }
-      }
-      const p = map[pid]
-      p.games += 1
-      p.pases_completos += stat.pases_completos || 0
-      p.pases_intentados += stat.pases_intentados || 0
-      p.yardas_pase += stat.yardas_pase || 0
-      p.touchdowns_pase += stat.touchdowns_pase || 0
-      p.intercepciones_lanzadas += stat.intercepciones_lanzadas || 0
-      p.carreras += stat.carreras || 0
-      p.yardas_carrera += stat.yardas_carrera || 0
-      p.touchdowns_carrera += stat.touchdowns_carrera || 0
-      p.recepciones += stat.recepciones || 0
-      p.yardas_recepcion += stat.yardas_recepcion || 0
-      p.touchdowns_recepcion += stat.touchdowns_recepcion || 0
-      p.puntos_extra += stat.puntos_extra || 0
-      p.sacks += stat.sacks || 0
-      p.intercepciones += stat.intercepciones || 0
-      p.yardas_intercepcion += stat.yardas_intercepcion || 0
-      p.touchdowns_intercepcion += stat.touchdowns_intercepcion || 0
-      p.pases_defendidos += stat.pases_defendidos || 0
-      p.banderas_jaladas += stat.banderas_jaladas || 0
-      p.touchdowns_totales += stat.touchdowns_totales || 0
-      p.puntos_totales += stat.puntos_totales || 0
-      p.yardas_totales += (stat.yardas_pase || 0) + (stat.yardas_carrera || 0) + (stat.yardas_recepcion || 0)
-    }
-    return Object.values(map)
-  }, [playerStats, selectedCategory])
-
-  const sortedPlayers = useMemo(() => {
-    return [...aggregatedPlayers].sort((a, b) => {
-      const av = (a[rankSortKey] as number) || 0
-      const bv = (b[rankSortKey] as number) || 0
-      return rankSortDir === "desc" ? bv - av : av - bv
-    })
-  }, [aggregatedPlayers, rankSortKey, rankSortDir])
-
-  const handleRankSort = (key: string) => {
-    if (rankSortKey === key) setRankSortDir(rankSortDir === "desc" ? "asc" : "desc")
-    else { setRankSortKey(key); setRankSortDir("desc") }
-  }
-
-  const rankColumns = rankingView === "offense" ? OFFENSE_COLS : DEFENSE_COLS
 
   const filteredLatestMvp = useMemo(() => {
     if (!mvps || mvps.length === 0) return null
@@ -422,7 +268,7 @@ export default function EstadisticasPage() {
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Estadísticas</h1>
           <p className="text-gray-600">
-            {viewType === "teams" ? "Tabla de posiciones y estadisticas de equipos" : viewType === "mvps" ? "Ranking de jugadores MVP" : "Estadisticas individuales de jugadores - Ataque y Defensa"}
+            {viewType === "teams" ? "Tabla de posiciones y estadísticas de equipos" : "Ranking de jugadores MVP"}
           </p>
         </div>
 
@@ -451,17 +297,6 @@ export default function EstadisticasPage() {
               <Star className="w-4 h-4" />
               MVPs
             </button>
-            <button
-              onClick={() => setViewType("ranking")}
-              className={`px-6 py-3 rounded-lg transition-all flex items-center gap-2 ${
-                viewType === "ranking"
-                  ? "bg-green-600 text-white font-semibold"
-                  : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-300"
-              }`}
-            >
-              <TrendingUp className="w-4 h-4" />
-              Ranking Individual
-            </button>
           </div>
         </div>
 
@@ -483,196 +318,6 @@ export default function EstadisticasPage() {
             ))}
           </div>
         </div>
-
-        {viewType === "ranking" && (
-          <>
-            {/* Ranking toggle ataque/defensa */}
-            <div className="flex gap-2 mb-6">
-              <Button
-                onClick={() => { setRankingView("offense"); setRankSortKey("touchdowns_totales"); setRankSortDir("desc") }}
-                className={rankingView === "offense" ? "bg-red-600 hover:bg-red-700 text-white" : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-300"}
-              >
-                <Target className="w-4 h-4 mr-2" />
-                Ataque
-              </Button>
-              <Button
-                onClick={() => { setRankingView("defense"); setRankSortKey("intercepciones"); setRankSortDir("desc") }}
-                className={rankingView === "defense" ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-300"}
-              >
-                <Shield className="w-4 h-4 mr-2" />
-                Defensa
-              </Button>
-              <span className="self-center text-sm text-gray-500 ml-2">{sortedPlayers.length} jugadores</span>
-            </div>
-
-            {/* Top 3 */}
-            {sortedPlayers.length >= 3 && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                {sortedPlayers.slice(0, 3).map((item, idx) => {
-                  const colors = [
-                    "from-yellow-400 to-yellow-600",
-                    "from-gray-300 to-gray-500",
-                    "from-orange-400 to-orange-600",
-                  ]
-                  const mainStat = (item[rankSortKey] as number) || 0
-                  const col = rankColumns.find((c) => c.key === rankSortKey)
-
-                  return (
-                    <Card key={item.player.id} className="bg-white border-gray-200 overflow-hidden">
-                      <div className={`h-2 bg-gradient-to-r ${colors[idx]}`} />
-                      <CardContent className="p-4">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${colors[idx]} flex items-center justify-center text-white font-bold text-lg flex-shrink-0`}>
-                            {idx + 1}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              {item.player.photo_url && (
-                                <img src={item.player.photo_url} alt="" className="w-8 h-8 rounded-full object-cover" crossOrigin="anonymous" referrerPolicy="no-referrer" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }} />
-                              )}
-                              <h3 className="font-bold text-gray-900 truncate">{item.player.name}</h3>
-                              <Badge variant="outline" className="text-xs">#{item.player.jersey_number}</Badge>
-                            </div>
-                            <div className="flex items-center gap-2 mt-1">
-                              {item.player.teams?.logo_url && (
-                                <img src={item.player.teams.logo_url} alt="" className="w-5 h-5 rounded object-cover" crossOrigin="anonymous" referrerPolicy="no-referrer" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }} />
-                              )}
-                              <span className="text-sm text-gray-500">{item.player.teams?.name}</span>
-                            </div>
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            <p className="text-2xl font-bold text-gray-900">{mainStat}</p>
-                            <p className="text-xs text-gray-500">{col?.label}</p>
-                          </div>
-                        </div>
-                        
-                        {/* Grid de stats actualizado a las 4 oficiales */}
-                        <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-gray-100">
-                          <div className="text-center">
-                            <p className="font-bold text-gray-900">{item.games}</p>
-                            <p className="text-xs text-gray-500">PJ</p>
-                          </div>
-                          {rankingView === "offense" ? (
-                            <>
-                              <div className="text-center">
-                                <p className="font-bold text-gray-900">{item.touchdowns_totales}</p>
-                                <p className="text-xs text-gray-500">TD</p>
-                              </div>
-                              <div className="text-center">
-                                <p className="font-bold text-gray-900">{item.pases_completos}</p>
-                                <p className="text-xs text-gray-500">PC</p>
-                              </div>
-                            </>
-                          ) : (
-                            <>
-                              <div className="text-center">
-                                <p className="font-bold text-gray-900">{item.intercepciones}</p>
-                                <p className="text-xs text-gray-500">INT</p>
-                              </div>
-                              <div className="text-center">
-                                <p className="font-bold text-gray-900">{item.sacks}</p>
-                                <p className="text-xs text-gray-500">Sacks</p>
-                              </div>
-                            </>
-                          )}
-                        </div>
-
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-              </div>
-            )}
-
-            {/* Full Table Ranking Individual */}
-            <Card className="bg-white border-gray-200">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-gray-900 flex items-center gap-2 text-lg">
-                  {rankingView === "offense" ? (
-                    <><Target className="w-5 h-5 text-red-500" /> Ranking de Ataque</>
-                  ) : (
-                    <><Shield className="w-5 h-5 text-blue-500" /> Ranking de Defensa</>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-gray-200 bg-gray-50">
-                        <th className="text-left py-3 px-3 font-semibold text-gray-700">#</th>
-                        <th className="text-left py-3 px-3 font-semibold text-gray-700 min-w-[180px]">Jugador</th>
-                        <th className="text-center py-3 px-2 font-semibold text-gray-500 text-xs">PJ</th>
-                        {rankColumns.map((col) => (
-                          <th
-                            key={col.key}
-                            onClick={() => handleRankSort(col.key)}
-                            className="text-center py-3 px-2 font-semibold text-gray-500 text-xs cursor-pointer hover:text-gray-900 transition-colors whitespace-nowrap select-none"
-                            title={col.label}
-                          >
-                            <span className="flex items-center justify-center gap-1">
-                              {col.short}
-                              {rankSortKey === col.key && (
-                                rankSortDir === "desc" ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />
-                              )}
-                            </span>
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedPlayers.map((item, idx) => (
-                        <tr key={item.player.id} className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${idx < 3 ? "bg-yellow-50/30" : ""}`}>
-                          <td className="py-2 px-3 font-bold text-gray-900">
-                            {idx < 3 ? (
-                              <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-bold ${
-                                idx === 0 ? "bg-yellow-500" : idx === 1 ? "bg-gray-400" : "bg-orange-500"
-                              }`}>
-                                {idx + 1}
-                              </span>
-                            ) : (
-                              <span className="text-gray-500">{idx + 1}</span>
-                            )}
-                          </td>
-                          <td className="py-2 px-3">
-                            <div className="flex items-center gap-2">
-                              {item.player.photo_url ? (
-                                <img src={item.player.photo_url} alt="" className="w-7 h-7 rounded-full object-cover" crossOrigin="anonymous" referrerPolicy="no-referrer" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }} />
-                              ) : (
-                                <span className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600">
-                                  {item.player.jersey_number}
-                                </span>
-                              )}
-                              <div className="min-w-0">
-                                <p className="font-medium text-gray-900 truncate text-sm">{item.player.name}</p>
-                                <p className="text-xs text-gray-500 truncate">{item.player.teams?.name}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="text-center py-2 px-2 text-gray-600">{item.games}</td>
-                          {rankColumns.map((col) => {
-                            const val = (item[col.key] as number) || 0
-                            return (
-                              <td key={col.key} className={`text-center py-2 px-2 ${rankSortKey === col.key ? "font-bold text-gray-900 bg-yellow-50/50" : "text-gray-600"}`}>
-                                {val}
-                              </td>
-                            )
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {sortedPlayers.length === 0 && (
-                  <div className="text-center py-8">
-                    <Trophy className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-                    <p className="text-gray-500">No hay estadisticas individuales registradas aun</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </>
-        )}
 
         {viewType === "teams" && (
           <>
