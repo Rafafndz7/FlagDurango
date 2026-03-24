@@ -126,29 +126,15 @@ interface AggregatedPlayer {
   [key: string]: unknown
 }
 
+// 🔥 COLUMNAS ACTUALIZADAS PARA COINCIDIR CON LA APP MÓVIL 🔥
 const OFFENSE_COLS: { key: string; label: string; short: string }[] = [
-  { key: "touchdowns_totales", label: "TDs Totales", short: "TD" },
-  { key: "puntos_totales", label: "Puntos", short: "PTS" },
-  { key: "yardas_totales", label: "Yardas Totales", short: "YDS" },
+  { key: "touchdowns_totales", label: "Anotaciones (TD)", short: "TD" },
   { key: "pases_completos", label: "Pases Completos", short: "PC" },
-  { key: "pases_intentados", label: "Pases Intentados", short: "PI" },
-  { key: "yardas_pase", label: "Yardas Pase", short: "YP" },
-  { key: "touchdowns_pase", label: "TD Pase", short: "TDP" },
-  { key: "recepciones", label: "Recepciones", short: "REC" },
-  { key: "yardas_recepcion", label: "Yardas Recepcion", short: "YR" },
-  { key: "touchdowns_recepcion", label: "TD Recepcion", short: "TDR" },
-  { key: "carreras", label: "Carreras", short: "CAR" },
-  { key: "yardas_carrera", label: "Yardas Carrera", short: "YC" },
-  { key: "touchdowns_carrera", label: "TD Carrera", short: "TDC" },
 ]
 
 const DEFENSE_COLS: { key: string; label: string; short: string }[] = [
   { key: "intercepciones", label: "Intercepciones", short: "INT" },
   { key: "sacks", label: "Sacks", short: "SCK" },
-  { key: "banderas_jaladas", label: "Banderas Jaladas", short: "BJ" },
-  { key: "pases_defendidos", label: "Pases Defendidos", short: "PD" },
-  { key: "touchdowns_intercepcion", label: "TD Intercepcion", short: "TDI" },
-  { key: "yardas_intercepcion", label: "Yardas INT", short: "YINT" },
 ]
 
 function normalizeCategory(v: string) {
@@ -193,7 +179,6 @@ export default function EstadisticasPage() {
   ]
 
   useEffect(() => {
-    // Cargar categorias habilitadas desde system_config
     const loadEnabledCategories = async () => {
       try {
         const res = await fetch("/api/system-config")
@@ -299,13 +284,11 @@ export default function EstadisticasPage() {
     }
   }
 
-  // Aggregate player stats
   const aggregatedPlayers: AggregatedPlayer[] = useMemo(() => {
     const map: Record<number, AggregatedPlayer> = {}
     for (const stat of playerStats) {
       const pid = stat.player_id
       if (!stat.players) continue
-      // Filter by category if selected
       if (selectedCategory !== "all" && stat.players.teams?.category) {
         if (normalizeCategory(stat.players.teams.category) !== normalizeCategory(selectedCategory)) continue
       }
@@ -411,7 +394,7 @@ export default function EstadisticasPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Hero Section - SIN overlay oscuro */}
+      {/* Hero Section */}
       <section
         className="relative py-20 overflow-hidden"
         style={{ background: "linear-gradient(to right, #0857b5, #e266be, #ff6d06)" }}
@@ -562,20 +545,38 @@ export default function EstadisticasPage() {
                             <p className="text-xs text-gray-500">{col?.label}</p>
                           </div>
                         </div>
+                        
+                        {/* Grid de stats actualizado a las 4 oficiales */}
                         <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-gray-100">
                           <div className="text-center">
-                            <p className="font-bold text-gray-900">{item.touchdowns_totales}</p>
-                            <p className="text-xs text-gray-500">TDs</p>
-                          </div>
-                          <div className="text-center">
-                            <p className="font-bold text-gray-900">{item.yardas_totales}</p>
-                            <p className="text-xs text-gray-500">Yardas</p>
-                          </div>
-                          <div className="text-center">
                             <p className="font-bold text-gray-900">{item.games}</p>
-                            <p className="text-xs text-gray-500">Partidos</p>
+                            <p className="text-xs text-gray-500">PJ</p>
                           </div>
+                          {rankingView === "offense" ? (
+                            <>
+                              <div className="text-center">
+                                <p className="font-bold text-gray-900">{item.touchdowns_totales}</p>
+                                <p className="text-xs text-gray-500">TD</p>
+                              </div>
+                              <div className="text-center">
+                                <p className="font-bold text-gray-900">{item.pases_completos}</p>
+                                <p className="text-xs text-gray-500">PC</p>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="text-center">
+                                <p className="font-bold text-gray-900">{item.intercepciones}</p>
+                                <p className="text-xs text-gray-500">INT</p>
+                              </div>
+                              <div className="text-center">
+                                <p className="font-bold text-gray-900">{item.sacks}</p>
+                                <p className="text-xs text-gray-500">Sacks</p>
+                              </div>
+                            </>
+                          )}
                         </div>
+
                       </CardContent>
                     </Card>
                   )
@@ -583,7 +584,7 @@ export default function EstadisticasPage() {
               </div>
             )}
 
-            {/* Full Table */}
+            {/* Full Table Ranking Individual */}
             <Card className="bg-white border-gray-200">
               <CardHeader className="pb-2">
                 <CardTitle className="text-gray-900 flex items-center gap-2 text-lg">
@@ -673,7 +674,7 @@ export default function EstadisticasPage() {
           </>
         )}
 
-        {viewType === "teams" ? (
+        {viewType === "teams" && (
           <>
             {/* MVP de la Jornada */}
             <div className="mb-8">
@@ -899,7 +900,9 @@ export default function EstadisticasPage() {
               </CardContent>
             </Card>
           </>
-        ) : (
+        )}
+
+        {viewType === "mvps" && (
           <>
             {/* Resumen de MVPs */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
