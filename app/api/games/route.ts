@@ -105,11 +105,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, message: error.message }, { status: 500 })
     }
 
-    // 🔥 SOLUCIÓN FECHA: Forzamos la fecha para que no brinque de día en el cliente web
+    // 🔥 LA MAGIA OCURRE AQUÍ 🔥
+    // Forzamos a que todas las fechas salgan marcando el mediodía local.
+    // Así JavaScript nunca las botará al día anterior en la web.
     const sanitizedData = data?.map((game) => {
       if (game.game_date) {
-        // Al convertir desde ISO, nos aseguramos que se envíe el string puro de la fecha (YYYY-MM-DD)
-        game.game_date = game.game_date.split('T')[0];
+        const baseDate = game.game_date.split('T')[0]; // Extrae solo "YYYY-MM-DD"
+        game.game_date = `${baseDate}T12:00:00`; // Le pega las 12 del mediodía SIN 'Z' (hora local)
       }
       return game;
     }) || [];
@@ -144,8 +146,7 @@ export async function POST(request: NextRequest) {
       season = "2025",
     } = body
 
-    // Validaciones básicas
-    if (!home_team || !away_team || !game_date || !game_time || !field || !category) {
+    if (!home_team || !away_team || !game_date || !game_time || !category) {
       return NextResponse.json({ success: false, message: "Faltan campos requeridos" }, { status: 400 })
     }
 
@@ -156,9 +157,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 🔥 SOLUCIÓN ZONA HORARIA: Agregamos "T12:00:00Z" a la fecha para que se guarde a mediodía en UTC 
-    // y la resta de horas no la bote al día anterior.
-    const safeDate = game_date.includes('T') ? game_date : `${game_date}T12:00:00Z`;
+    // 🔥 Protegemos también la inserción forzando el mediodía en UTC
+    const baseDate = game_date.split('T')[0];
+    const safeDate = `${baseDate}T12:00:00Z`;
 
     const { data, error } = await supabase
       .from("games")
@@ -168,10 +169,10 @@ export async function POST(request: NextRequest) {
           away_team,
           home_score: home_score || null,
           away_score: away_score || null,
-          game_date: safeDate, // Usamos la fecha segura
+          game_date: safeDate, 
           game_time,
-          venue: venue || null, // Lo dejamos opcional
-          field,
+          venue: venue || null,
+          field: field || null,
           category,
           status: status || "programado",
           match_type: match_type || "jornada",
@@ -206,9 +207,10 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, message: "ID del juego es requerido" }, { status: 400 })
     }
 
-    // 🔥 SOLUCIÓN ZONA HORARIA para actualizaciones (si editan la fecha)
-    if (updateData.game_date && !updateData.game_date.includes('T')) {
-      updateData.game_date = `${updateData.game_date}T12:00:00Z`;
+    // Si editan la fecha, también la protegemos
+    if (updateData.game_date) {
+      const baseDate = updateData.game_date.split('T')[0];
+      updateData.game_date = `${baseDate}T12:00:00Z`;
     }
 
     // OBTENEMOS EL ESTADO ACTUAL DEL JUEGO PARA SABER SI CAMBIÓ
@@ -261,7 +263,6 @@ export async function PUT(request: NextRequest) {
     // -------------------------------------------------------------------
     // DISPARADOR DE NOTIFICACIONES PUSH
     // -------------------------------------------------------------------
-    // Solo se manda si mandaron un status nuevo y es diferente al que ya tenía
     if (currentGame && updateData.status && currentGame.status !== updateData.status) {
       const homeTeam = updatedGame.home_team;
       const awayTeam = updatedGame.away_team;
