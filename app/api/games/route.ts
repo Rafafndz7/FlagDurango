@@ -105,13 +105,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, message: error.message }, { status: 500 })
     }
 
-    // 🔥 LA MAGIA OCURRE AQUÍ 🔥
-    // Forzamos a que todas las fechas salgan marcando el mediodía local.
-    // Así JavaScript nunca las botará al día anterior en la web.
+    // 🔥 AJUSTE PARA QUE LA WEB RESTE UN DÍA IGUAL QUE EL MÓVIL 🔥
+    // Lo enviamos a la medianoche UTC. Al recibirlo, la zona horaria le restará horas.
     const sanitizedData = data?.map((game) => {
       if (game.game_date) {
-        const baseDate = game.game_date.split('T')[0]; // Extrae solo "YYYY-MM-DD"
-        game.game_date = `${baseDate}T12:00:00`; // Le pega las 12 del mediodía SIN 'Z' (hora local)
+        const baseDate = game.game_date.split('T')[0]; 
+        game.game_date = `${baseDate}T00:00:00Z`; // Medianoche UTC
       }
       return game;
     }) || [];
@@ -157,9 +156,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 🔥 Protegemos también la inserción forzando el mediodía en UTC
+    // Forzamos la inserción en Medianoche UTC
     const baseDate = game_date.split('T')[0];
-    const safeDate = `${baseDate}T12:00:00Z`;
+    const safeDate = `${baseDate}T00:00:00Z`;
 
     const { data, error } = await supabase
       .from("games")
@@ -207,20 +206,18 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, message: "ID del juego es requerido" }, { status: 400 })
     }
 
-    // Si editan la fecha, también la protegemos
+    // Actualización de fecha a Medianoche UTC
     if (updateData.game_date) {
       const baseDate = updateData.game_date.split('T')[0];
-      updateData.game_date = `${baseDate}T12:00:00Z`;
+      updateData.game_date = `${baseDate}T00:00:00Z`;
     }
 
-    // OBTENEMOS EL ESTADO ACTUAL DEL JUEGO PARA SABER SI CAMBIÓ
     const { data: currentGame } = await supabase
       .from("games")
       .select("status, home_team, away_team")
       .eq("id", id)
       .single()
 
-    // Si el juego se marca como finalizado y tiene MVP, crear entrada en tabla mvps
     if (updateData.status === "finalizado" && updateData.mvp) {
       const { data: playerData, error: playerError } = await supabase
         .from("players")
@@ -229,7 +226,6 @@ export async function PUT(request: NextRequest) {
         .single()
 
       if (!playerError && playerData) {
-        // Usamos los nombres actualizados o los existentes
         const homeTeamName = updateData.home_team || currentGame?.home_team;
         const awayTeamName = updateData.away_team || currentGame?.away_team;
         
@@ -246,7 +242,6 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // SE ACTUALIZA LA BASE DE DATOS
     const { data, error } = await supabase.from("games").update(updateData).eq("id", id).select()
 
     if (error) {
