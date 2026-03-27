@@ -250,6 +250,7 @@ export default function AdminPage() {
 
   // Estados nuevos para edición y filtrado de jugadores
   const [playersTeamFilter, setPlayersTeamFilter] = useState<string>("")
+  const [playersSearchFilter, setPlayersSearchFilter] = useState<string>("")
   const [editingPlayerId, setEditingPlayerId] = useState<string | number | null>(null)
   const [editPlayerData, setEditPlayerData] = useState<any>({})
 
@@ -594,7 +595,7 @@ export default function AdminPage() {
     try {
       const [teamsRes, playersRes, gamesRes, paymentsRes, venuesRes, fieldsRes] = await Promise.all([
         fetch("/api/teams").catch(() => ({ json: () => ({ success: false, data: [] }) })),
-        fetch("/api/players").catch(() => ({ json: () => ({ success: false, data: [] }) })),
+        fetch("/api/players", { cache: "no-store" }).catch(() => ({ json: () => ({ success: false, data: [] }) })),
         fetch("/api/games").catch(() => ({ json: () => ({ success: false, data: [] }) })),
         fetch("/api/payments").catch(() => ({ json: () => ({ success: false, data: [] }) })),
         fetch("/api/venues").catch(() => ({ json: () => ({ success: false, data: [] }) })),
@@ -1781,24 +1782,32 @@ export default function AdminPage() {
             <div className="grid gap-6">
               <Card className="bg-white border border-gray-200">
                 <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                  <CardTitle className="text-gray-900 flex items-center">
+                  <CardTitle className="text-gray-900 flex items-center shrink-0">
                     <User className="w-5 h-5 mr-2" />
                     Información de Jugadores
                   </CardTitle>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-700">Filtrar por equipo:</span>
-                    <select
-                      value={playersTeamFilter}
-                      onChange={(e) => setPlayersTeamFilter(e.target.value)}
-                      className="p-2 rounded bg-white border border-gray-300 text-gray-900"
-                    >
-                      <option value="">Todos los equipos</option>
-                      {teams.map((team) => (
-                        <option key={team.id} value={team.id.toString()}>
-                          {team.name} ({team.category})
-                        </option>
-                      ))}
-                    </select>
+                  <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                    <Input
+                      placeholder="Buscar por nombre..."
+                      value={playersSearchFilter}
+                      onChange={(e) => setPlayersSearchFilter(e.target.value)}
+                      className="w-full sm:w-64 bg-white border-gray-300 text-gray-900"
+                    />
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                      <span className="text-sm text-gray-700 whitespace-nowrap">Filtrar por equipo:</span>
+                      <select
+                        value={playersTeamFilter}
+                        onChange={(e) => setPlayersTeamFilter(e.target.value)}
+                        className="p-2 rounded bg-white border border-gray-300 text-gray-900"
+                      >
+                        <option value="">Todos los equipos</option>
+                        {teams.map((team) => (
+                          <option key={team.id} value={team.id.toString()}>
+                            {team.name} ({team.category})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -1810,6 +1819,7 @@ export default function AdminPage() {
                   <div className="space-y-4">
                     {players
                       .filter((player) => !playersTeamFilter || player.team_id?.toString() === playersTeamFilter)
+                      .filter((player) => !playersSearchFilter || player.name.toLowerCase().includes(playersSearchFilter.toLowerCase()))
                       .map((player) => (
                       <Card key={player.id} className="border border-gray-200">
                         <CardContent className="p-4">
