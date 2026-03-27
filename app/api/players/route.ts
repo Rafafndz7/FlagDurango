@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
         )
       `)
       .order("name", { ascending: true })
+      .limit(5000) // <-- AQUÍ ESTÁ EL CAMBIO PARA EVITAR EL LÍMITE DE 1000
 
     if (error) {
       console.error("❌ Error fetching players:", error)
