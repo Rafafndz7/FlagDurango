@@ -165,6 +165,7 @@ interface Game {
   clock_running?: boolean
   clock_last_started_at?: string | null
   seconds_remaining?: number
+  jornada?: number | string | null
 }
 
 interface NewsArticle {
@@ -1030,9 +1031,13 @@ export default function AdminPage() {
     mvp?: string,
     referee1?: string,
     referee2?: string,
-    jornada?: string | number,       // <-- JORNADA
-    current_period?: string,         // <-- TIEMPO
-    seconds_remaining?: number       // <-- TIEMPO
+    jornada?: string | number,
+    current_period?: string,
+    seconds_remaining?: number,
+    game_date?: string,              // <-- NUEVO
+    game_time?: string,              // <-- NUEVO
+    venue?: string,                  // <-- NUEVO
+    field?: string                   // <-- NUEVO
   ) => {
     try {
       const updateData: any = { id, status }
@@ -1044,6 +1049,10 @@ export default function AdminPage() {
       if (jornada !== undefined) updateData.jornada = jornada ? Number(jornada) : null
       if (current_period !== undefined) updateData.current_period = current_period
       if (seconds_remaining !== undefined) updateData.seconds_remaining = seconds_remaining
+      if (game_date !== undefined) updateData.game_date = game_date // <-- NUEVO
+      if (game_time !== undefined) updateData.game_time = game_time // <-- NUEVO
+      if (venue !== undefined) updateData.venue = venue             // <-- NUEVO
+      if (field !== undefined) updateData.field = field             // <-- NUEVO
 
       const response = await fetch("/api/games", {
         method: "PUT",
@@ -1065,6 +1074,7 @@ export default function AdminPage() {
       alert("Error al actualizar partido")
     }
   }
+
   // Función para arrancar o pausar el tiempo en vivo
   const handleToggleClock = async () => {
     if (!editingGame) return
@@ -2533,7 +2543,6 @@ export default function AdminPage() {
                           <option value="finalizado">Finalizado</option>
                         </select>
                       </div>
-                      <div />
                       <div>
                         <Label className="text-black">Jornada</Label>
                         <Input
@@ -2544,6 +2553,46 @@ export default function AdminPage() {
                           placeholder="Ej: 1"
                         />
                       </div>
+                      
+                      {/* --- NUEVOS CAMPOS --- */}
+                      <div>
+                        <Label className="text-black">Fecha</Label>
+                        <Input
+                          type="date"
+                          value={editingGame.game_date ? editingGame.game_date.split("T")[0] : ""}
+                          onChange={(e) => setEditingGame({ ...editingGame, game_date: e.target.value })}
+                          className="bg-black/10 border-black/20 text-black"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-black">Hora</Label>
+                        <Input
+                          type="time"
+                          value={editingGame.game_time || ""}
+                          onChange={(e) => setEditingGame({ ...editingGame, game_time: e.target.value })}
+                          className="bg-black/10 border-black/20 text-black"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-black">Sede</Label>
+                        <Input
+                          value={editingGame.venue || ""}
+                          onChange={(e) => setEditingGame({ ...editingGame, venue: e.target.value })}
+                          className="bg-black/10 border-black/20 text-black placeholder:text-black/50"
+                          placeholder="Unidad Deportiva..."
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-black">Campo</Label>
+                        <Input
+                          value={editingGame.field || ""}
+                          onChange={(e) => setEditingGame({ ...editingGame, field: e.target.value })}
+                          className="bg-black/10 border-black/20 text-black placeholder:text-black/50"
+                          placeholder="Campo 1..."
+                        />
+                      </div>
+                      {/* --- FIN NUEVOS CAMPOS --- */}
+
                       <div>
                         <Label className="text-black">Árbitro Principal</Label>
                         <Input
@@ -2678,8 +2727,12 @@ export default function AdminPage() {
                             editingGame.referee1,
                             editingGame.referee2,
                             editingGame.jornada,
-                            editingGame.current_period,        // <-- NUEVO
-                            editingGame.seconds_remaining      // <-- NUEVO
+                            editingGame.current_period,
+                            editingGame.seconds_remaining,
+                            editingGame.game_date,
+                            editingGame.game_time,
+                            editingGame.venue,
+                            editingGame.field
                           )
                         }
                         className="bg-green-600 hover:bg-green-700 text-white"
