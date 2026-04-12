@@ -53,7 +53,6 @@ async function notifyTeamPlayers(teamName: string, title: string, body: string) 
 }
 // -------------------------------------------------------------------
 
-
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -106,7 +105,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, message: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, data: data || [] })
+    // 🔥 AJUSTE PARA QUE LA WEB RESTE UN DÍA IGUAL QUE EL MÓVIL 🔥
+    // Lo enviamos a la medianoche UTC. Al recibirlo, la zona horaria le restará horas.
+    const sanitizedData = data?.map((game) => {
+      if (game.game_date) {
+        const baseDate = game.game_date.split('T')[0]; 
+        game.game_date = `${baseDate}T00:00:00Z`; // Medianoche UTC
+      }
+      return game;
+    }) || [];
+
+    return NextResponse.json({ success: true, data: sanitizedData })
   } catch (error: any) {
     console.error("GET /api/games error:", error)
     return NextResponse.json({ success: false, message: error.message || "Error interno" }, { status: 500 })
@@ -136,8 +145,7 @@ export async function POST(request: NextRequest) {
       season = "2025",
     } = body
 
-    // Validaciones básicas
-    if (!home_team || !away_team || !game_date || !game_time || !venue || !field || !category) {
+    if (!home_team || !away_team || !game_date || !game_time || !category) {
       return NextResponse.json({ success: false, message: "Faltan campos requeridos" }, { status: 400 })
     }
 
@@ -148,6 +156,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Forzamos la inserción en Medianoche UTC
+    const baseDate = game_date.split('T')[0];
+    const safeDate = `${baseDate}T00:00:00Z`;
+
     const { data, error } = await supabase
       .from("games")
       .insert([
@@ -156,10 +168,10 @@ export async function POST(request: NextRequest) {
           away_team,
           home_score: home_score || null,
           away_score: away_score || null,
-          game_date,
+          game_date: safeDate, 
           game_time,
-          venue,
-          field,
+          venue: venue || null,
+          field: field || null,
           category,
           status: status || "programado",
           match_type: match_type || "jornada",
@@ -194,14 +206,18 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, message: "ID del juego es requerido" }, { status: 400 })
     }
 
-    // OBTENEMOS EL ESTADO ACTUAL DEL JUEGO PARA SABER SI CAMBIÓ
+    // Actualización de fecha a Medianoche UTC
+    if (updateData.game_date) {
+      const baseDate = updateData.game_date.split('T')[0];
+      updateData.game_date = `${baseDate}T00:00:00Z`;
+    }
+
     const { data: currentGame } = await supabase
       .from("games")
       .select("status, home_team, away_team")
       .eq("id", id)
       .single()
 
-    // Si el juego se marca como finalizado y tiene MVP, crear entrada en tabla mvps
     if (updateData.status === "finalizado" && updateData.mvp) {
       const { data: playerData, error: playerError } = await supabase
         .from("players")
@@ -210,7 +226,6 @@ export async function PUT(request: NextRequest) {
         .single()
 
       if (!playerError && playerData) {
-        // Usamos los nombres actualizados o los existentes
         const homeTeamName = updateData.home_team || currentGame?.home_team;
         const awayTeamName = updateData.away_team || currentGame?.away_team;
         
@@ -227,7 +242,6 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // SE ACTUALIZA LA BASE DE DATOS
     const { data, error } = await supabase.from("games").update(updateData).eq("id", id).select()
 
     if (error) {
@@ -244,7 +258,6 @@ export async function PUT(request: NextRequest) {
     // -------------------------------------------------------------------
     // DISPARADOR DE NOTIFICACIONES PUSH
     // -------------------------------------------------------------------
-    // Solo se manda si mandaron un status nuevo y es diferente al que ya tenía
     if (currentGame && updateData.status && currentGame.status !== updateData.status) {
       const homeTeam = updatedGame.home_team;
       const awayTeam = updatedGame.away_team;

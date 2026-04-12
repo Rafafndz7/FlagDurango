@@ -3,7 +3,7 @@ import {
   ShieldAlert, Users, Gavel, Scale, AlertTriangle, FileText, 
   Monitor, CheckSquare, Clock, CreditCard, UserCheck, 
   FileWarning, HeartPulse, Camera, ClipboardList, Ban,
-  MapPin, CloudLightning
+  MapPin, CloudLightning, BarChart, Trophy
 } from 'lucide-react';
 
 export const metadata = {
@@ -264,10 +264,39 @@ export default function ReglamentoPage() {
             </p>
           </section>
 
+          {/* NUEVA SECCIÓN DE ESTADÍSTICAS */}
+          <section>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center mb-4 border-b pb-2">
+              <BarChart className="w-6 h-6 mr-3 text-blue-600 dark:text-blue-400" />
+              15. Criterios de Estadísticas Individuales
+            </h2>
+            <p className="mb-4">Para llevar un control justo y estandarizado del rendimiento de los jugadores, la toma de estadísticas se rige estrictamente bajo los siguientes criterios:</p>
+            <ul className="list-disc pl-6 space-y-4">
+              <li>
+                <strong>Pases de Anotación (QB Pass):</strong> La estadística denominada "QB Pass" se refiere única y exclusivamente a los pases que terminan en anotación (Touchdowns lanzados).
+              </li>
+              <li>
+                <strong>Anotaciones de Carrera e Intercepciones (Pick-six):</strong> Las anotaciones logradas por vía terrestre (touchdown de carrera) no se contabilizan para las estadísticas individuales actuales. Asimismo, un <em>Pick-six</em> (intercepción devuelta hasta la zona de anotación) no cuenta como touchdown para el jugador defensivo en la tabla de anotación; sin embargo, <strong>sí se le registra como una intercepción en contra al mariscal de campo (QB)</strong> que lanzó el pase.
+              </li>
+              <li>
+                <strong>Capturas (Sacks):</strong> Es fundamental diferenciar entre el Quarterback oficial de la jugada y un pasador ocasional. Las capturas (Sacks) solo se registrarán en la estadística defensiva cuando la acción de quitar la bandera detrás de la línea de golpeo se realice sobre el <strong>QB nominal</strong>. Detener a un jugador distinto (como un corredor o receptor intentando un pase sorpresa) no contará como sack.
+              </li>
+            </ul>
+
+            <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 p-6 rounded-xl text-emerald-900 dark:text-emerald-200 shadow-sm mt-6">
+              <h3 className="font-bold flex items-center text-emerald-700 dark:text-emerald-500 text-lg mb-3 border-b border-emerald-200 dark:border-emerald-800 pb-2">
+                <Trophy className="w-6 h-6 mr-2" /> REGLA DE NOCAUT Y DEPORTIVIDAD
+              </h3>
+              <p className="text-sm md:text-base">
+                En pro del respeto al rival y para fomentar la deportividad, en el momento exacto en que un partido alcance la diferencia de puntos establecida para la regla de <strong>"Nocaut"</strong> (terminación anticipada del juego por amplia superioridad), <strong>se detendrá de inmediato el registro de estadísticas individuales</strong>. Esto se implementa para evitar humillaciones innecesarias y desincentivar que los equipos busquen abultar números personales en un encuentro que ya está definido.
+              </p>
+            </div>
+          </section>
+
           <section>
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center mb-4 border-b pb-2">
               <ShieldAlert className="w-6 h-6 mr-3 text-blue-600 dark:text-blue-400" />
-              15. Facultades de la Directiva y Aceptación
+              16. Facultades de la Directiva y Aceptación
             </h2>
             <ul className="list-disc pl-6 space-y-3">
               <li>Las decisiones de la mesa directiva (interpretación del reglamento, situaciones no contempladas y resoluciones disciplinarias) serán definitivas e inapelables.</li>

@@ -6,6 +6,9 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+// ==========================================
+// GET: Obtener detalles de un jugador
+// ==========================================
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -87,6 +90,95 @@ export async function GET(
     })
   } catch (error: any) {
     console.error("GET /api/players/[id] error:", error)
+    return NextResponse.json(
+      { success: false, message: error.message || "Error interno" },
+      { status: 500 }
+    )
+  }
+}
+
+// ==========================================
+// PUT: Editar los datos de un jugador
+// ==========================================
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+
+    if (!id || isNaN(Number(id))) {
+      return NextResponse.json(
+        { success: false, message: "ID invalido" },
+        { status: 400 }
+      )
+    }
+
+    const body = await request.json()
+    const { name, jersey_number, position, photo_url, team_id } = body
+
+    const { data, error } = await supabase
+      .from("players")
+      .update({
+        name,
+        jersey_number: jersey_number ? Number(jersey_number) : null,
+        position,
+        photo_url,
+        team_id: team_id ? Number(team_id) : null,
+      })
+      .eq("id", Number(id))
+      .select()
+      .single()
+
+    if (error) {
+      return NextResponse.json(
+        { success: false, message: error.message },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({ success: true, data })
+  } catch (error: any) {
+    console.error("PUT /api/players/[id] error:", error)
+    return NextResponse.json(
+      { success: false, message: error.message || "Error interno" },
+      { status: 500 }
+    )
+  }
+}
+
+// ==========================================
+// DELETE: Eliminar un jugador
+// ==========================================
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+
+    if (!id || isNaN(Number(id))) {
+      return NextResponse.json(
+        { success: false, message: "ID invalido" },
+        { status: 400 }
+      )
+    }
+
+    const { error } = await supabase
+      .from("players")
+      .delete()
+      .eq("id", Number(id))
+
+    if (error) {
+      return NextResponse.json(
+        { success: false, message: error.message },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({ success: true, message: "Jugador eliminado exitosamente" })
+  } catch (error: any) {
+    console.error("DELETE /api/players/[id] error:", error)
     return NextResponse.json(
       { success: false, message: error.message || "Error interno" },
       { status: 500 }

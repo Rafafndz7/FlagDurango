@@ -867,7 +867,7 @@ export default function CoachDashboard() {
     return games
       .filter((g) => myTeamNames.includes(g.home_team) || myTeamNames.includes(g.away_team))
       .filter((g) => g.status === "finalizado")
-      .sort((a, b) => new Date(b.game_date).getTime() - new Date(a.date_date).getTime())
+      .sort((a, b) => new Date(b.game_date).getTime() - new Date(a.game_date).getTime())
       .slice(0, 5)
   }
 
@@ -1349,10 +1349,18 @@ export default function CoachDashboard() {
                                     size="sm"
                                     onClick={() => document.getElementById(`team-logo-${team.id}`)?.click()}
                                     disabled={uploadingLogo}
-                                    className="mt-1 h-7 text-xs border-gray-300 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                                    className="border-gray-300 text-gray-700 hover:bg-gray-100 hover:text-gray-900"
                                   >
-                                    {uploadingLogo ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Upload className="h-3 w-3 mr-1" />}
-                                    {team.logo_url ? "Cambiar logo" : "Subir logo"}
+                                    {uploadingLogo ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : "Cambiar logo"}
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setTeamForm({ ...teamForm, logo_url: "" })}
+                                    className="border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
+                                  >
+                                    Quitar
                                   </Button>
                                 </div>
                               </div>
@@ -1581,10 +1589,23 @@ export default function CoachDashboard() {
                                     size="sm"
                                     variant="outline"
                                     className="border-red-300 text-red-600 hover:bg-red-50 bg-transparent"
-                                    onClick={() => {
-                                      if (confirm(`¿Eliminar a ${player.name}?`)) {
-                                        // TODO: Implement delete player API call
-                                        console.log("Delete player:", player.id)
+                                    onClick={async () => {
+                                      if (confirm(`¿Eliminar a ${player.name}? Esta acción no se puede deshacer.`)) {
+                                        try {
+                                          const res = await fetch(`/api/players/${player.id}`, { 
+                                            method: 'DELETE' 
+                                          });
+                                          const data = await res.json();
+                                          
+                                          if (data.success) {
+                                            setSuccess("Jugador eliminado exitosamente");
+                                            await loadDataOld(); // Recargar jugadores
+                                          } else {
+                                            setError(data.message || "Error al eliminar jugador");
+                                          }
+                                        } catch (err) {
+                                          setError("Error de conexión al intentar eliminar");
+                                        }
                                       }
                                     }}
                                   >

@@ -165,6 +165,7 @@ interface Game {
   clock_running?: boolean
   clock_last_started_at?: string | null
   seconds_remaining?: number
+  jornada?: number | string | null
 }
 
 interface NewsArticle {
@@ -250,6 +251,7 @@ export default function AdminPage() {
 
   // Estados nuevos para edición y filtrado de jugadores
   const [playersTeamFilter, setPlayersTeamFilter] = useState<string>("")
+  const [playersSearchFilter, setPlayersSearchFilter] = useState<string>("")
   const [editingPlayerId, setEditingPlayerId] = useState<string | number | null>(null)
   const [editPlayerData, setEditPlayerData] = useState<any>({})
 
@@ -594,7 +596,7 @@ export default function AdminPage() {
     try {
       const [teamsRes, playersRes, gamesRes, paymentsRes, venuesRes, fieldsRes] = await Promise.all([
         fetch("/api/teams").catch(() => ({ json: () => ({ success: false, data: [] }) })),
-        fetch("/api/players").catch(() => ({ json: () => ({ success: false, data: [] }) })),
+        fetch("/api/players", { cache: "no-store" }).catch(() => ({ json: () => ({ success: false, data: [] }) })),
         fetch("/api/games").catch(() => ({ json: () => ({ success: false, data: [] }) })),
         fetch("/api/payments").catch(() => ({ json: () => ({ success: false, data: [] }) })),
         fetch("/api/venues").catch(() => ({ json: () => ({ success: false, data: [] }) })),
@@ -1029,9 +1031,13 @@ export default function AdminPage() {
     mvp?: string,
     referee1?: string,
     referee2?: string,
-    jornada?: string | number,       // <-- JORNADA
-    current_period?: string,         // <-- TIEMPO
-    seconds_remaining?: number       // <-- TIEMPO
+    jornada?: string | number,
+    current_period?: string,
+    seconds_remaining?: number,
+    game_date?: string,              // <-- NUEVO
+    game_time?: string,              // <-- NUEVO
+    venue?: string,                  // <-- NUEVO
+    field?: string                   // <-- NUEVO
   ) => {
     try {
       const updateData: any = { id, status }
@@ -1043,6 +1049,10 @@ export default function AdminPage() {
       if (jornada !== undefined) updateData.jornada = jornada ? Number(jornada) : null
       if (current_period !== undefined) updateData.current_period = current_period
       if (seconds_remaining !== undefined) updateData.seconds_remaining = seconds_remaining
+      if (game_date !== undefined) updateData.game_date = game_date // <-- NUEVO
+      if (game_time !== undefined) updateData.game_time = game_time // <-- NUEVO
+      if (venue !== undefined) updateData.venue = venue             // <-- NUEVO
+      if (field !== undefined) updateData.field = field             // <-- NUEVO
 
       const response = await fetch("/api/games", {
         method: "PUT",
@@ -1064,6 +1074,7 @@ export default function AdminPage() {
       alert("Error al actualizar partido")
     }
   }
+
   // Función para arrancar o pausar el tiempo en vivo
   const handleToggleClock = async () => {
     if (!editingGame) return
@@ -1781,24 +1792,32 @@ export default function AdminPage() {
             <div className="grid gap-6">
               <Card className="bg-white border border-gray-200">
                 <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                  <CardTitle className="text-gray-900 flex items-center">
+                  <CardTitle className="text-gray-900 flex items-center shrink-0">
                     <User className="w-5 h-5 mr-2" />
                     Información de Jugadores
                   </CardTitle>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-700">Filtrar por equipo:</span>
-                    <select
-                      value={playersTeamFilter}
-                      onChange={(e) => setPlayersTeamFilter(e.target.value)}
-                      className="p-2 rounded bg-white border border-gray-300 text-gray-900"
-                    >
-                      <option value="">Todos los equipos</option>
-                      {teams.map((team) => (
-                        <option key={team.id} value={team.id.toString()}>
-                          {team.name} ({team.category})
-                        </option>
-                      ))}
-                    </select>
+                  <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                    <Input
+                      placeholder="Buscar por nombre..."
+                      value={playersSearchFilter}
+                      onChange={(e) => setPlayersSearchFilter(e.target.value)}
+                      className="w-full sm:w-64 bg-white border-gray-300 text-gray-900"
+                    />
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                      <span className="text-sm text-gray-700 whitespace-nowrap">Filtrar por equipo:</span>
+                      <select
+                        value={playersTeamFilter}
+                        onChange={(e) => setPlayersTeamFilter(e.target.value)}
+                        className="p-2 rounded bg-white border border-gray-300 text-gray-900"
+                      >
+                        <option value="">Todos los equipos</option>
+                        {teams.map((team) => (
+                          <option key={team.id} value={team.id.toString()}>
+                            {team.name} ({team.category})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -1810,6 +1829,7 @@ export default function AdminPage() {
                   <div className="space-y-4">
                     {players
                       .filter((player) => !playersTeamFilter || player.team_id?.toString() === playersTeamFilter)
+                      .filter((player) => !playersSearchFilter || player.name.toLowerCase().includes(playersSearchFilter.toLowerCase()))
                       .map((player) => (
                       <Card key={player.id} className="border border-gray-200">
                         <CardContent className="p-4">
@@ -2523,7 +2543,6 @@ export default function AdminPage() {
                           <option value="finalizado">Finalizado</option>
                         </select>
                       </div>
-                      <div />
                       <div>
                         <Label className="text-black">Jornada</Label>
                         <Input
@@ -2534,6 +2553,46 @@ export default function AdminPage() {
                           placeholder="Ej: 1"
                         />
                       </div>
+                      
+                      {/* --- NUEVOS CAMPOS --- */}
+                      <div>
+                        <Label className="text-black">Fecha</Label>
+                        <Input
+                          type="date"
+                          value={editingGame.game_date ? editingGame.game_date.split("T")[0] : ""}
+                          onChange={(e) => setEditingGame({ ...editingGame, game_date: e.target.value })}
+                          className="bg-black/10 border-black/20 text-black"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-black">Hora</Label>
+                        <Input
+                          type="time"
+                          value={editingGame.game_time || ""}
+                          onChange={(e) => setEditingGame({ ...editingGame, game_time: e.target.value })}
+                          className="bg-black/10 border-black/20 text-black"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-black">Sede</Label>
+                        <Input
+                          value={editingGame.venue || ""}
+                          onChange={(e) => setEditingGame({ ...editingGame, venue: e.target.value })}
+                          className="bg-black/10 border-black/20 text-black placeholder:text-black/50"
+                          placeholder="Unidad Deportiva..."
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-black">Campo</Label>
+                        <Input
+                          value={editingGame.field || ""}
+                          onChange={(e) => setEditingGame({ ...editingGame, field: e.target.value })}
+                          className="bg-black/10 border-black/20 text-black placeholder:text-black/50"
+                          placeholder="Campo 1..."
+                        />
+                      </div>
+                      {/* --- FIN NUEVOS CAMPOS --- */}
+
                       <div>
                         <Label className="text-black">Árbitro Principal</Label>
                         <Input
@@ -2668,8 +2727,12 @@ export default function AdminPage() {
                             editingGame.referee1,
                             editingGame.referee2,
                             editingGame.jornada,
-                            editingGame.current_period,        // <-- NUEVO
-                            editingGame.seconds_remaining      // <-- NUEVO
+                            editingGame.current_period,
+                            editingGame.seconds_remaining,
+                            editingGame.game_date,
+                            editingGame.game_time,
+                            editingGame.venue,
+                            editingGame.field
                           )
                         }
                         className="bg-green-600 hover:bg-green-700 text-white"
