@@ -249,6 +249,9 @@ export default function AdminPage() {
 
   const [isUploading, setIsUploading] = useState(false)
 
+  // Estado para los pagos de arbitraje separados
+  const [arbitrajeData, setArbitrajeData] = useState<Record<number, any>>({})
+
   // Estados nuevos para edición y filtrado de jugadores
   const [playersTeamFilter, setPlayersTeamFilter] = useState<string>("")
   const [playersSearchFilter, setPlayersSearchFilter] = useState<string>("")
@@ -382,6 +385,50 @@ export default function AdminPage() {
   })
 
   const canCreatePlayer = useMemo(() => !!newPlayer.team_id, [newPlayer.team_id])
+
+  // Lógica de Arbitraje: Actualiza el estado localmente mientras escribes
+  const updateArbitrajeLocal = (gameId: number, field: string, value: any) => {
+    setArbitrajeData(prev => ({
+      ...prev,
+      [gameId]: {
+        ...prev[gameId],
+        game_id: gameId,
+        paramedics_pay: prev[gameId]?.paramedics_pay ?? 100, // Mantiene el 100 por defecto
+        [field]: value
+      }
+    }))
+  }
+
+  // Lógica de Arbitraje: Guarda en la base de datos en la NUEVA tabla
+  const saveArbitraje = async (gameId: number) => {
+    const dataToSave = arbitrajeData[gameId] || { game_id: gameId, paramedics_pay: 100 }
+    try {
+      const response = await fetch("/api/arbitraje", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dataToSave),
+      })
+      const data = await response.json()
+      if (data.success) {
+        alert("Pago de arbitraje guardado exitosamente")
+      } else {
+        alert("Error al guardar: " + data.message)
+      }
+    } catch (error) {
+      alert("Error de conexión al guardar")
+    }
+  }
+
+  // Agrupar juegos por día para la vista de Arbitraje
+  const gamesByDate = useMemo(() => {
+    const grouped: Record<string, Game[]> = {}
+    games.forEach((g) => {
+      const date = g.game_date || "Sin Fecha Programada"
+      if (!grouped[date]) grouped[date] = []
+      grouped[date].push(g)
+    })
+    return grouped
+  }, [games])
 
   // Función genérica para subir imágenes
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, folder: string, callback: (url: string) => void) => {
@@ -618,6 +665,21 @@ export default function AdminPage() {
       if (paymentsData.success) setPayments(paymentsData.data)
       if (venuesData.success) setVenues(venuesData.data)
       if (fieldsData.success) setFields(fieldsData.data)
+
+      // Cargar pagos de arbitraje
+      try {
+        const arbRes = await fetch("/api/arbitraje")
+        const arbJson = await arbRes.json()
+        if (arbJson.success) {
+          const arbMap: Record<number, any> = {}
+          arbJson.data.forEach((item: any) => {
+            arbMap[item.game_id] = item
+          })
+          setArbitrajeData(arbMap)
+        }
+      } catch (e) {
+        console.error("No se pudo cargar el arbitraje")
+      }
 
       // Cargar cuentas de coach/usuario para asignacion
       try {
@@ -1341,87 +1403,94 @@ export default function AdminPage() {
         </Card>
 
         <Tabs defaultValue="teams" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-12 bg-white border border-gray-200">
+          <TabsList className="grid w-full grid-cols-12 bg-white border border-gray-200 h-auto flex-wrap">
             <TabsTrigger
               value="teams"
-              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700"
+              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
             >
               <Users className="w-4 h-4 mr-2" />
               Equipos
             </TabsTrigger>
             <TabsTrigger
               value="players"
-              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700"
+              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
             >
               <User className="w-4 h-4 mr-2" />
               Jugadores
             </TabsTrigger>
             <TabsTrigger
               value="games"
-              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700"
+              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
             >
               <Trophy className="w-4 h-4 mr-2" />
               Partidos
             </TabsTrigger>
             <TabsTrigger
-              value="payments"
-              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700"
+              value="arbitraje"
+              className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-900 text-gray-700 py-2 border-b-2 border-transparent data-[state=active]:border-blue-600"
             >
               <DollarSign className="w-4 h-4 mr-2" />
-              Pagos
+              Arbitraje Diario
+            </TabsTrigger>
+            <TabsTrigger
+              value="payments"
+              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
+            >
+              <DollarSign className="w-4 h-4 mr-2" />
+              Pagos Grales.
             </TabsTrigger>
             <TabsTrigger
               value="debts"
-              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700"
+              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
             >
               <DollarSign className="w-4 h-4 mr-2" />
               Deudas
             </TabsTrigger>
             <TabsTrigger
               value="stats"
-              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700"
+              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
             >
               <Target className="w-4 h-4 mr-2" />
               Estadisticas
             </TabsTrigger>
             <TabsTrigger
               value="calendar"
-              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700"
+              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
             >
               <Calendar className="w-4 h-4 mr-2" />
               Calendario
             </TabsTrigger>
             <TabsTrigger
               value="coaches"
-              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700"
+              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
             >
               <UserCheck className="w-4 h-4 mr-2" />
               Entrenadores
             </TabsTrigger>
             <TabsTrigger
               value="wildbrowl"
-              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700"
+              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
             >
               <Target className="w-4 h-4 mr-2" />
               WildBrowl
             </TabsTrigger>
             <TabsTrigger
               value="config"
-              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700"
+              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
             >
               <Settings className="w-4 h-4 mr-2" />
               Configuración
             </TabsTrigger>
             <TabsTrigger
               value="mvps"
-              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700"
+              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
             >
               <Star className="w-4 h-4 mr-2" />
               MVPs
             </TabsTrigger>
             <TabsTrigger
               value="qr"
-              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700"
+              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
             >
               <QrCode className="w-4 h-4 mr-2" />
               QR
@@ -2117,138 +2186,165 @@ export default function AdminPage() {
             </div>
           </TabsContent>
 
-          {/* Nueva pestaña de Deudas Específicas */}
-          <TabsContent value="debts">
+          {/* Nueva pestaña de Arbitraje por Día */}
+          <TabsContent value="arbitraje">
             <div className="grid gap-6">
-              <Card className="bg-white border border-gray-200">
-                <CardHeader>
-                  <CardTitle className="text-gray-900 flex items-center">
-                    <DollarSign className="w-5 h-5 mr-2" />
-                    Registrar Deuda Específica
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-gray-700">Equipo</Label>
-                      <select
-                        value={debtForm.team_id}
-                        onChange={(e) => setDebtForm({ ...debtForm, team_id: e.target.value })}
-                        className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900"
-                      >
-                        <option value="">Seleccionar equipo</option>
-                        {teams.map((team) => (
-                          <option key={team.id} value={team.id}>
-                            {team.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <Label className="text-gray-700">Tipo de Deuda</Label>
-                      <select
-                        value={debtForm.type}
-                        onChange={(e) => setDebtForm({ ...debtForm, type: e.target.value })}
-                        className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900"
-                      >
-                        <option value="arbitraje">Debe Arbitraje</option>
-                        <option value="fianza">Debe Fianza</option>
-                        <option value="multa">Multa</option>
-                        <option value="otros">Otros</option>
-                      </select>
-                    </div>
-                    <div>
-                      <Label className="text-gray-700">Monto</Label>
-                      <Input
-                        type="number"
-                        value={debtForm.amount}
-                        onChange={(e) => setDebtForm({ ...debtForm, amount: e.target.value })}
-                        className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500"
-                        placeholder="300"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-gray-700">Fecha límite</Label>
-                      <Input
-                        type="date"
-                        value={debtForm.due_date}
-                        onChange={(e) => setDebtForm({ ...debtForm, due_date: e.target.value })}
-                        className="bg-white border-gray-300 text-gray-900"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <Label className="text-gray-700">Descripción</Label>
-                      <Input
-                        value={debtForm.description}
-                        onChange={(e) => setDebtForm({ ...debtForm, description: e.target.value })}
-                        className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500"
-                        placeholder="Ej: Debe arbitraje por no presentar árbitro"
-                      />
-                    </div>
-                    {debtForm.type === "arbitraje" && (
-                      <div className="col-span-2">
-                        <Label className="text-gray-700">Referencia del Partido (opcional)</Label>
-                        <Input
-                          value={debtForm.game_reference}
-                          onChange={(e) => setDebtForm({ ...debtForm, game_reference: e.target.value })}
-                          className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500"
-                          placeholder="Ej: Wildcats VG vs Eagles VG - 15/08/2025"
-                        />
-                      </div>
-                    )}
-                  </div>
-                  <Button onClick={createSpecificDebt} className="w-full bg-orange-600 hover:bg-orange-700 text-white">
-                    Registrar Deuda
-                  </Button>
-                </CardContent>
-              </Card>
+              {Object.entries(gamesByDate)
+                .sort(([dateA], [dateB]) => new Date(dateB).getTime() - new Date(dateA).getTime())
+                .map(([date, dayGames]) => {
+                  
+                  // Calcular estadísticas del día usando la nueva tabla
+                  const totalCollected = dayGames.reduce((acc, g) => {
+                    const arb = arbitrajeData[g.id] || {}
+                    return acc + (arb.home_paid ? 320 : 0) + (arb.away_paid ? 320 : 0)
+                  }, 0)
+                  
+                  const totalParamedics = dayGames.reduce((acc, g) => {
+                    const arb = arbitrajeData[g.id] || { paramedics_pay: 100 }
+                    return acc + Number(arb.paramedics_pay)
+                  }, 0)
+                  
+                  const totalReferees = dayGames.reduce((acc, g) => {
+                    const arb = arbitrajeData[g.id] || {}
+                    return acc + (Number(arb.referee1_pay) || 0) + (Number(arb.referee2_pay) || 0)
+                  }, 0)
+                  
+                  const netProfit = totalCollected - totalParamedics - totalReferees
 
-              {/* Lista de deudas pendientes */}
-              <div className="grid gap-4">
-                {payments
-                  .filter((p) => p.status === "pending")
-                  .map((p) => (
-                    <Card key={p.id} className="bg-white/10 backdrop-blur-sm border-white/20">
-                      <CardContent className="p-4 flex items-center justify-between">
-                        <div>
-                          <div className="text-white font-semibold">
-                            {p.team?.name || p.player?.name || p.referee?.name || "Entidad"}
+                  return (
+                    <Card key={date} className="bg-white border border-gray-200 shadow-sm">
+                      <CardHeader className="bg-gray-50 border-b border-gray-100 pb-4">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                          <CardTitle className="text-xl text-gray-900 flex items-center">
+                            <Calendar className="w-5 h-5 mr-2 text-blue-600" />
+                            Partidos del: {date}
+                          </CardTitle>
+                          
+                          <div className="flex flex-wrap gap-3 text-sm">
+                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 py-1.5">
+                              Ingresos: ${totalCollected}
+                            </Badge>
+                            <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 py-1.5">
+                              Servicio Médico: -${totalParamedics}
+                            </Badge>
+                            <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 py-1.5">
+                              Árbitros: -${totalReferees}
+                            </Badge>
+                            <Badge className={`${netProfit >= 0 ? 'bg-blue-600' : 'bg-red-600'} text-white py-1.5`}>
+                              Ganancia del Día: ${netProfit}
+                            </Badge>
                           </div>
-                          <div className="text-white/70 text-sm">
-                            {p.payment_type || p.type} — ${p.amount.toFixed(2)} MXN
-                          </div>
-                          <div className="text-white/50 text-xs">{p.description}</div>
-                          <div className="text-white/50 text-xs">Vence: {p.due_date}</div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge className={`${getPaymentStatusColor(p.status)} text-white flex items-center gap-1`}>
-                            {getPaymentStatusIcon(p.status)}
-                            {p.status}
-                          </Badge>
-                          <Button
-                            size="sm"
-                            onClick={() => updatePaymentStatus(p.id, "paid")}
-                            className="bg-green-600 hover:bg-green-700 text-white"
-                          >
-                            Marcar Pagado
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleDelete("payments", p.id)}
-                            className="bg-red-600 hover:bg-red-700 text-white"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
+                      </CardHeader>
+                      <CardContent className="p-4 space-y-4">
+                        {dayGames.map((game) => {
+                          const arb = arbitrajeData[game.id] || { paramedics_pay: 100 }
+                          return (
+                            <div key={game.id} className="border border-gray-200 p-4 rounded-lg bg-white shadow-sm hover:border-blue-200 transition-colors">
+                              <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
+                                <div className="font-bold text-gray-800 text-lg">
+                                  {game.game_time} • <span className="text-blue-700">{game.home_team}</span> vs <span className="text-blue-700">{game.away_team}</span>
+                                </div>
+                                <Badge className={getStatusColor(game.status)}>{getStatusLabel(game.status)}</Badge>
+                              </div>
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
+                                {/* Checkboxes de Equipos */}
+                                <div className="space-y-3 lg:col-span-2 bg-gray-50 p-3 rounded-md border border-gray-100">
+                                  <Label className="text-gray-700 font-semibold mb-1 block">Recaudación ($320 c/u)</Label>
+                                  <label className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-1 rounded">
+                                    <input 
+                                      type="checkbox" 
+                                      className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                      checked={arb.home_paid || false} 
+                                      onChange={(e) => updateArbitrajeLocal(game.id, 'home_paid', e.target.checked)} 
+                                    />
+                                    <span className="text-gray-800">{game.home_team} pagó</span>
+                                  </label>
+                                  <label className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-1 rounded">
+                                    <input 
+                                      type="checkbox" 
+                                      className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                      checked={arb.away_paid || false} 
+                                      onChange={(e) => updateArbitrajeLocal(game.id, 'away_paid', e.target.checked)} 
+                                    />
+                                    <span className="text-gray-800">{game.away_team} pagó</span>
+                                  </label>
+                                </div>
+
+                                {/* Paramédicos */}
+                                <div>
+                                  <Label className="text-gray-700 text-xs font-semibold">Paramédicos (Total)</Label>
+                                  <div className="relative mt-1">
+                                    <span className="absolute left-3 top-2 text-gray-500">$</span>
+                                    <Input 
+                                      type="number" 
+                                      value={arb.paramedics_pay ?? 100} 
+                                      onChange={(e) => updateArbitrajeLocal(game.id, 'paramedics_pay', e.target.value)}
+                                      className="pl-7 bg-white border-gray-300 text-gray-900" 
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Árbitro 1 */}
+                                <div>
+                                  <Label className="text-gray-700 text-xs font-semibold truncate" title={game.referee1 || 'Árbitro Principal'}>
+                                    {game.referee1 || 'Árbitro 1'}
+                                  </Label>
+                                  <div className="relative mt-1">
+                                    <span className="absolute left-3 top-2 text-gray-500">$</span>
+                                    <Input 
+                                      type="number" 
+                                      value={arb.referee1_pay ?? 0} 
+                                      onChange={(e) => updateArbitrajeLocal(game.id, 'referee1_pay', e.target.value)}
+                                      className="pl-7 bg-white border-gray-300 text-gray-900" 
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Árbitro 2 */}
+                                <div>
+                                  <Label className="text-gray-700 text-xs font-semibold truncate" title={game.referee2 || 'Árbitro Asistente'}>
+                                    {game.referee2 || 'Árbitro 2'}
+                                  </Label>
+                                  <div className="relative mt-1">
+                                    <span className="absolute left-3 top-2 text-gray-500">$</span>
+                                    <Input 
+                                      type="number" 
+                                      value={arb.referee2_pay ?? 0} 
+                                      onChange={(e) => updateArbitrajeLocal(game.id, 'referee2_pay', e.target.value)}
+                                      className="pl-7 bg-white border-gray-300 text-gray-900" 
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="flex justify-end">
+                                  <Button 
+                                    onClick={() => saveArbitraje(game.id)} 
+                                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                                  >
+                                    Guardar
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
                       </CardContent>
                     </Card>
-                  ))}
-              </div>
+                  )
+                })}
+                {Object.keys(gamesByDate).length === 0 && (
+                  <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+                    <DollarSign className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <h3 className="text-lg font-medium text-gray-900">No hay partidos programados</h3>
+                    <p className="text-gray-500">Programa partidos en la pestaña de Juegos para administrar el arbitraje.</p>
+                  </div>
+                )}
             </div>
           </TabsContent>
 
-          {/* Resto de pestañas existentes... */}
+          {/* Partidos */}
           <TabsContent value="games">
             <div className="grid gap-6">
               <Card className="bg-white border border-gray-200">
@@ -2471,7 +2567,7 @@ export default function AdminPage() {
                   {games
                     .filter((game) => !gamesCategoryFilter || game.category === gamesCategoryFilter)
                     .map((game) => (
-                      <div key={game.id} className="flex items-center justify-between mb-4 p-4 bg-white/5 rounded">
+                      <div key={game.id} className="flex items-center justify-between mb-4 p-4 bg-gray-50 rounded border border-gray-100">
                         <div>
                           <h3 className="text-gray-900 font-semibold text-lg">
                             {game.home_team} vs {game.away_team}
@@ -2523,7 +2619,7 @@ export default function AdminPage() {
 
               {/* Edit Game Modal */}
               {editingGame && (
-                <Card className="bg-white border border-gray-200 fixed inset-4 z-50 overflow-auto">
+                <Card className="bg-white border border-gray-200 fixed inset-4 z-50 overflow-auto shadow-2xl">
                   <CardHeader>
                     <CardTitle className="text-black">
                       Editar Partido: {editingGame.home_team} vs {editingGame.away_team}
@@ -2536,7 +2632,7 @@ export default function AdminPage() {
                         <select
                           value={editingGame.status}
                           onChange={(e) => setEditingGame({ ...editingGame, status: e.target.value })}
-                          className="w-full p-2 rounded bg-black/10 border border-black/20 text-black"
+                          className="w-full p-2 rounded bg-gray-50 border border-gray-200 text-black"
                         >
                           <option value="programado">Programado</option>
                           <option value="en vivo">En Vivo</option>
@@ -2549,7 +2645,7 @@ export default function AdminPage() {
                           type="number"
                           value={editingGame.jornada || ""}
                           onChange={(e) => setEditingGame({ ...editingGame, jornada: e.target.value })}
-                          className="bg-black/10 border-black/20 text-black placeholder:text-black/50"
+                          className="bg-gray-50 border-gray-200 text-black placeholder:text-gray-400"
                           placeholder="Ej: 1"
                         />
                       </div>
@@ -2561,7 +2657,7 @@ export default function AdminPage() {
                           type="date"
                           value={editingGame.game_date ? editingGame.game_date.split("T")[0] : ""}
                           onChange={(e) => setEditingGame({ ...editingGame, game_date: e.target.value })}
-                          className="bg-black/10 border-black/20 text-black"
+                          className="bg-gray-50 border-gray-200 text-black"
                         />
                       </div>
                       <div>
@@ -2570,7 +2666,7 @@ export default function AdminPage() {
                           type="time"
                           value={editingGame.game_time || ""}
                           onChange={(e) => setEditingGame({ ...editingGame, game_time: e.target.value })}
-                          className="bg-black/10 border-black/20 text-black"
+                          className="bg-gray-50 border-gray-200 text-black"
                         />
                       </div>
                       <div>
@@ -2578,7 +2674,7 @@ export default function AdminPage() {
                         <Input
                           value={editingGame.venue || ""}
                           onChange={(e) => setEditingGame({ ...editingGame, venue: e.target.value })}
-                          className="bg-black/10 border-black/20 text-black placeholder:text-black/50"
+                          className="bg-gray-50 border-gray-200 text-black placeholder:text-gray-400"
                           placeholder="Unidad Deportiva..."
                         />
                       </div>
@@ -2587,7 +2683,7 @@ export default function AdminPage() {
                         <Input
                           value={editingGame.field || ""}
                           onChange={(e) => setEditingGame({ ...editingGame, field: e.target.value })}
-                          className="bg-black/10 border-black/20 text-black placeholder:text-black/50"
+                          className="bg-gray-50 border-gray-200 text-black placeholder:text-gray-400"
                           placeholder="Campo 1..."
                         />
                       </div>
@@ -2598,7 +2694,7 @@ export default function AdminPage() {
                         <Input
                           value={editingGame.referee1 || ""}
                           onChange={(e) => setEditingGame({ ...editingGame, referee1: e.target.value })}
-                          className="bg-black/10 border-black/20 text-black placeholder:text-black/50"
+                          className="bg-gray-50 border-gray-200 text-black placeholder:text-gray-400"
                           placeholder="Nombre del árbitro principal"
                         />
                       </div>
@@ -2607,7 +2703,7 @@ export default function AdminPage() {
                         <Input
                           value={editingGame.referee2 || ""}
                           onChange={(e) => setEditingGame({ ...editingGame, referee2: e.target.value })}
-                          className="bg-black/10 border-black/20 text-black placeholder:text-black/50"
+                          className="bg-gray-50 border-gray-200 text-black placeholder:text-gray-400"
                           placeholder="Nombre del árbitro asistente"
                         />
                       </div>
@@ -2621,7 +2717,7 @@ export default function AdminPage() {
                               onChange={(e) =>
                                 setEditingGame({ ...editingGame, home_score: Number.parseInt(e.target.value || "0") })
                               }
-                              className="bg-black/10 border-black/20 text-black"
+                              className="bg-gray-50 border-gray-200 text-black"
                             />
                           </div>
                           <div>
@@ -2632,7 +2728,7 @@ export default function AdminPage() {
                               onChange={(e) =>
                                 setEditingGame({ ...editingGame, away_score: Number.parseInt(e.target.value || "0") })
                               }
-                              className="bg-black/10 border-black/20 text-black"
+                              className="bg-gray-50 border-gray-200 text-black"
                             />
                           </div>
                         </>
@@ -2643,7 +2739,7 @@ export default function AdminPage() {
                           <Input
                             value={editingGame.mvp || ""}
                             onChange={(e) => setEditingGame({ ...editingGame, mvp: e.target.value })}
-                            className="bg-black/10 border-white/20 text-black placeholder:text-black/50"
+                            className="bg-gray-50 border-gray-200 text-black placeholder:text-gray-400"
                             placeholder="Nombre del MVP (opcional)"
                           />
                         </div>
@@ -2651,7 +2747,7 @@ export default function AdminPage() {
                     </div>
                     {/* --- PANEL DE CRONÓMETRO EN VIVO --- */}
                       {editingGame.status === "en vivo" && (
-                        <div className="col-span-2 bg-black/5 p-4 rounded-lg border border-black/10 mt-2">
+                        <div className="col-span-2 bg-gray-100 p-4 rounded-lg border border-gray-200 mt-2">
                           <h4 className="text-black font-bold mb-3 flex items-center gap-2">
                             <Clock className="w-4 h-4" /> Panel de Cronómetro
                           </h4>
@@ -2662,7 +2758,7 @@ export default function AdminPage() {
                               <select
                                 value={editingGame.current_period || "1H"}
                                 onChange={(e) => setEditingGame({ ...editingGame, current_period: e.target.value })}
-                                className="w-full p-2 rounded bg-white border border-black/20 text-black"
+                                className="w-full p-2 rounded bg-white border border-gray-200 text-black"
                               >
                                 <option value="1H">1ra Mitad</option>
                                 <option value="2H">2da Mitad</option>
@@ -2679,7 +2775,7 @@ export default function AdminPage() {
                                   const secs = (editingGame.seconds_remaining ?? 1200) % 60;
                                   setEditingGame({ ...editingGame, seconds_remaining: mins * 60 + secs });
                                 }}
-                                className="bg-white border-black/20 text-black"
+                                className="bg-white border-gray-200 text-black"
                               />
                             </div>
                             <div>
@@ -2693,7 +2789,7 @@ export default function AdminPage() {
                                   const secs = parseInt(e.target.value || "0");
                                   setEditingGame({ ...editingGame, seconds_remaining: mins * 60 + secs });
                                 }}
-                                className="bg-white border-black/20 text-black"
+                                className="bg-white border-gray-200 text-black"
                               />
                             </div>
                           </div>
@@ -2708,11 +2804,11 @@ export default function AdminPage() {
                         </div>
                       )}
 
-                    <div className="flex gap-3 justify-end">
+                    <div className="flex gap-3 justify-end mt-6">
                       <Button
                         variant="outline"
                         onClick={() => setEditingGame(null)}
-                        className="text-red border-black/20 hover:bg-black/10"
+                        className="text-gray-700 border-gray-300 hover:bg-gray-100"
                       >
                         Cancelar
                       </Button>
@@ -2746,7 +2842,7 @@ export default function AdminPage() {
             </div>
           </TabsContent>
 
-          {/* Pagos */}
+          {/* Pagos Generales */}
           <TabsContent value="payments">
             <div className="grid gap-6">
               <Card className="bg-white border border-gray-200">
@@ -2810,16 +2906,16 @@ export default function AdminPage() {
 
               <div className="grid gap-4">
                 {payments.map((p) => (
-                  <Card key={p.id} className="bg-white/10 backdrop-blur-sm border-white/20">
+                  <Card key={p.id} className="bg-gray-50 border-gray-200 shadow-sm">
                     <CardContent className="p-4 flex items-center justify-between">
                       <div>
-                        <div className="text-white font-semibold">
+                        <div className="text-gray-900 font-semibold">
                           {p.team?.name || p.player?.name || p.referee?.name || "Entidad"}
                         </div>
-                        <div className="text-white/70 text-sm">
-                          {p.payment_type} — ${p.amount.toFixed(2)} MXN
+                        <div className="text-gray-600 text-sm">
+                          {p.payment_type || p.type} — ${p.amount.toFixed(2)} MXN
                         </div>
-                        <div className="text-white/50 text-xs">Vence: {p.due_date}</div>
+                        <div className="text-gray-500 text-xs">Vence: {p.due_date}</div>
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge className={`${getPaymentStatusColor(p.status)} text-white flex items-center gap-1`}>
@@ -2835,10 +2931,149 @@ export default function AdminPage() {
                             Marcar Pagado
                           </Button>
                         )}
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDelete("payments", p.id)}
+                          className="bg-red-600 hover:bg-red-700 text-white"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
                 ))}
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Nueva pestaña de Deudas Específicas */}
+          <TabsContent value="debts">
+            <div className="grid gap-6">
+              <Card className="bg-white border border-gray-200">
+                <CardHeader>
+                  <CardTitle className="text-gray-900 flex items-center">
+                    <DollarSign className="w-5 h-5 mr-2" />
+                    Registrar Deuda Específica
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-gray-700">Equipo</Label>
+                      <select
+                        value={debtForm.team_id}
+                        onChange={(e) => setDebtForm({ ...debtForm, team_id: e.target.value })}
+                        className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900"
+                      >
+                        <option value="">Seleccionar equipo</option>
+                        {teams.map((team) => (
+                          <option key={team.id} value={team.id}>
+                            {team.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <Label className="text-gray-700">Tipo de Deuda</Label>
+                      <select
+                        value={debtForm.type}
+                        onChange={(e) => setDebtForm({ ...debtForm, type: e.target.value })}
+                        className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900"
+                      >
+                        <option value="arbitraje">Debe Arbitraje</option>
+                        <option value="fianza">Debe Fianza</option>
+                        <option value="multa">Multa</option>
+                        <option value="otros">Otros</option>
+                      </select>
+                    </div>
+                    <div>
+                      <Label className="text-gray-700">Monto</Label>
+                      <Input
+                        type="number"
+                        value={debtForm.amount}
+                        onChange={(e) => setDebtForm({ ...debtForm, amount: e.target.value })}
+                        className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500"
+                        placeholder="300"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-gray-700">Fecha límite</Label>
+                      <Input
+                        type="date"
+                        value={debtForm.due_date}
+                        onChange={(e) => setDebtForm({ ...debtForm, due_date: e.target.value })}
+                        className="bg-white border-gray-300 text-gray-900"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <Label className="text-gray-700">Descripción</Label>
+                      <Input
+                        value={debtForm.description}
+                        onChange={(e) => setDebtForm({ ...debtForm, description: e.target.value })}
+                        className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500"
+                        placeholder="Ej: Debe arbitraje por no presentar árbitro"
+                      />
+                    </div>
+                    {debtForm.type === "arbitraje" && (
+                      <div className="col-span-2">
+                        <Label className="text-gray-700">Referencia del Partido (opcional)</Label>
+                        <Input
+                          value={debtForm.game_reference}
+                          onChange={(e) => setDebtForm({ ...debtForm, game_reference: e.target.value })}
+                          className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500"
+                          placeholder="Ej: Wildcats VG vs Eagles VG - 15/08/2025"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <Button onClick={createSpecificDebt} className="w-full bg-orange-600 hover:bg-orange-700 text-white">
+                    Registrar Deuda
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Lista de deudas pendientes */}
+              <div className="grid gap-4">
+                {payments
+                  .filter((p) => p.status === "pending")
+                  .map((p) => (
+                    <Card key={p.id} className="bg-gray-50 border-gray-200 shadow-sm">
+                      <CardContent className="p-4 flex items-center justify-between">
+                        <div>
+                          <div className="text-gray-900 font-semibold">
+                            {p.team?.name || p.player?.name || p.referee?.name || "Entidad"}
+                          </div>
+                          <div className="text-gray-600 text-sm">
+                            {p.payment_type || p.type} — ${p.amount.toFixed(2)} MXN
+                          </div>
+                          <div className="text-gray-500 text-xs">{p.description}</div>
+                          <div className="text-gray-500 text-xs">Vence: {p.due_date}</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge className={`${getPaymentStatusColor(p.status)} text-white flex items-center gap-1`}>
+                            {getPaymentStatusIcon(p.status)}
+                            {p.status}
+                          </Badge>
+                          <Button
+                            size="sm"
+                            onClick={() => updatePaymentStatus(p.id, "paid")}
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                          >
+                            Marcar Pagado
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDelete("payments", p.id)}
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
               </div>
             </div>
           </TabsContent>
@@ -2874,13 +3109,13 @@ export default function AdminPage() {
                 </Card>
               ) : (
                 coachPermissions.map((perm) => (
-                  <Card key={perm.id} className="bg-white/10 backdrop-blur-sm border-white/20">
+                  <Card key={perm.id} className="bg-gray-50 border-gray-200 shadow-sm">
                     <CardContent className="p-4 flex items-center justify-between">
-                      <div className="text-white">
+                      <div className="text-gray-900">
                         <div className="font-semibold">
                           {perm.users.username} ({perm.users.email})
                         </div>
-                        <div className="text-sm text-white/70">
+                        <div className="text-sm text-gray-600">
                           Equipo: {perm.teams.name} — {perm.teams.category}
                         </div>
                       </div>
@@ -3105,7 +3340,7 @@ export default function AdminPage() {
                     placeholder="jugador@ejemplo.com"
                     value={accountForm.email}
                     onChange={(e) => setAccountForm({ ...accountForm, email: e.target.value })}
-                    className="mt-1"
+                    className="mt-1 bg-white border-gray-300 text-gray-900"
                   />
                 </div>
 
@@ -3117,7 +3352,7 @@ export default function AdminPage() {
                     placeholder="Minimo 6 caracteres"
                     value={accountForm.password}
                     onChange={(e) => setAccountForm({ ...accountForm, password: e.target.value })}
-                    className="mt-1"
+                    className="mt-1 bg-white border-gray-300 text-gray-900"
                   />
                   <p className="text-xs text-gray-500 mt-1">La contrasena sera visible para que puedas compartirla con el jugador.</p>
                 </div>
@@ -3247,7 +3482,7 @@ export default function AdminPage() {
                 <Button
                   variant="outline"
                   onClick={() => setPlayerCredentials(null)}
-                  className="border-gray-300 text-gray-900"
+                  className="border-gray-300 text-gray-900 hover:bg-gray-100"
                 >
                   Cerrar
                 </Button>
