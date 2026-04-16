@@ -214,6 +214,29 @@ interface CoachPermission {
   teams: { name: string; category: string }
 }
 
+// Nueva interfaz para Solicitudes
+interface JoinRequest {
+  id: number
+  player_user_id: number
+  player_id: number | null
+  team_id: number
+  player_name: string
+  position: string
+  jersey_number: number
+  phone: string | null
+  message: string | null
+  status: string
+  is_transfer: boolean
+  from_team_id: number | null
+  requires_coordinator_approval: boolean
+  created_at: string
+  teams?: {
+    id: number
+    name: string
+    category: string
+  }
+}
+
 export default function AdminPage() {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
@@ -227,6 +250,7 @@ export default function AdminPage() {
   const [venues, setVenues] = useState<Venue[]>([])
   const [fields, setFields] = useState<Field[]>([])
   const [coachPermissions, setCoachPermissions] = useState<CoachPermission[]>([])
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]) // Nuevo estado para solicitudes
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
   const [activeTab, setActiveTab] = useState("teams")
@@ -578,6 +602,97 @@ export default function AdminPage() {
     }
   }
 
+  const loadData = async () => {
+    try {
+      const [teamsRes, playersRes, gamesRes, paymentsRes, venuesRes, fieldsRes, requestsRes] = await Promise.all([
+        fetch("/api/teams").catch(() => ({ json: () => ({ success: false, data: [] }) })),
+        fetch("/api/players", { cache: "no-store" }).catch(() => ({ json: () => ({ success: false, data: [] }) })),
+        fetch("/api/games").catch(() => ({ json: () => ({ success: false, data: [] }) })),
+        fetch("/api/payments").catch(() => ({ json: () => ({ success: false, data: [] }) })),
+        fetch("/api/venues").catch(() => ({ json: () => ({ success: false, data: [] }) })),
+        fetch("/api/fields").catch(() => ({ json: () => ({ success: false, data: [] }) })),
+        fetch("/api/team-join-requests").catch(() => ({ json: () => ({ success: false, data: [] }) })),
+      ])
+
+      const [teamsData, playersData, gamesData, paymentsData, venuesData, fieldsData, requestsData] = await Promise.all([
+        teamsRes.json(),
+        playersRes.json(),
+        gamesRes.json(),
+        paymentsRes.json(),
+        venuesRes.json(),
+        fieldsRes.json(),
+        requestsRes.json(),
+      ])
+
+      if (teamsData.success) setTeams(teamsData.data)
+      if (playersData.success) setPlayers(playersData.data || [])
+      if (gamesData.success) setGames(gamesData.data)
+      if (paymentsData.success) setPayments(paymentsData.data)
+      if (venuesData.success) setVenues(venuesData.data)
+      if (fieldsData.success) setFields(fieldsData.data)
+      if (requestsData.success) setJoinRequests(requestsData.data || [])
+
+      // Cargar pagos de arbitraje
+      try {
+        const arbRes = await fetch("/api/arbitraje")
+        const arbJson = await arbRes.json()
+        if (arbJson.success) {
+          const arbMap: Record<number, any> = {}
+          arbJson.data.forEach((item: any) => {
+            arbMap[item.game_id] = item
+          })
+          setArbitrajeData(arbMap)
+        }
+      } catch (e) {
+        console.error("No se pudo cargar el arbitraje")
+      }
+
+      // Cargar cuentas de coach/usuario para asignacion
+      try {
+        const usersRes = await fetch("/api/users")
+        const usersData = await usersRes.json()
+        if (usersData.success) {
+          setCoachAccounts(usersData.data.filter((u: any) => u.role === "coach" || u.role === "admin" || u.role === "user"))
+        }
+      } catch {}
+
+      await loadSystemConfig()
+      await loadCoachPermissions()
+    } catch (error) {
+      console.error("Error loading data:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Nueva función para aceptar o rechazar solicitudes de jugadores
+  const handleJoinRequest = async (requestId: number, teamId: number, status: 'accepted' | 'rejected') => {
+    // Buscamos el coach del equipo para saltar la protección de la API
+    const team = teams.find(t => t.id === teamId)
+    const coachId = team?.coach_id || user?.id
+
+    try {
+      const res = await fetch("/api/team-join-requests", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: requestId,
+          status,
+          coach_user_id: coachId 
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        alert(`Solicitud ${status === 'accepted' ? 'aceptada' : 'rechazada'} exitosamente`)
+        loadData() 
+      } else {
+        alert(data.message || "Error al procesar la solicitud")
+      }
+    } catch (e) {
+      alert("Error de conexión")
+    }
+  }
+
   const toggleWildBrowl = async () => {
     const newValue = systemConfig.wildbrowl_enabled === "true" ? "false" : "true"
     await updateConfig("wildbrowl_enabled", newValue)
@@ -636,66 +751,6 @@ export default function AdminPage() {
     } catch (error) {
       console.error("Error approving coach:", error)
       alert("Error al aprobar entrenador")
-    }
-  }
-
-  const loadData = async () => {
-    try {
-      const [teamsRes, playersRes, gamesRes, paymentsRes, venuesRes, fieldsRes] = await Promise.all([
-        fetch("/api/teams").catch(() => ({ json: () => ({ success: false, data: [] }) })),
-        fetch("/api/players", { cache: "no-store" }).catch(() => ({ json: () => ({ success: false, data: [] }) })),
-        fetch("/api/games").catch(() => ({ json: () => ({ success: false, data: [] }) })),
-        fetch("/api/payments").catch(() => ({ json: () => ({ success: false, data: [] }) })),
-        fetch("/api/venues").catch(() => ({ json: () => ({ success: false, data: [] }) })),
-        fetch("/api/fields").catch(() => ({ json: () => ({ success: false, data: [] }) })),
-      ])
-
-      const [teamsData, playersData, gamesData, paymentsData, venuesData, fieldsData] = await Promise.all([
-        teamsRes.json(),
-        playersRes.json(),
-        gamesRes.json(),
-        paymentsRes.json(),
-        venuesRes.json(),
-        fieldsRes.json(),
-      ])
-
-      if (teamsData.success) setTeams(teamsData.data)
-      if (playersData.success) setPlayers(playersData.data || [])
-      if (gamesData.success) setGames(gamesData.data)
-      if (paymentsData.success) setPayments(paymentsData.data)
-      if (venuesData.success) setVenues(venuesData.data)
-      if (fieldsData.success) setFields(fieldsData.data)
-
-      // Cargar pagos de arbitraje
-      try {
-        const arbRes = await fetch("/api/arbitraje")
-        const arbJson = await arbRes.json()
-        if (arbJson.success) {
-          const arbMap: Record<number, any> = {}
-          arbJson.data.forEach((item: any) => {
-            arbMap[item.game_id] = item
-          })
-          setArbitrajeData(arbMap)
-        }
-      } catch (e) {
-        console.error("No se pudo cargar el arbitraje")
-      }
-
-      // Cargar cuentas de coach/usuario para asignacion
-      try {
-        const usersRes = await fetch("/api/users")
-        const usersData = await usersRes.json()
-        if (usersData.success) {
-          setCoachAccounts(usersData.data.filter((u: any) => u.role === "coach" || u.role === "admin" || u.role === "user"))
-        }
-      } catch {}
-
-      await loadSystemConfig()
-      await loadCoachPermissions()
-    } catch (error) {
-      console.error("Error loading data:", error)
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -1036,19 +1091,6 @@ export default function AdminPage() {
       setPlayers((prev) => prev.map((p) => (p.id === playerId ? { ...p, photo_url } : p)))
     } else {
       alert("No se pudo actualizar la foto")
-    }
-  }
-
-  async function toggleWildbrowl() {
-    const res = await fetch("/api/system-config", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ wildbrowl_enabled: !wildbrowlEnabled }),
-    })
-    if (res.ok) {
-      setWildbrowlEnabled((v) => !v)
-    } else {
-      alert("No se pudo actualizar WildBrowl")
     }
   }
 
@@ -1418,6 +1460,14 @@ export default function AdminPage() {
               <User className="w-4 h-4 mr-2" />
               Jugadores
             </TabsTrigger>
+            {/* Pestaña agregada de Solicitudes */}
+            <TabsTrigger
+              value="requests"
+              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              Solicitudes
+            </TabsTrigger>
             <TabsTrigger
               value="games"
               className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
@@ -1496,6 +1546,76 @@ export default function AdminPage() {
               QR
             </TabsTrigger>
           </TabsList>
+
+          {/* Solicitudes - Nueva Pestaña */}
+          <TabsContent value="requests">
+            <Card className="bg-white border border-gray-200">
+              <CardHeader>
+                <CardTitle className="text-gray-900 flex items-center">
+                  <UserPlus className="w-5 h-5 mr-2" />
+                  Solicitudes de Jugadores Pendientes
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4">
+                  {joinRequests.filter(req => req.status === 'pending' || req.status === 'pending_coordinator').length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      No hay solicitudes pendientes de jugadores en este momento.
+                    </div>
+                  ) : (
+                    joinRequests
+                      .filter(req => req.status === 'pending' || req.status === 'pending_coordinator')
+                      .map(request => (
+                        <Card key={request.id} className="bg-gray-50 border-gray-200 shadow-sm">
+                          <CardContent className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                              <div className="text-gray-900 font-semibold text-lg flex items-center gap-2 flex-wrap">
+                                {request.player_name}
+                                {request.is_transfer && <Badge className="bg-purple-600">Transferencia</Badge>}
+                                {request.status === 'pending_coordinator' && <Badge className="bg-yellow-600">Aprobación Especial</Badge>}
+                              </div>
+                              <div className="text-sm text-gray-600 mt-1">
+                                <span className="font-medium">Solicita unirse a:</span> {request.teams?.name} ({request.teams?.category})
+                              </div>
+                              <div className="text-sm text-gray-600">
+                                <span className="font-medium">Posición:</span> {request.position} | <span className="font-medium">Número Solicitado:</span> #{request.jersey_number}
+                              </div>
+                              {request.phone && (
+                                <div className="text-sm text-gray-600">
+                                  <span className="font-medium">Teléfono:</span> {request.phone}
+                                </div>
+                              )}
+                              {request.message && (
+                                <div className="text-sm text-gray-600 mt-2 italic border-l-2 border-gray-300 pl-2">
+                                  "{request.message}"
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Button
+                                onClick={() => handleJoinRequest(request.id, request.team_id, 'accepted')}
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                              >
+                                <Check className="w-4 h-4 mr-1" />
+                                Aceptar
+                              </Button>
+                              <Button
+                                onClick={() => handleJoinRequest(request.id, request.team_id, 'rejected')}
+                                variant="destructive"
+                                className="bg-red-600 hover:bg-red-700 text-white"
+                              >
+                                <XCircle className="w-4 h-4 mr-1" />
+                                Rechazar
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Equipos */}
           <TabsContent value="teams">
