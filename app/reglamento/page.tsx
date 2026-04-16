@@ -54,8 +54,7 @@ export default function ReglamentoPage() {
               <li><strong>Director General:</strong> Rafael Ortega (Encargado de dirigir la liga, autorizar decisiones importantes y resolver controversias mayores).</li>
               <li><strong>Coordinador Disciplinario:</strong> Jaime Rodríguez (Encargado de analizar protestas, aplicar sanciones y resolver conflictos deportivos y de conducta).</li>
               <li><strong>Coordinación de Árbitros:</strong> Daniel Herrera (Responsable de la evaluación del arbitraje y aplicación estricta del reglamento. <strong>Él realiza la distribución de los árbitros de la manera que mejor considere y sin favoritismos; por lo tanto, no se permite que coaches o capitanes soliciten la asignación o veto de árbitros específicos</strong>).</li>
-              <li><strong>Coordinadora de Altas, Bajas y Pagos:</strong> Penélope Álvarez (Responsable del control de rosters, elegibilidad y es la <strong>autoridad encargada del cobro de arbitraje</strong>).</li>
-              <li><strong>Coordinador de Tecnologías y Mantenimiento:</strong> Rafael Fernández (Encargado del control, programación y funcionamiento de la plataforma digital Web y App. Además, es la autoridad designada para realizar las revisiones en campo y auditar que los jugadores presentes en el terreno de juego coincidan exactamente con los registrados en la plataforma).</li>
+              <li><strong>Coordinador de Tecnologías, Mantenimiento y Pagos:</strong> Rafael Fernández (Encargado del control, programación y funcionamiento de la plataforma digital Web y App, así como del control de rosters y elegibilidad. Además, es la autoridad designada para realizar las revisiones en campo, auditar que los jugadores coincidan con los registrados en la plataforma, y es la <strong>autoridad encargada del cobro de arbitraje</strong>).</li>
               <li><strong>Coordinador de Redes Sociales y Multimedia:</strong> Ismael Morales (Responsable de la imagen, difusión y contenido multimedia de la liga).</li>
             </ul>
           </section>
@@ -144,7 +143,7 @@ export default function ReglamentoPage() {
                 <AlertTriangle className="w-6 h-6 mr-2" /> PAGO DE ARBITRAJE OBLIGATORIO
               </h3>
               <p className="mt-2 text-base">
-                El pago de arbitraje es de <strong>$320 MXN por juego</strong> y es de carácter OBLIGATORIO. En caso de no cubrir este pago, el equipo será sancionado y <strong>no tendrá derecho a jugar su siguiente partido</strong> hasta que pague el adeudo a la encargada correspondiente.
+                El pago de arbitraje es de <strong>$320 MXN por juego</strong> y es de carácter OBLIGATORIO. En caso de no cubrir este pago, el equipo será sancionado y <strong>no tendrá derecho a jugar su siguiente partido</strong> hasta que pague el adeudo al encargado correspondiente.
               </p>
             </div>
             <ol className="list-decimal pl-6 space-y-2">
