@@ -37,6 +37,7 @@ import AttendanceSection from "@/components/attendance-section"
 import PlayerStatsAdmin from "@/components/player-stats-admin"
 import QRScanner from "@/components/qr-scanner"
 import PrintableQRSheet from "@/components/printable-qr-sheet"
+import TeamQuickManager from "@/components/team-quick-manager" // <-- IMPORTADO AQUÍ
 
 type Team = {
   id?: any
@@ -1545,6 +1546,14 @@ export default function AdminPage() {
               <QrCode className="w-4 h-4 mr-2" />
               QR
             </TabsTrigger>
+            {/* NUEVO TAB: Gestión Rápida */}
+            <TabsTrigger
+              value="quick-manager"
+              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
+            >
+              <Target className="w-4 h-4 mr-2" />
+              Gestión Rápida
+            </TabsTrigger>
           </TabsList>
 
           {/* Solicitudes - Nueva Pestaña */}
@@ -1615,6 +1624,11 @@ export default function AdminPage() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* NUEVO CONTENIDO: Gestión Rápida */}
+          <TabsContent value="quick-manager">
+            <TeamQuickManager games={games} teams={teams} players={players} />
           </TabsContent>
 
           {/* Equipos */}
@@ -2454,13 +2468,13 @@ export default function AdminPage() {
                     </Card>
                   )
                 })}
-                {Object.keys(gamesByDate).length === 0 && (
-                  <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-                    <DollarSign className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <h3 className="text-lg font-medium text-gray-900">No hay partidos programados</h3>
-                    <p className="text-gray-500">Programa partidos en la pestaña de Juegos para administrar el arbitraje.</p>
-                  </div>
-                )}
+              {Object.keys(gamesByDate).length === 0 && (
+                <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+                  <DollarSign className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <h3 className="text-lg font-medium text-gray-900">No hay partidos programados</h3>
+                  <p className="text-gray-500">Programa partidos en la pestaña de Juegos para administrar el arbitraje.</p>
+                </div>
+              )}
             </div>
           </TabsContent>
 
