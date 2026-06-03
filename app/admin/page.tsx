@@ -2541,6 +2541,7 @@ const [gameForm, setGameForm] = useState({
                     
                     {/* NUEVO CAMPO: FASE DEL TORNEO */}
 <div>
+                      <div>
                       <Label className="text-gray-700">Fase del Torneo (Llaves)</Label>
                       <select
                         value={gameForm.stage}
@@ -2548,14 +2549,22 @@ const [gameForm, setGameForm] = useState({
                         className="w-full p-2 rounded bg-white border border-gray-300 text-blue-700 font-semibold"
                       >
                         <option value="regular">Temporada Regular (Suma puntos)</option>
-                        <option disabled>──────────</option>
-                        <option value="comodin_a">Playoffs: Comodín A (Llave 1)</option>
-                        <option value="comodin_b">Playoffs: Comodín B (Llave 2)</option>
-                        <option disabled>──────────</option>
-                        <option value="semifinal_a">Playoffs: Semifinal A (Llave 1)</option>
-                        <option value="semifinal_b">Playoffs: Semifinal B (Llave 2)</option>
-                        <option disabled>──────────</option>
-                        <option value="final">Playoffs: La Gran Final 🏆</option>
+                        
+                        <optgroup label="🏆 LLAVE A (ORO)">
+                          <option value="llave_a_comodin_1">Llave A - Comodín 1</option>
+                          <option value="llave_a_comodin_2">Llave A - Comodín 2</option>
+                          <option value="llave_a_semifinal_1">Llave A - Semifinal 1</option>
+                          <option value="llave_a_semifinal_2">Llave A - Semifinal 2</option>
+                          <option value="llave_a_final">Llave A - La Gran Final</option>
+                        </optgroup>
+
+                        <optgroup label="🥈 LLAVE B (PLATA)">
+                          <option value="llave_b_comodin_1">Llave B - Comodín 1</option>
+                          <option value="llave_b_comodin_2">Llave B - Comodín 2</option>
+                          <option value="llave_b_semifinal_1">Llave B - Semifinal 1</option>
+                          <option value="llave_b_semifinal_2">Llave B - Semifinal 2</option>
+                          <option value="llave_b_final">Llave B - La Gran Final</option>
+                        </optgroup>
                       </select>
                     </div>
                     
