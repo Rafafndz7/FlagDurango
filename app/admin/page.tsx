@@ -2540,8 +2540,7 @@ const [gameForm, setGameForm] = useState({
                     </div>
                     
                     {/* NUEVO CAMPO: FASE DEL TORNEO */}
-<div>
-                      <div>
+                 <div>
                       <Label className="text-gray-700">Fase del Torneo (Llaves)</Label>
                       <select
                         value={gameForm.stage}
