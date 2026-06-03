@@ -2550,18 +2550,18 @@ const [gameForm, setGameForm] = useState({
                         <option value="regular">Temporada Regular (Suma puntos)</option>
                         
                         <optgroup label="🏆 LLAVE A (ORO)">
-                          <option value="llave_a_comodin_1">Llave A - Comodín 1</option>
-                          <option value="llave_a_comodin_2">Llave A - Comodín 2</option>
-                          <option value="llave_a_semifinal_1">Llave A - Semifinal 1</option>
-                          <option value="llave_a_semifinal_2">Llave A - Semifinal 2</option>
+                          <option value="llave_a_comodin_a">Llave A - Comodín A</option>
+                          <option value="llave_a_comodin_b">Llave A - Comodín B</option>
+                          <option value="llave_a_semifinal_a">Llave A - Semifinal A</option>
+                          <option value="llave_a_semifinal_b">Llave A - Semifinal B</option>
                           <option value="llave_a_final">Llave A - La Gran Final</option>
                         </optgroup>
 
                         <optgroup label="🥈 LLAVE B (PLATA)">
-                          <option value="llave_b_comodin_1">Llave B - Comodín 1</option>
-                          <option value="llave_b_comodin_2">Llave B - Comodín 2</option>
-                          <option value="llave_b_semifinal_1">Llave B - Semifinal 1</option>
-                          <option value="llave_b_semifinal_2">Llave B - Semifinal 2</option>
+                          <option value="llave_b_comodin_a">Llave B - Comodín A</option>
+                          <option value="llave_b_comodin_b">Llave B - Comodín B</option>
+                          <option value="llave_b_semifinal_a">Llave B - Semifinal A</option>
+                          <option value="llave_b_semifinal_b">Llave B - Semifinal B</option>
                           <option value="llave_b_final">Llave B - La Gran Final</option>
                         </optgroup>
                       </select>
