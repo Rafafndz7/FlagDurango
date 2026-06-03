@@ -2540,18 +2540,22 @@ const [gameForm, setGameForm] = useState({
                     </div>
                     
                     {/* NUEVO CAMPO: FASE DEL TORNEO */}
-                    <div>
-                      <Label className="text-gray-700">Fase del Torneo (Stage)</Label>
+<div>
+                      <Label className="text-gray-700">Fase del Torneo (Llaves)</Label>
                       <select
                         value={gameForm.stage}
                         onChange={(e) => setGameForm({ ...gameForm, stage: e.target.value })}
                         className="w-full p-2 rounded bg-white border border-gray-300 text-blue-700 font-semibold"
                       >
                         <option value="regular">Temporada Regular (Suma puntos)</option>
-                        <option value="comodin">Playoffs: Comodín</option>
-                        <option value="quarterfinal">Playoffs: Cuartos de Final</option>
-                        <option value="semifinal">Playoffs: Semifinal</option>
-                        <option value="final">Playoffs: La Gran Final</option>
+                        <option disabled>──────────</option>
+                        <option value="comodin_a">Playoffs: Comodín A (Llave 1)</option>
+                        <option value="comodin_b">Playoffs: Comodín B (Llave 2)</option>
+                        <option disabled>──────────</option>
+                        <option value="semifinal_a">Playoffs: Semifinal A (Llave 1)</option>
+                        <option value="semifinal_b">Playoffs: Semifinal B (Llave 2)</option>
+                        <option disabled>──────────</option>
+                        <option value="final">Playoffs: La Gran Final 🏆</option>
                       </select>
                     </div>
                     
