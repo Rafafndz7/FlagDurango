@@ -358,7 +358,7 @@ export default function AdminPage() {
     game_reference: "", // Para referenciar un partido específico
   })
 
-  const [gameForm, setGameForm] = useState({
+const [gameForm, setGameForm] = useState({
     home_team: "",
     away_team: "",
     game_date: "",
@@ -373,7 +373,8 @@ export default function AdminPage() {
     home_score: "",
     away_score: "",
     match_type: "jornada",
-    game_type: "flag", // Asegurar que siempre tenga un valor por defecto
+    game_type: "flag",
+    stage: "regular", // <-- ESTO ES LO NUEVO
     mvp: "",
   })
 
@@ -1097,7 +1098,6 @@ export default function AdminPage() {
 
   const createGame = async () => {
     try {
-      // Formatear body enviando jornada convertida a entero si existe
       const payload = {
         ...gameForm,
         jornada: gameForm.jornada ? parseInt(gameForm.jornada) : null
@@ -1106,17 +1106,18 @@ export default function AdminPage() {
       const response = await fetch("/api/games", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload), // Usamos el payload formateado
+        body: JSON.stringify(payload), 
       })
 
       const data = await response.json()
-
       if (data.success) {
         setGameForm({
           home_team: "", away_team: "", game_date: "", game_time: "", 
-          venue: "", field: "", jornada: "", // <-- reseteamos jornada
+          venue: "", field: "", jornada: "", 
           category: "varonil-libre", referee1: "", referee2: "", 
-          status: "programado", match_type: "jornada", game_type: "flag", mvp: "",
+          status: "programado", match_type: "jornada", game_type: "flag",
+          stage: "regular", // <-- ESTO ES LO NUEVO
+          mvp: "",
         })
         loadData()
         alert("Partido creado exitosamente")
@@ -2508,19 +2509,19 @@ export default function AdminPage() {
                         onChange={(e) => setGameForm({ ...gameForm, category: e.target.value })}
                         className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900"
                       >
-                        <option value="varonil-libre">Varonil Libre (VL)</option>
-                        <option value="varonil-master">Varonil Master (VM)</option>
-                        <option value="varonil-gold">Varonil Gold (VG)</option>
-                        <option value="varonil-silver">Varonil Silver (VS)</option>
-                        <option value="varonil-cooper">Varonil Cooper (VC)</option> {/* NUEVA */}
-                        <option value="femenil-gold">Femenil Gold (FG)</option>
-                        <option value="femenil-silver">Femenil Silver (FS)</option>
-                        <option value="femenil-cooper">Femenil Cooper (FC)</option>
-                        <option value="mixto-gold">Mixto Gold (MG)</option>
-                        <option value="mixto-silver">Mixto Silver (MS)</option>
-                        <option value="mixto-cooper">Mixto Cooper (MC)</option> {/* NUEVA */}
-                        <option value="mixto-recreativo">Mixto Recreativo (MR)</option>
-                        <option value="teens">Teens (T)</option>
+                        <option value="varonil-libre">Varonil Libre</option>
+                        <option value="varonil-master">Varonil Master</option>
+                        <option value="varonil-gold">Varonil Gold</option>
+                        <option value="varonil-silver">Varonil Silver</option>
+                        <option value="varonil-cooper">Varonil Cooper</option>
+                        <option value="femenil-gold">Femenil Gold</option>
+                        <option value="femenil-silver">Femenil Silver</option>
+                        <option value="femenil-cooper">Femenil Cooper</option>
+                        <option value="mixto-gold">Mixto Gold</option>
+                        <option value="mixto-silver">Mixto Silver</option>
+                        <option value="mixto-cooper">Mixto Cooper</option>
+                        <option value="mixto-recreativo">Mixto Recreativo</option>
+                        <option value="teens">Teens</option>
                       </select>
                     </div>
                     <div>
@@ -2531,12 +2532,29 @@ export default function AdminPage() {
                         className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900"
                       >
                         <option value="jornada">Jornada</option>
+                        <option value="comodin">Comodín</option>
                         <option value="semifinal">Semifinal</option>
                         <option value="final">Final</option>
                         <option value="amistoso">Amistoso</option>
                       </select>
                     </div>
-                    <div />
+                    
+                    {/* NUEVO CAMPO: FASE DEL TORNEO */}
+                    <div>
+                      <Label className="text-gray-700">Fase del Torneo (Stage)</Label>
+                      <select
+                        value={gameForm.stage}
+                        onChange={(e) => setGameForm({ ...gameForm, stage: e.target.value })}
+                        className="w-full p-2 rounded bg-white border border-gray-300 text-blue-700 font-semibold"
+                      >
+                        <option value="regular">Temporada Regular (Suma puntos)</option>
+                        <option value="comodin">Playoffs: Comodín</option>
+                        <option value="quarterfinal">Playoffs: Cuartos de Final</option>
+                        <option value="semifinal">Playoffs: Semifinal</option>
+                        <option value="final">Playoffs: La Gran Final</option>
+                      </select>
+                    </div>
+                    
                     {gameForm.game_type === "flag" ? (
                       <>
                         <div>
@@ -2548,6 +2566,7 @@ export default function AdminPage() {
                             required
                           >
                             <option value="">Seleccionar equipo</option>
+                            <option value="Por definir" className="font-bold text-blue-600">Por definir (Esperando rival)</option>
                             {teams
                               .filter((t) => t.category === gameForm.category)
                               .map((t) => (
@@ -2566,6 +2585,7 @@ export default function AdminPage() {
                             required
                           >
                             <option value="">Seleccionar equipo</option>
+                            <option value="Por definir" className="font-bold text-blue-600">Por definir (Esperando rival)</option>
                             {teams
                               .filter((t) => t.category === gameForm.category)
                               .map((t) => (
@@ -2685,13 +2705,13 @@ export default function AdminPage() {
                       <option value="varonil-master">Varonil Master</option>
                       <option value="varonil-gold">Varonil Gold</option>
                       <option value="varonil-silver">Varonil Silver</option>
-                      <option value="varonil-cooper">Varonil Cooper</option> {/* NUEVA */}
+                      <option value="varonil-cooper">Varonil Cooper</option>
                       <option value="femenil-gold">Femenil Gold</option>
                       <option value="femenil-silver">Femenil Silver</option>
                       <option value="femenil-cooper">Femenil Cooper</option>
                       <option value="mixto-gold">Mixto Gold</option>
                       <option value="mixto-silver">Mixto Silver</option>
-                      <option value="mixto-cooper">Mixto Cooper</option> {/* NUEVA */}
+                      <option value="mixto-cooper">Mixto Cooper</option>
                       <option value="mixto-recreativo">Mixto Recreativo</option>
                       <option value="teens">Teens</option>
                     </select>
@@ -2715,11 +2735,18 @@ export default function AdminPage() {
                           <div className="text-gray-600 text-sm">
                             Árbitros: {[game.referee1, game.referee2].filter(Boolean).join(", ") || "Sin asignar"}
                           </div>
-                          {game.game_type && (
-                            <Badge className="mt-1 bg-purple-600 text-white">
-                              {game.game_type === "wildbrowl" ? "WildBrowl 1v1" : "Flag Football"}
-                            </Badge>
-                          )}
+                          <div className="flex gap-2 mt-1">
+                            {game.game_type && (
+                              <Badge className="bg-purple-600 text-white">
+                                {game.game_type === "wildbrowl" ? "WildBrowl 1v1" : "Flag Football"}
+                              </Badge>
+                            )}
+                            {game.stage && game.stage !== 'regular' && (
+                               <Badge className="bg-orange-500 text-white capitalize">
+                                 {game.stage === 'comodin' ? 'Comodín' : game.stage}
+                               </Badge>
+                            )}
+                          </div>
                         </div>
                         <div className="flex items-center space-x-2">
                           <Badge className={`${getStatusColor(game.status)} text-white`}>
@@ -2751,7 +2778,6 @@ export default function AdminPage() {
                 </CardContent>
               </Card>
 
-              {/* Edit Game Modal */}
               {editingGame && (
                 <Card className="bg-white border border-gray-200 fixed inset-4 z-50 overflow-auto shadow-2xl">
                   <CardHeader>
@@ -2784,7 +2810,6 @@ export default function AdminPage() {
                         />
                       </div>
                       
-                      {/* --- NUEVOS CAMPOS --- */}
                       <div>
                         <Label className="text-black">Fecha</Label>
                         <Input
@@ -2821,7 +2846,6 @@ export default function AdminPage() {
                           placeholder="Campo 1..."
                         />
                       </div>
-                      {/* --- FIN NUEVOS CAMPOS --- */}
 
                       <div>
                         <Label className="text-black">Árbitro Principal</Label>
@@ -2879,7 +2903,6 @@ export default function AdminPage() {
                         </div>
                       )}
                     </div>
-                    {/* --- PANEL DE CRONÓMETRO EN VIVO --- */}
                       {editingGame.status === "en vivo" && (
                         <div className="col-span-2 bg-gray-100 p-4 rounded-lg border border-gray-200 mt-2">
                           <h4 className="text-black font-bold mb-3 flex items-center gap-2">
