@@ -114,6 +114,14 @@ export async function POST(req: NextRequest) {
     if (!name || !category || !seasonId) {
       return NextResponse.json({ success: false, message: "Nombre y categoría son requeridos" }, { status: 400 })
     }
+    const { data: selectedSeason, error: selectedSeasonError } = await supabase
+      .from("seasons")
+      .select("year")
+      .eq("id", seasonId)
+      .single()
+    if (selectedSeasonError || !selectedSeason) {
+      return NextResponse.json({ success: false, message: "La temporada seleccionada no existe" }, { status: 400 })
+    }
 
     const normalizedCategory = normalizeCategory(category)
 
@@ -145,6 +153,7 @@ export async function POST(req: NextRequest) {
       coordinator_phone: coordinator_phone || null,
       captain_photo_url: captain_photo_url || null,
       season_id: seasonId,
+      season: selectedSeason.year,
       paid: isAdmin(req) ? Boolean(paid) : false,
     }
 
@@ -179,6 +188,17 @@ export async function PUT(req: NextRequest) {
     if (!isAdmin(req)) {
       delete updateData.season_id
       delete updateData.paid
+    }
+    if (updateData.season_id) {
+      const { data: selectedSeason, error: seasonError } = await supabase
+        .from("seasons")
+        .select("year")
+        .eq("id", updateData.season_id)
+        .single()
+      if (seasonError || !selectedSeason) {
+        return NextResponse.json({ success: false, message: "La temporada seleccionada no existe" }, { status: 400 })
+      }
+      updateData.season = selectedSeason.year
     }
 
     const { data, error } = await supabase.from("teams").update(updateData).eq("id", id).select().single()

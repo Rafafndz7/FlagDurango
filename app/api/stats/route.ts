@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Obtener equipos
-    let teamsQuery = supabase.from("teams").select("*").eq("status", "active")
+    let teamsQuery = supabase.from("teams").select("*").eq("status", "active").eq("season_id", seasonId)
 
     if (category && category !== "all") {
       teamsQuery = teamsQuery.eq("category", category)
