@@ -10,12 +10,19 @@ function normalizeCategory(value: unknown): string {
     .trim()
 }
 
+function isAdmin(req: NextRequest) {
+  try {
+    return JSON.parse(req.cookies.get("auth-token")?.value || "{}").role === "admin"
+  } catch { return false }
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
     const id = searchParams.get("id")
     const ids = searchParams.get("ids")
     const coach_id = searchParams.get("coach_id")
+    const seasonId = searchParams.get("season")
 
     if (id) {
       const teamId = Number.parseInt(id)
@@ -66,7 +73,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: true, data: data || [] })
     }
 
-    const { data, error } = await supabase.from("teams").select("*").order("name", { ascending: true })
+    let query = supabase.from("teams").select("*, seasons(id, name, year, is_active)")
+    if (seasonId) query = query.eq("season_id", seasonId)
+    const { data, error } = await query.order("name", { ascending: true })
     if (error) return NextResponse.json({ success: false, message: error.message }, { status: 500 })
     return NextResponse.json({ success: true, data: data || [] })
   } catch (e) {
@@ -93,9 +102,16 @@ export async function POST(req: NextRequest) {
       coach_phone,
       coach_photo_url,
       coach_id,
+      season_id: requestedSeasonId,
+      paid,
     } = body
 
-    if (!name || !category) {
+    let seasonId = requestedSeasonId
+    if (!seasonId) {
+      const { data: activeSeason } = await supabase.from("seasons").select("id").eq("is_active", true).maybeSingle()
+      seasonId = activeSeason?.id
+    }
+    if (!name || !category || !seasonId) {
       return NextResponse.json({ success: false, message: "Nombre y categoría son requeridos" }, { status: 400 })
     }
 
@@ -128,7 +144,8 @@ export async function POST(req: NextRequest) {
       coordinator_name: coordinator_name || null,
       coordinator_phone: coordinator_phone || null,
       captain_photo_url: captain_photo_url || null,
-      paid: false,
+      season_id: seasonId,
+      paid: isAdmin(req) ? Boolean(paid) : false,
     }
 
     if (captain_name !== undefined) base.captain_name = captain_name
@@ -158,6 +175,10 @@ export async function PUT(req: NextRequest) {
 
     if (updateData.category) {
       updateData.category = normalizeCategory(updateData.category)
+    }
+    if (!isAdmin(req)) {
+      delete updateData.season_id
+      delete updateData.paid
     }
 
     const { data, error } = await supabase.from("teams").update(updateData).eq("id", id).select().single()

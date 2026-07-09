@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Trophy, Users, Calendar, Plus, Edit, Trash2, DollarSign, Clock, Target, Star, UserPlus, Key, Copy, Check, Upload, Loader2, Medal, UserCheck, UserX, Inbox } from "lucide-react"
 import CoachChampionships from "@/components/coach-championships"
+import type { Season } from "@/lib/seasons"
 
 interface CoachDashboardUser {
   id: number
@@ -186,7 +187,18 @@ export default function CoachDashboard() {
     is_institutional: false,
     coordinator_name: "",
     coordinator_phone: "",
+    season_id: "",
   })
+  const [seasons, setSeasons] = useState<Season[]>([])
+
+  useEffect(() => {
+    fetch("/api/seasons").then((response) => response.json()).then((result) => {
+      if (!result.success) return
+      setSeasons(result.data || [])
+      const active = result.data?.find((season: Season) => season.is_active)
+      if (active) setTeamForm((current) => ({ ...current, season_id: current.season_id || active.id }))
+    })
+  }, [])
 
   // Forms
   const [gameForm, setGameForm] = useState<GameForm>({
@@ -526,6 +538,7 @@ export default function CoachDashboard() {
           is_institutional: false,
           coordinator_name: "",
           coordinator_phone: "",
+          season_id: seasons.find((season) => season.is_active)?.id || "",
         })
         setCoachPhotoUrl("")
         setError(null)
@@ -1415,7 +1428,7 @@ export default function CoachDashboard() {
                   {potentialMatches.length > 0 && (
                     <div className="mt-8">
                       <h3 className="text-xl font-bold text-gray-900 mb-4">Equipos Disponibles para Asignar</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+		                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {potentialMatches.slice(0, 4).map((match) => (
                           <Card key={match.team_id} className="bg-white border-gray-200">
                             <CardContent className="p-4">
@@ -1697,7 +1710,15 @@ export default function CoachDashboard() {
                   <Card className="bg-white border-gray-200">
                     <CardContent className="p-6">
                       <form onSubmit={createTeam} className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-gray-900">Temporada</Label>
+                            <select value={teamForm.season_id} onChange={(e) => setTeamForm({ ...teamForm, season_id: e.target.value })} className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900" required>
+                              <option value="">Seleccionar temporada</option>
+                              {seasons.map((season) => <option key={season.id} value={season.id}>{season.name}{season.is_active ? " (activa)" : ""}</option>)}
+                            </select>
+                          </div>
+
+	                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
                             <Label className="text-gray-900">Nombre del Equipo</Label>
                             <Input

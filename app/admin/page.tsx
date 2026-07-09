@@ -59,6 +59,8 @@ type Team = {
   color1?: string
   color2?: string
   paid?: boolean
+  season_id?: string
+  seasons?: { id: string; name: string; year: number; is_active: boolean } | null
   stats?: {
     games_played: number
     wins: number
@@ -304,6 +306,8 @@ export default function AdminPage() {
     coordinator_phone: "",
     color1: "#3B82F6",
     color2: "#1E40AF",
+    season_id: "",
+    paid: false,
   })
 
   const [quickPlayer, setQuickPlayer] = useState({
@@ -391,7 +395,10 @@ const [gameForm, setGameForm] = useState({
       if (!result.success) return
       setSeasons(result.data || [])
       const active = result.data?.find((season: Season) => season.is_active)
-      if (active) setGameForm((current) => ({ ...current, season_id: current.season_id || active.id }))
+      if (active) {
+        setGameForm((current) => ({ ...current, season_id: current.season_id || active.id }))
+        setTeamForm((current) => ({ ...current, season_id: current.season_id || active.id }))
+      }
     })
   }, [])
 
@@ -884,6 +891,10 @@ const [gameForm, setGameForm] = useState({
   }
 
   const createTeam = async () => {
+    if (!teamForm.season_id) {
+      alert("Selecciona la temporada del equipo")
+      return
+    }
     try {
       const response = await fetch("/api/teams", {
         method: "POST",
@@ -909,6 +920,8 @@ const [gameForm, setGameForm] = useState({
           coordinator_phone: "",
           color1: "#3B82F6",
           color2: "#1E40AF",
+          season_id: seasons.find((season) => season.is_active)?.id || "",
+          paid: false,
         })
         loadData()
         alert("Equipo creado exitosamente")
@@ -1698,8 +1711,19 @@ const [gameForm, setGameForm] = useState({
                         <option value="teens">Teens (T)</option>
                       </select>
                     </div>
-                    <div>
-                      <Label className="text-gray-700">Color 1</Label>
+                      <div>
+                        <Label className="text-gray-700">Temporada *</Label>
+                        <select required value={teamForm.season_id} onChange={(e) => setTeamForm({ ...teamForm, season_id: e.target.value })} className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900">
+                          <option value="">Selecciona una temporada</option>
+                          {seasons.map((season) => <option key={season.id} value={season.id}>{season.name}{season.is_active ? " (activa)" : ""}</option>)}
+                        </select>
+                      </div>
+                      <label className="flex items-center gap-3 rounded-lg border border-gray-300 p-3">
+                        <input type="checkbox" checked={teamForm.paid} onChange={(e) => setTeamForm({ ...teamForm, paid: e.target.checked })} />
+                        <span className="text-gray-700">Inscripción pagada</span>
+                      </label>
+	                    <div>
+	                      <Label className="text-gray-700">Color 1</Label>
                       <Input
                         type="color"
                         value={teamForm.color1}
@@ -1830,8 +1854,19 @@ const [gameForm, setGameForm] = useState({
                                 <option value="teens">Teens (T)</option>
                               </select>
                             </div>
-                            <div>
-                              <Label className="text-gray-700">Logo del Equipo</Label>
+                              <div>
+                                <Label className="text-gray-700">Temporada</Label>
+                                <select value={editTeamData.season_id || ""} onChange={(e) => setEditTeamData({ ...editTeamData, season_id: e.target.value })} className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900">
+                                  <option value="">Selecciona una temporada</option>
+                                  {seasons.map((season) => <option key={season.id} value={season.id}>{season.name}{season.is_active ? " (activa)" : ""}</option>)}
+                                </select>
+                              </div>
+                              <label className="flex items-center gap-3 rounded-lg border border-gray-300 p-3">
+                                <input type="checkbox" checked={Boolean(editTeamData.paid)} onChange={(e) => setEditTeamData({ ...editTeamData, paid: e.target.checked })} />
+                                <span className="text-gray-700">Inscripción pagada</span>
+                              </label>
+	                            <div>
+	                              <Label className="text-gray-700">Logo del Equipo</Label>
                               <div className="flex items-center gap-4 mt-1">
                                 {editTeamData.logo_url && (
                                   <img 
@@ -1955,7 +1990,10 @@ const [gameForm, setGameForm] = useState({
                               <h3 className="text-gray-900 font-semibold text-lg">{team.name}</h3>
                               <div className="flex items-center gap-2 flex-wrap">
                                 <Badge className="bg-blue-600 text-white">{team.category}</Badge>
-                                {team.paid && <Badge className="bg-green-600 text-white">Pagado</Badge>}
+	                                <Badge className={team.paid ? "bg-green-600 text-white" : "bg-yellow-600 text-white"}>
+                                    {team.paid ? "Pagado" : "No pagado"}
+                                  </Badge>
+                                  {team.seasons?.name && <Badge variant="outline">{team.seasons.name}</Badge>}
                               </div>
                               <div className="text-xs text-gray-500 mt-1 space-y-0.5">
                                 {team.coach_name && <div>Coach: {team.coach_name} {team.coach_phone ? `(${team.coach_phone})` : ""}</div>}
@@ -1984,9 +2022,11 @@ const [gameForm, setGameForm] = useState({
                                   coach_phone: team.coach_phone || "",
                                   coach_id: team.coach_id || null,
                                   captain_name: team.captain_name || "",
-                                  captain_phone: team.captain_phone || "",
-                                  logo_url: team.logo_url || "",
-                                })
+	                                  captain_phone: team.captain_phone || "",
+	                                  logo_url: team.logo_url || "",
+                                    season_id: team.season_id || "",
+                                    paid: Boolean(team.paid),
+	                                })
                               }}
                               className="border-gray-300 text-gray-700 hover:bg-gray-100"
                             >
@@ -2627,7 +2667,7 @@ const [gameForm, setGameForm] = useState({
                             <option value="">Seleccionar equipo</option>
                             <option value="Por definir" className="font-bold text-blue-600">Por definir (Esperando rival)</option>
                             {teams
-                              .filter((t) => t.category === gameForm.category)
+                              .filter((t) => t.category === gameForm.category && t.season_id === gameForm.season_id)
                               .map((t) => (
                                 <option key={t.id} value={t.name}>
                                   {t.name}
@@ -2646,7 +2686,7 @@ const [gameForm, setGameForm] = useState({
                             <option value="">Seleccionar equipo</option>
                             <option value="Por definir" className="font-bold text-blue-600">Por definir (Esperando rival)</option>
                             {teams
-                              .filter((t) => t.category === gameForm.category)
+                              .filter((t) => t.category === gameForm.category && t.season_id === gameForm.season_id)
                               .map((t) => (
                                 <option key={t.id} value={t.name}>
                                   {t.name}

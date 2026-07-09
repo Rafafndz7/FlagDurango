@@ -2,7 +2,8 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import type { Season } from "@/lib/seasons"
 import { useRouter } from "next/navigation"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -17,10 +18,23 @@ export default function RegisterTeamPage() {
     email: "",
     password: "",
     confirmPassword: "",
+    teamName: "",
+    category: "varonil-libre",
+    season_id: "",
   })
+  const [seasons, setSeasons] = useState<Season[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+
+  useEffect(() => {
+    fetch("/api/seasons").then((response) => response.json()).then((result) => {
+      if (!result.success) return
+      setSeasons(result.data || [])
+      const active = result.data?.find((season: Season) => season.is_active)
+      if (active) setFormData((current) => ({ ...current, season_id: active.id }))
+    })
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -56,6 +70,23 @@ export default function RegisterTeamPage() {
       const data = await response.json()
 
       if (data.success) {
+        const teamResponse = await fetch("/api/teams", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: formData.teamName,
+            category: formData.category,
+            season_id: formData.season_id,
+            coach_id: data.data.id,
+            coach_name: formData.username,
+            paid: false,
+          }),
+        })
+        const teamData = await teamResponse.json()
+        if (!teamData.success) {
+          setError(`La cuenta se creó, pero el equipo no: ${teamData.message}`)
+          return
+        }
         setSuccess(true)
         setTimeout(() => {
           router.push("/login")
@@ -71,7 +102,7 @@ export default function RegisterTeamPage() {
     }
   }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
@@ -107,6 +138,35 @@ export default function RegisterTeamPage() {
             </CardHeader>
             <CardContent className="px-8 pb-8">
               <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <Label htmlFor="teamName" className="text-gray-700 font-medium">Nombre del equipo</Label>
+                    <Input id="teamName" name="teamName" required value={formData.teamName} onChange={handleChange} className="mt-1" placeholder="Nombre sin sufijo" />
+                  </div>
+                  <div>
+                    <Label htmlFor="category" className="text-gray-700 font-medium">Categoría</Label>
+                    <select id="category" name="category" required value={formData.category} onChange={handleChange} className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2">
+                      <option value="varonil-libre">Varonil Libre</option>
+                      <option value="varonil-master">Varonil Master</option>
+                      <option value="varonil-gold">Varonil Gold</option>
+                      <option value="varonil-silver">Varonil Silver</option>
+                      <option value="femenil-gold">Femenil Gold</option>
+                      <option value="femenil-silver">Femenil Silver</option>
+                      <option value="mixto-gold">Mixto Gold</option>
+                      <option value="mixto-silver">Mixto Silver</option>
+                      <option value="mixto-recreativo">Mixto Recreativo</option>
+                      <option value="teens">Teens</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="season_id" className="text-gray-700 font-medium">Temporada</Label>
+                  <select id="season_id" name="season_id" required value={formData.season_id} onChange={handleChange} className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2">
+                    <option value="">Selecciona una temporada</option>
+                    {seasons.map((season) => <option key={season.id} value={season.id}>{season.name}{season.is_active ? " (activa)" : ""}</option>)}
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500">El equipo quedará pendiente de pago hasta que administración lo confirme.</p>
+                </div>
                 <div>
                   <Label htmlFor="username" className="text-gray-700 font-medium">
                     Nombre de Usuario

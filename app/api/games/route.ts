@@ -181,6 +181,22 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       )
     }
+    if (sport_type !== "wildbrowl") {
+      const { data: eligibleTeams, error: teamsError } = await supabase
+        .from("teams")
+        .select("name")
+        .eq("season_id", selectedSeasonId)
+        .in("name", [home_team, away_team])
+      if (teamsError) {
+        return NextResponse.json({ success: false, message: teamsError.message }, { status: 500 })
+      }
+      if ((eligibleTeams || []).length !== 2) {
+        return NextResponse.json(
+          { success: false, message: "Ambos equipos deben pertenecer a la temporada seleccionada." },
+          { status: 400 },
+        )
+      }
+    }
 
     // Forzamos la inserción en Medianoche UTC
     const baseDate = game_date.split('T')[0];
