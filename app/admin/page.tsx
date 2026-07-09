@@ -37,6 +37,8 @@ import AttendanceSection from "@/components/attendance-section"
 import PlayerStatsAdmin from "@/components/player-stats-admin"
 import QRScanner from "@/components/qr-scanner"
 import PrintableQRSheet from "@/components/printable-qr-sheet"
+import Link from "next/link"
+import type { Season } from "@/lib/seasons"
 import TeamQuickManager from "@/components/team-quick-manager" // <-- IMPORTADO AQUÍ
 
 type Team = {
@@ -162,6 +164,9 @@ interface Game {
   created_at?: string
   mvp?: string
   game_type?: string
+  season_id?: string
+  counts_for_standings?: boolean
+  stage?: string | null
   current_period?: string
   clock_running?: boolean
   clock_last_started_at?: string | null
@@ -373,10 +378,22 @@ const [gameForm, setGameForm] = useState({
     home_score: "",
     away_score: "",
     match_type: "jornada",
-    game_type: "flag",
+    sport_type: "flag",
+    game_type: "regular",
+    season_id: "",
     stage: "regular", // <-- ESTO ES LO NUEVO
     mvp: "",
   })
+  const [seasons, setSeasons] = useState<Season[]>([])
+
+  useEffect(() => {
+    fetch("/api/seasons").then((response) => response.json()).then((result) => {
+      if (!result.success) return
+      setSeasons(result.data || [])
+      const active = result.data?.find((season: Season) => season.is_active)
+      if (active) setGameForm((current) => ({ ...current, season_id: current.season_id || active.id }))
+    })
+  }, [])
 
   const [newsForm, setNewsForm] = useState({
     title: "",
@@ -1115,7 +1132,9 @@ const [gameForm, setGameForm] = useState({
           home_team: "", away_team: "", game_date: "", game_time: "", 
           venue: "", field: "", jornada: "", 
           category: "varonil-libre", referee1: "", referee2: "", 
-          status: "programado", match_type: "jornada", game_type: "flag",
+          status: "programado", match_type: "jornada", sport_type: "flag",
+          game_type: "regular", season_id: seasons.find((season) => season.is_active)?.id || "",
+          home_score: "", away_score: "",
           stage: "regular", // <-- ESTO ES LO NUEVO
           mvp: "",
         })
@@ -2489,13 +2508,41 @@ const [gameForm, setGameForm] = useState({
                     Programar Nuevo Partido
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+	                <CardContent className="space-y-4">
+                    <div className="flex justify-end">
+                      <Button asChild variant="outline"><Link href="/admin/temporadas">Administrar temporadas</Link></Button>
+                    </div>
+	                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label className="text-gray-700">Tipo de Juego</Label>
+                      <Label className="text-gray-700">Temporada *</Label>
                       <select
+                        required
+                        value={gameForm.season_id}
+                        onChange={(e) => setGameForm({ ...gameForm, season_id: e.target.value })}
+                        className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900"
+                      >
+                        <option value="">Selecciona una temporada</option>
+                        {seasons.map((season) => <option key={season.id} value={season.id}>{season.name}{season.is_active ? " (activa)" : ""}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <Label className="text-gray-700">Competencia *</Label>
+                      <select
+                        required
                         value={gameForm.game_type}
                         onChange={(e) => setGameForm({ ...gameForm, game_type: e.target.value })}
+                        className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900"
+                      >
+                        <option value="regular">Temporada regular (suma puntos)</option>
+                        <option value="playoff">Playoff (no suma puntos)</option>
+                        <option value="friendly">Amistoso / exhibición (no suma puntos)</option>
+                      </select>
+                    </div>
+	                    <div>
+	                      <Label className="text-gray-700">Formato</Label>
+                      <select
+                        value={gameForm.sport_type}
+                        onChange={(e) => setGameForm({ ...gameForm, sport_type: e.target.value })}
                         className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900"
                       >
                         <option value="flag">Flag Football</option>
@@ -2567,7 +2614,7 @@ const [gameForm, setGameForm] = useState({
                       </select>
                     </div>
                     
-                    {gameForm.game_type === "flag" ? (
+                    {gameForm.sport_type === "flag" ? (
                       <>
                         <div>
                           <Label className="text-gray-700">Equipo Local</Label>
@@ -2748,11 +2795,11 @@ const [gameForm, setGameForm] = useState({
                             Árbitros: {[game.referee1, game.referee2].filter(Boolean).join(", ") || "Sin asignar"}
                           </div>
                           <div className="flex gap-2 mt-1">
-                            {game.game_type && (
-                              <Badge className="bg-purple-600 text-white">
-                                {game.game_type === "wildbrowl" ? "WildBrowl 1v1" : "Flag Football"}
-                              </Badge>
-                            )}
+	                            {game.game_type && (
+	                              <Badge className={game.game_type === "regular" ? "bg-green-600 text-white" : game.game_type === "playoff" ? "bg-orange-600 text-white" : "bg-slate-600 text-white"}>
+	                                {game.game_type === "regular" ? "Regular · suma puntos" : game.game_type === "playoff" ? "Playoff · no suma" : "Amistoso · no suma"}
+	                              </Badge>
+	                            )}
                             {game.stage && game.stage !== 'regular' && (
                                <Badge className="bg-orange-500 text-white capitalize">
                                  {game.stage === 'comodin' ? 'Comodín' : game.stage}

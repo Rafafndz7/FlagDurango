@@ -5,7 +5,14 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const category = searchParams.get("category")
-    const season = searchParams.get("season") || "2025"
+    let seasonId = searchParams.get("season")
+    if (!seasonId) {
+      const { data: active } = await supabase.from("seasons").select("id").eq("is_active", true).maybeSingle()
+      seasonId = active?.id || null
+    }
+    if (!seasonId) {
+      return NextResponse.json({ success: false, message: "No hay una temporada activa." }, { status: 400 })
+    }
 
     // Obtener equipos
     let teamsQuery = supabase.from("teams").select("*").eq("status", "active")
@@ -25,7 +32,9 @@ export async function GET(request: NextRequest) {
       .from("games")
       .select("*")
       .eq("status", "finalizado")
-      .eq("season", season)
+      .eq("season_id", seasonId)
+      .eq("counts_for_standings", true)
+      .eq("game_type", "regular")
       .neq("match_type", "amistoso") // 🔥 EXCLUIR AMISTOSOS
 
     if (category && category !== "all") {

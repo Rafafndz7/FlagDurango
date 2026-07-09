@@ -3,7 +3,8 @@ import { supabase } from "@/lib/supabase-admin"
 
 export async function POST(request: NextRequest) {
   try {
-    const { season = "2025" } = await request.json()
+    const { season_id } = await request.json()
+    if (!season_id) return NextResponse.json({ success: false, message: "season_id es obligatorio" }, { status: 400 })
 
     // Obtener todos los equipos activos
     const { data: teams, error: teamsError } = await supabase.from("teams").select("*").eq("status", "active")
@@ -17,7 +18,9 @@ export async function POST(request: NextRequest) {
       .from("games")
       .select("*")
       .eq("status", "finalizado")
-      .eq("season", season)
+      .eq("season_id", season_id)
+      .eq("counts_for_standings", true)
+      .eq("game_type", "regular")
       .neq("match_type", "amistoso") // 🔥 EXCLUIR AMISTOSOS
 
     if (gamesError) {

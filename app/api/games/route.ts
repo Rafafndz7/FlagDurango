@@ -1,6 +1,20 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { supabase } from "@/lib/supabase-admin"
 import { sendExpoNotification } from "@/lib/notifications";
+import { normalizeGameType, requireSeasonId, shouldCountForStandings } from "@/lib/seasons"
+
+async function resolveSeasonId(requested?: string | null) {
+  if (requested) return requireSeasonId(requested)
+  const { data, error } = await supabase.from("seasons").select("id").eq("is_active", true).maybeSingle()
+  if (error || !data) throw new Error("No hay una temporada activa. Activa una desde Administración > Temporadas.")
+  return data.id
+}
+
+function isAdmin(request: NextRequest) {
+  try {
+    return JSON.parse(request.cookies.get("auth-token")?.value || "{}").role === "admin"
+  } catch { return false }
+}
 
 // -------------------------------------------------------------------
 // FUNCIÓN AUXILIAR PARA ENVIAR NOTIFICACIONES A UN EQUIPO
@@ -58,7 +72,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const category = searchParams.get("category")
     const status = searchParams.get("status")
-    const season = searchParams.get("season") || "2025"
+    const seasonId = await resolveSeasonId(searchParams.get("season"))
+    const gameTypeFilter = searchParams.get("game_type")
 
     let query = supabase
       .from("games")
@@ -81,6 +96,10 @@ export async function GET(request: NextRequest) {
         mvp,
         stage,
         season,
+        season_id,
+        game_type,
+        sport_type,
+        counts_for_standings,
         created_at,
         updated_at,
         current_period,
@@ -88,7 +107,7 @@ export async function GET(request: NextRequest) {
         clock_last_started_at,
         seconds_remaining
       `)
-      .eq("season", season)
+      .eq("season_id", seasonId)
 
     if (category && category !== "all") {
       query = query.eq("category", category)
@@ -97,6 +116,7 @@ export async function GET(request: NextRequest) {
     if (status) {
       query = query.eq("status", status)
     }
+    if (gameTypeFilter) query = query.eq("game_type", gameTypeFilter)
 
     const { data, error } = await query.order("game_date", { ascending: true }).order("game_time", { ascending: true })
 
@@ -123,6 +143,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  if (!isAdmin(request)) return NextResponse.json({ success: false, message: "Solo administradores." }, { status: 403 })
   try {
     const body = await request.json()
     const {
@@ -142,12 +163,17 @@ export async function POST(request: NextRequest) {
       referee2,
       mvp,
       stage,
-      season = "2025",
+      season_id,
+      game_type,
+      sport_type,
     } = body
 
-    if (!home_team || !away_team || !game_date || !game_time || !category) {
+    if (!home_team || !away_team || !game_date || !game_time || !category || !season_id || !game_type) {
       return NextResponse.json({ success: false, message: "Faltan campos requeridos" }, { status: 400 })
     }
+    const selectedSeasonId = await resolveSeasonId(season_id)
+    const normalizedGameType = normalizeGameType(game_type)
+    const { data: selectedSeason } = await supabase.from("seasons").select("year").eq("id", selectedSeasonId).single()
 
     if (home_team === away_team) {
       return NextResponse.json(
@@ -180,7 +206,11 @@ export async function POST(request: NextRequest) {
           referee2: referee2 || null,
           mvp: mvp || null,
           stage: stage || "regular",
-          season,
+          season_id: selectedSeasonId,
+          season: String(selectedSeason?.year || ""),
+          game_type: normalizedGameType,
+          sport_type: sport_type === "wildbrowl" ? "wildbrowl" : "flag",
+          counts_for_standings: shouldCountForStandings(normalizedGameType),
         },
       ])
       .select()
@@ -198,6 +228,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  if (!isAdmin(request)) return NextResponse.json({ success: false, message: "Solo administradores." }, { status: 403 })
   try {
     const body = await request.json()
     const { id, ...updateData } = body
@@ -214,7 +245,7 @@ export async function PUT(request: NextRequest) {
 
     const { data: currentGame } = await supabase
       .from("games")
-      .select("status, home_team, away_team")
+      .select("status, home_team, away_team, season_id, game_type")
       .eq("id", id)
       .single()
 
@@ -235,13 +266,18 @@ export async function PUT(request: NextRequest) {
             mvp_type: "game",
             category: playerData.teams.category,
             game_id: id,
-            season: "2025",
+            season_id: updateData.season_id || currentGame?.season_id,
             notes: `MVP del juego ${homeTeamName} vs ${awayTeamName}`,
           },
         ])
       }
     }
 
+    if (updateData.season_id !== undefined) updateData.season_id = requireSeasonId(updateData.season_id)
+    if (updateData.game_type !== undefined) {
+      updateData.game_type = normalizeGameType(updateData.game_type)
+      updateData.counts_for_standings = shouldCountForStandings(updateData.game_type)
+    }
     const { data, error } = await supabase.from("games").update(updateData).eq("id", id).select()
 
     if (error) {
@@ -289,6 +325,7 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  if (!isAdmin(request)) return NextResponse.json({ success: false, message: "Solo administradores." }, { status: 403 })
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get("id")

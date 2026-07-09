@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect, useMemo, useRef } from "react"
+import { useSearchParams } from "next/navigation"
+import { SeasonSelector } from "@/components/season-selector"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -107,6 +109,8 @@ function LiveTimerDisplay({ game }: { game: Game }) {
 
 
 export default function GamesPage() {
+  const searchParams = useSearchParams()
+  const selectedSeason = searchParams.get("season")
   const [games, setGames] = useState<Game[]>([])
   const [teams, setTeams] = useState<Team[]>([])
   const [loading, setLoading] = useState(true)
@@ -120,7 +124,8 @@ export default function GamesPage() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [gamesRes, teamsRes] = await Promise.all([fetch("/api/games"), fetch("/api/teams")])
+        const gamesUrl = selectedSeason ? `/api/games?season=${encodeURIComponent(selectedSeason)}` : "/api/games"
+        const [gamesRes, teamsRes] = await Promise.all([fetch(gamesUrl), fetch("/api/teams")])
         const [gamesData, teamsData] = await Promise.all([gamesRes.json(), teamsRes.json()])
 
         if (gamesData.success) {
@@ -143,7 +148,7 @@ export default function GamesPage() {
     // Aumentamos un poco la frecuencia a 15 seg si quieres que los puntajes se actualicen más rápido
     const i = setInterval(loadData, 15000) 
     return () => clearInterval(i)
-  }, [])
+  }, [selectedSeason])
 
   const teamMap = useMemo(() => {
     const map = new Map<string, Team>()
@@ -311,7 +316,7 @@ export default function GamesPage() {
       shareCardElement.innerHTML = `
         <div style="width: 600px; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 50px rgba(0,0,0,0.15);">
           <div style="height: 80px; background: linear-gradient(135deg, #2563eb, #7c3aed, #dc2626); display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: bold;">
-            🏈 Liga Flag Durango 2026
+            🏈 Liga Flag Durango
           </div>
 
           <div style="display: flex; justify-content: center; padding: 16px 0; background: #f8fafc;">
@@ -456,7 +461,7 @@ export default function GamesPage() {
             <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
               Partidos
               <span className="block bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
-                2026
+                por temporada
               </span>
             </h1>
             <p className="text-xl md:text-2xl text-white/90 mb-8 leading-relaxed">
@@ -487,6 +492,7 @@ export default function GamesPage() {
       </section>
 
       <div className="container mx-auto px-4 py-6">
+        <div className="mb-4 flex justify-end"><SeasonSelector /></div>
         <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-8">
           <div className="flex items-center gap-4 w-full md:w-auto">
             <div className="relative flex-1 md:w-80">

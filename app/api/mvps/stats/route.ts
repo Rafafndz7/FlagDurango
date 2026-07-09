@@ -9,6 +9,12 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const category = searchParams.get("category")
+    let seasonId = searchParams.get("season")
+    if (!seasonId) {
+      const { data: active } = await supabase.from("seasons").select("id").eq("is_active", true).maybeSingle()
+      seasonId = active?.id || null
+    }
+    if (!seasonId) return NextResponse.json({ success: false, message: "No hay temporada activa." }, { status: 400 })
 
     console.log("MVP Stats API - Category filter:", category)
 
@@ -32,7 +38,7 @@ export async function GET(request: NextRequest) {
             category
           )
         )
-      `)
+      `).eq("season_id", seasonId)
 
     // Aplicar filtro de categoría si se especifica
     if (category && category !== "all") {

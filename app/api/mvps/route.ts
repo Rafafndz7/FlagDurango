@@ -9,6 +9,11 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const category = searchParams.get("category")
+    let seasonId = searchParams.get("season")
+    if (!seasonId) {
+      const { data: active } = await supabase.from("seasons").select("id").eq("is_active", true).maybeSingle()
+      seasonId = active?.id || null
+    }
 
     console.log("MVPs API - Category filter:", category)
 
@@ -31,6 +36,7 @@ export async function GET(request: NextRequest) {
           )
         )
       `)
+      .eq("season_id", seasonId)
       .order("created_at", { ascending: false })
 
     if (category && category !== "all") {
@@ -59,12 +65,17 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { player_id, mvp_type, category, week_number, season, notes } = body
+    const { player_id, mvp_type, category, week_number, notes } = body
+    let seasonId = body.season_id
+    if (!seasonId) {
+      const { data: active } = await supabase.from("seasons").select("id").eq("is_active", true).maybeSingle()
+      seasonId = active?.id
+    }
 
     console.log("Creating MVP:", body)
 
     // Validaciones
-    if (!player_id || !mvp_type || !category) {
+    if (!player_id || !mvp_type || !category || !seasonId) {
       return NextResponse.json({ success: false, message: "Faltan campos requeridos" }, { status: 400 })
     }
 
@@ -76,7 +87,7 @@ export async function POST(request: NextRequest) {
         .eq("mvp_type", "weekly")
         .eq("category", category)
         .eq("week_number", week_number)
-        .eq("season", season || "2025")
+        .eq("season_id", seasonId)
         .single()
 
       if (existingMvp) {
@@ -95,7 +106,7 @@ export async function POST(request: NextRequest) {
         mvp_type,
         category,
         week_number: mvp_type === "weekly" ? week_number : null,
-        season: season || "2025",
+        season_id: seasonId,
         notes,
       })
       .select(`

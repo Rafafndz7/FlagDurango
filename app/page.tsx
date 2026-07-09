@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
+import { SeasonSelector } from "@/components/season-selector"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -63,6 +65,8 @@ interface SystemConfig {
 }
 
 export default function HomePage() {
+  const searchParams = useSearchParams()
+  const selectedSeason = searchParams.get("season")
   const [games, setGames] = useState<Game[]>([])
   const [teams, setTeams] = useState<Team[]>([])
   const [news, setNews] = useState<News[]>([])
@@ -73,7 +77,7 @@ export default function HomePage() {
   const loadData = async () => {
     try {
       const [gamesResponse, teamsResponse, newsResponse, configResponse] = await Promise.all([
-        fetch("/api/games"),
+        fetch(selectedSeason ? `/api/games?season=${encodeURIComponent(selectedSeason)}` : "/api/games"),
         fetch("/api/teams"),
         fetch("/api/news"),
         fetch("/api/system-config"),
@@ -131,7 +135,7 @@ export default function HomePage() {
     loadData()
     const interval = setInterval(loadData, 30000)
     return () => clearInterval(interval)
-  }, [])
+  }, [selectedSeason])
 
   const upcomingGames = games
     .filter((game) => game.status === "programado")
@@ -192,11 +196,11 @@ export default function HomePage() {
 
             <div className="container mx-auto px-4 relative z-10 text-center">
               <div className="inline-block bg-yellow-400/95 backdrop-blur-sm text-gray-900 px-8 py-3 rounded-full font-bold mb-8 border border-black/10 shadow-lg">
-                {"🏆 Torneo Flag Durango - Primavera 2026 - ¡Inscripciones Abiertas!"}
+                {"🏆 Torneo Flag Durango - ¡Inscripciones Abiertas!"}
               </div>
               <h1 className="text-5xl md:text-7xl font-black text-white mb-6 leading-tight">
                 <span className="block">Torneo Flag Durango</span>
-                <span className="block text-white">Temporada Primavera 2026</span>
+                <span className="block text-white">Nueva temporada</span>
               </h1>
 
               {/* Countdown */}
@@ -275,7 +279,7 @@ export default function HomePage() {
                 </h1>
                 <p className="text-xl md:text-2xl text-white/90 mb-8 leading-relaxed">
                   20 años haciendo historia en el flag football de Durango.
-                  <span className="block mt-2 text-yellow-300 font-semibold">¡La temporada 2026 está en marcha!</span>
+                  <span className="block mt-2 text-yellow-300 font-semibold">¡La temporada activa está en marcha!</span>
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <Button
@@ -603,6 +607,7 @@ export default function HomePage() {
       ) : null}
 
       <div className="container mx-auto px-4 py-8">
+        <div className="mb-6 flex justify-end"><SeasonSelector /></div>
         {/* EN VIVO */}
         {liveGames.length > 0 && (
           <section className="mb-16">

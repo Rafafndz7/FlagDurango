@@ -135,7 +135,7 @@ export default function GameShareCard({ game, teams }: GameShareCardProps) {
         className="h-24 flex items-center justify-center text-white text-2xl font-bold"
         style={{ background: "linear-gradient(135deg, #2563eb, #7c3aed, #dc2626)" }}
       >
-        🏈 Liga Flag Durango 2025
+        🏈 Liga Flag Durango
       </div>
 
       {/* Status Badge */}

@@ -5,7 +5,12 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const category = searchParams.get("category")
-    const season = searchParams.get("season") || "2025"
+    let seasonId = searchParams.get("season")
+    if (!seasonId) {
+      const { data: active } = await supabase.from("seasons").select("id").eq("is_active", true).maybeSingle()
+      seasonId = active?.id || null
+    }
+    if (!seasonId) return NextResponse.json({ success: false, message: "No hay temporada activa." }, { status: 400 })
 
     let query = supabase
       .from("mvps")
@@ -15,6 +20,7 @@ export async function GET(request: NextRequest) {
         category,
         week_number,
         season,
+        season_id,
         notes,
         created_at,
         players!inner(
@@ -32,7 +38,7 @@ export async function GET(request: NextRequest) {
         )
       `)
       .eq("mvp_type", "weekly")
-      .eq("season", season)
+      .eq("season_id", seasonId)
 
     if (category && category !== "all") {
       query = query.eq("category", category)

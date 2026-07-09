@@ -2,6 +2,8 @@
 
 import { Button } from "@/components/ui/button"
 import { useState, useEffect, useMemo } from "react"
+import { useSearchParams } from "next/navigation"
+import { SeasonSelector } from "@/components/season-selector"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Trophy, Target, Users, TrendingUp, Award, Star, BarChart3 } from "lucide-react"
@@ -69,6 +71,8 @@ function normalizeCategory(v: string) {
 }
 
 export default function EstadisticasPage() {
+  const searchParams = useSearchParams()
+  const selectedSeason = searchParams.get("season")
   const [stats, setStats] = useState<TeamStats[]>([])
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [viewType, setViewType] = useState<"teams" | "mvps">("teams")
@@ -122,7 +126,7 @@ export default function EstadisticasPage() {
     loadEnabledCategories()
     fetchMvps()
     fetchGames()
-  }, [])
+  }, [selectedSeason])
 
   useEffect(() => {
     if (viewType === "teams") {
@@ -130,12 +134,13 @@ export default function EstadisticasPage() {
     } else if (viewType === "mvps") {
       fetchMvpStats()
     }
-  }, [selectedCategory, viewType])
+  }, [selectedCategory, viewType, selectedSeason])
 
   const fetchStats = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`/api/stats?category=${selectedCategory}&season=2025`)
+      const seasonParam = selectedSeason ? `&season=${encodeURIComponent(selectedSeason)}` : ""
+      const response = await fetch(`/api/stats?category=${selectedCategory}${seasonParam}`)
       const data = await response.json()
       if (data.success) {
         setStats(data.data)
@@ -149,7 +154,8 @@ export default function EstadisticasPage() {
 
   const fetchMvps = async () => {
     try {
-      const response = await fetch(`/api/mvps/weekly`)
+      const seasonParam = selectedSeason ? `?season=${encodeURIComponent(selectedSeason)}` : ""
+      const response = await fetch(`/api/mvps/weekly${seasonParam}`)
       const data = await response.json()
       if (data.success) {
         setMvps(data.data || [])
@@ -162,8 +168,10 @@ export default function EstadisticasPage() {
   const fetchMvpStats = async () => {
     try {
       setLoading(true)
-      const categoryParam = selectedCategory !== "all" ? `?category=${selectedCategory}` : ""
-      const response = await fetch(`/api/mvps/stats${categoryParam}`)
+      const query = new URLSearchParams()
+      if (selectedCategory !== "all") query.set("category", selectedCategory)
+      if (selectedSeason) query.set("season", selectedSeason)
+      const response = await fetch(`/api/mvps/stats?${query.toString()}`)
       const data = await response.json()
       if (data.success) {
         setMvpStats(data.data || [])
@@ -177,7 +185,8 @@ export default function EstadisticasPage() {
 
   const fetchGames = async () => {
     try {
-      const res = await fetch(`/api/games`)
+      const seasonParam = selectedSeason ? `?season=${encodeURIComponent(selectedSeason)}` : ""
+      const res = await fetch(`/api/games${seasonParam}`)
       const json = await res.json()
       if (json.success) {
         const list: GameLite[] = (json.data || []).map((g: any) => ({
@@ -253,7 +262,7 @@ export default function EstadisticasPage() {
             <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
               Estadísticas
               <span className="block bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
-                2026
+                por temporada
               </span>
             </h1>
             <p className="text-xl md:text-2xl text-white/90 mb-8 leading-relaxed">
@@ -265,6 +274,7 @@ export default function EstadisticasPage() {
       </section>
 
       <div className="container mx-auto px-4 py-8">
+        <div className="mb-6 flex justify-end"><SeasonSelector /></div>
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Estadísticas</h1>
           <p className="text-gray-600">

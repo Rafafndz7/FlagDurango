@@ -102,7 +102,7 @@ export function Navigation() {
                 height={80}
                 className="h-12 md:h-16 w-auto"
               />
-              <p className="text-neutral-500 text-sm mt-1">Torneo FlagDurago - Primavera 2026</p>
+              <p className="text-neutral-500 text-sm mt-1">Torneo Flag Durango</p>
             </div>
           </Link>
 
