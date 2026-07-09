@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { SeasonSelector } from "@/components/season-selector"
 import { Card, CardContent } from "@/components/ui/card"
@@ -64,7 +64,7 @@ interface SystemConfig {
   config_value: string
 }
 
-export default function HomePage() {
+function HomePageContent() {
   const searchParams = useSearchParams()
   const selectedSeason = searchParams.get("season")
   const [games, setGames] = useState<Game[]>([])
@@ -924,5 +924,13 @@ export default function HomePage() {
         </div>
       </footer>
     </div>
+  )
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-white p-8 text-center">Cargando temporada…</div>}>
+      <HomePageContent />
+    </Suspense>
   )
 }

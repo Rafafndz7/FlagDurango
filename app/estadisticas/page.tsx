@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { useState, useEffect, useMemo } from "react"
+import { Suspense, useState, useEffect, useMemo } from "react"
 import { useSearchParams } from "next/navigation"
 import { SeasonSelector } from "@/components/season-selector"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -70,7 +70,7 @@ function normalizeCategory(v: string) {
   return (v || "").toLowerCase().replace(/_/g, "-").trim()
 }
 
-export default function EstadisticasPage() {
+function EstadisticasPageContent() {
   const searchParams = useSearchParams()
   const selectedSeason = searchParams.get("season")
   const [stats, setStats] = useState<TeamStats[]>([])
@@ -725,5 +725,13 @@ export default function EstadisticasPage() {
         </div>
       </section>
     </div>
+  )
+}
+
+export default function EstadisticasPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-white p-8 text-center">Cargando estadísticas…</div>}>
+      <EstadisticasPageContent />
+    </Suspense>
   )
 }

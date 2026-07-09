@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef } from "react"
+import { Suspense, useState, useEffect, useMemo, useRef } from "react"
 import { useSearchParams } from "next/navigation"
 import { SeasonSelector } from "@/components/season-selector"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -108,7 +108,7 @@ function LiveTimerDisplay({ game }: { game: Game }) {
 // ----------------------------------------------------
 
 
-export default function GamesPage() {
+function GamesPageContent() {
   const searchParams = useSearchParams()
   const selectedSeason = searchParams.get("season")
   const [games, setGames] = useState<Game[]>([])
@@ -871,5 +871,13 @@ export default function GamesPage() {
         </div>
       </section>
     </div>
+  )
+}
+
+export default function GamesPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-white p-8 text-center">Cargando partidos…</div>}>
+      <GamesPageContent />
+    </Suspense>
   )
 }
