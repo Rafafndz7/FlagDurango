@@ -238,10 +238,16 @@ interface JoinRequest {
   from_team_id: number | null
   requires_coordinator_approval: boolean
   created_at: string
+  season_id?: string | null
+  season_name?: string | null
+  season_year?: number | null
+  season_is_active?: boolean | null
   teams?: {
     id: number
     name: string
     category: string
+    season_id?: string
+    seasons?: { id: string; name: string; year: number; is_active: boolean } | null
   }
 }
 
@@ -259,6 +265,7 @@ export default function AdminPage() {
   const [fields, setFields] = useState<Field[]>([])
   const [coachPermissions, setCoachPermissions] = useState<CoachPermission[]>([])
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]) // Nuevo estado para solicitudes
+  const [requestsSeasonFilter, setRequestsSeasonFilter] = useState<string>("all")
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
   const [activeTab, setActiveTab] = useState("teams")
@@ -514,7 +521,7 @@ const [gameForm, setGameForm] = useState({
     try {
       const [teamsRes, playersRes, staffRes, refereesRes, paymentsRes, gamesRes, newsRes, venuesRes, fieldsRes, cRes] =
         await Promise.all([
-          fetch("/api/teams", { cache: "no-store" }),
+          fetch("/api/teams?all_seasons=1", { cache: "no-store" }),
           fetch("/api/players", { cache: "no-store" }),
           fetch("/api/staff"),
           fetch("/api/referees"),
@@ -631,7 +638,7 @@ const [gameForm, setGameForm] = useState({
   const loadData = async () => {
     try {
       const [teamsRes, playersRes, gamesRes, paymentsRes, venuesRes, fieldsRes, requestsRes] = await Promise.all([
-        fetch("/api/teams").catch(() => ({ json: () => ({ success: false, data: [] }) })),
+        fetch("/api/teams?all_seasons=1").catch(() => ({ json: () => ({ success: false, data: [] }) })),
         fetch("/api/players", { cache: "no-store" }).catch(() => ({ json: () => ({ success: false, data: [] }) })),
         fetch("/api/games").catch(() => ({ json: () => ({ success: false, data: [] }) })),
         fetch("/api/payments").catch(() => ({ json: () => ({ success: false, data: [] }) })),
@@ -1593,28 +1600,54 @@ const [gameForm, setGameForm] = useState({
           <TabsContent value="requests">
             <Card className="bg-white border border-gray-200">
               <CardHeader>
-                <CardTitle className="text-gray-900 flex items-center">
-                  <UserPlus className="w-5 h-5 mr-2" />
-                  Solicitudes de Jugadores Pendientes
+                <CardTitle className="text-gray-900 flex items-center justify-between gap-4 flex-wrap">
+                  <span className="flex items-center">
+                    <UserPlus className="w-5 h-5 mr-2" />
+                    Solicitudes de Jugadores Pendientes
+                  </span>
+                  <select
+                    value={requestsSeasonFilter}
+                    onChange={(e) => setRequestsSeasonFilter(e.target.value)}
+                    className="text-sm font-normal rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900"
+                  >
+                    <option value="all">Todas las temporadas</option>
+                    {seasons.map((season) => (
+                      <option key={season.id} value={season.id}>
+                        {season.name}{season.is_active ? " (activa)" : ""}
+                      </option>
+                    ))}
+                  </select>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4">
-                  {joinRequests.filter(req => req.status === 'pending' || req.status === 'pending_coordinator').length === 0 ? (
+                  {joinRequests
+                    .filter((req) => req.status === "pending" || req.status === "pending_coordinator")
+                    .filter((req) => {
+                      if (requestsSeasonFilter === "all") return true
+                      return (req.season_id || req.teams?.season_id) === requestsSeasonFilter
+                    }).length === 0 ? (
                     <div className="text-center py-8 text-gray-500">
                       No hay solicitudes pendientes de jugadores en este momento.
                     </div>
                   ) : (
                     joinRequests
-                      .filter(req => req.status === 'pending' || req.status === 'pending_coordinator')
-                      .map(request => (
+                      .filter((req) => req.status === "pending" || req.status === "pending_coordinator")
+                      .filter((req) => {
+                        if (requestsSeasonFilter === "all") return true
+                        return (req.season_id || req.teams?.season_id) === requestsSeasonFilter
+                      })
+                      .map((request) => (
                         <Card key={request.id} className="bg-gray-50 border-gray-200 shadow-sm">
                           <CardContent className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div>
                               <div className="text-gray-900 font-semibold text-lg flex items-center gap-2 flex-wrap">
                                 {request.player_name}
+                                <Badge variant="outline">
+                                  {request.season_name || request.teams?.seasons?.name || "Sin temporada"}
+                                </Badge>
                                 {request.is_transfer && <Badge className="bg-purple-600">Transferencia</Badge>}
-                                {request.status === 'pending_coordinator' && <Badge className="bg-yellow-600">Aprobación Especial</Badge>}
+                                {request.status === "pending_coordinator" && <Badge className="bg-yellow-600">Aprobación Especial</Badge>}
                               </div>
                               <div className="text-sm text-gray-600 mt-1">
                                 <span className="font-medium">Solicita unirse a:</span> {request.teams?.name} ({request.teams?.category})
@@ -1635,14 +1668,14 @@ const [gameForm, setGameForm] = useState({
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
                               <Button
-                                onClick={() => handleJoinRequest(request.id, request.team_id, 'accepted')}
+                                onClick={() => handleJoinRequest(request.id, request.team_id, "accepted")}
                                 className="bg-green-600 hover:bg-green-700 text-white"
                               >
                                 <Check className="w-4 h-4 mr-1" />
                                 Aceptar
                               </Button>
                               <Button
-                                onClick={() => handleJoinRequest(request.id, request.team_id, 'rejected')}
+                                onClick={() => handleJoinRequest(request.id, request.team_id, "rejected")}
                                 variant="destructive"
                                 className="bg-red-600 hover:bg-red-700 text-white"
                               >

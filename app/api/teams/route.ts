@@ -63,18 +63,47 @@ export async function GET(req: NextRequest) {
 
     if (coach_id) {
       const coachId = Number.parseInt(coach_id)
-      const { data, error } = await supabase
+      const allSeasons = searchParams.get("all_seasons") === "1" || searchParams.get("all_seasons") === "true"
+      let coachQuery = supabase
         .from("teams")
         .select("*, seasons(id, name, year, is_active)")
         .eq("coach_id", coachId)
-        .order("name", { ascending: true })
 
+      if (seasonId) {
+        coachQuery = coachQuery.eq("season_id", seasonId)
+      } else if (!allSeasons) {
+        const { data: activeSeason } = await supabase
+          .from("seasons")
+          .select("id")
+          .eq("is_active", true)
+          .maybeSingle()
+        if (activeSeason?.id) {
+          coachQuery = coachQuery.eq("season_id", activeSeason.id)
+        }
+      }
+
+      const { data, error } = await coachQuery.order("name", { ascending: true })
       if (error) return NextResponse.json({ success: false, message: error.message }, { status: 500 })
       return NextResponse.json({ success: true, data: data || [] })
     }
 
     let query = supabase.from("teams").select("*, seasons(id, name, year, is_active)")
-    if (seasonId) query = query.eq("season_id", seasonId)
+    if (seasonId) {
+      query = query.eq("season_id", seasonId)
+    } else {
+      // Listado público: solo temporada activa (admin/coach pueden pedir season o all_seasons)
+      const allSeasons = searchParams.get("all_seasons") === "1" || searchParams.get("all_seasons") === "true"
+      if (!allSeasons) {
+        const { data: activeSeason } = await supabase
+          .from("seasons")
+          .select("id")
+          .eq("is_active", true)
+          .maybeSingle()
+        if (activeSeason?.id) {
+          query = query.eq("season_id", activeSeason.id)
+        }
+      }
+    }
     const { data, error } = await query.order("name", { ascending: true })
     if (error) return NextResponse.json({ success: false, message: error.message }, { status: 500 })
     return NextResponse.json({ success: true, data: data || [] })

@@ -164,19 +164,17 @@ export async function PUT(
     // Si el coach da de baja al jugador, cerrar cualquier membresía lógica activa
     // para que ningún listado reconstruya al jugador desde solicitudes históricas.
     if (team_id !== undefined && nextTeamId === null && currentPlayer.team_id !== null) {
-      let releaseQuery = supabase
+      const releaseFilters: string[] = [`player_id.eq.${Number(id)}`]
+      if (currentPlayer.user_id) {
+        releaseFilters.push(`player_user_id.eq.${currentPlayer.user_id}`)
+      }
+
+      const { error: releaseError } = await supabase
         .from("team_join_requests")
         .update({ status: "released", updated_at: new Date().toISOString() })
         .eq("team_id", currentPlayer.team_id)
-        .eq("status", "accepted")
-
-      if (currentPlayer.user_id) {
-        releaseQuery = releaseQuery.or(`player_id.eq.${Number(id)},player_user_id.eq.${currentPlayer.user_id}`)
-      } else {
-        releaseQuery = releaseQuery.eq("player_id", Number(id))
-      }
-
-      const { error: releaseError } = await releaseQuery
+        .in("status", ["accepted", "pending", "pending_coordinator"])
+        .or(releaseFilters.join(","))
 
       if (releaseError) {
         console.error("Error releasing join requests for player:", releaseError)

@@ -116,10 +116,16 @@ interface JoinRequest {
   is_transfer?: boolean
   from_team_id?: number
   requires_coordinator_approval?: boolean
+  season_id?: string | null
+  season_name?: string | null
+  season_year?: number | null
+  season_is_active?: boolean | null
   teams?: {
     id: number
     name: string
     category: string
+    season_id?: string
+    seasons?: { id: string; name: string; year: number; is_active: boolean } | null
   }
 }
 
@@ -167,6 +173,7 @@ export default function CoachDashboard() {
   const coachPhotoInputRef = useRef<HTMLInputElement>(null)
   const [coachPhotoUrl, setCoachPhotoUrl] = useState("")
   const [activeSeason, setActiveSeason] = useState<Season | null>(null)
+  const [requestsSeasonFilter, setRequestsSeasonFilter] = useState<string>("all")
   const [duplicatingTeamId, setDuplicatingTeamId] = useState<number | null>(null)
   const [removingPlayerId, setRemovingPlayerId] = useState<number | null>(null)
 
@@ -329,8 +336,27 @@ export default function CoachDashboard() {
       setError(null)
       console.log("🔄 Cargando datos para coach_id:", user.id)
 
-      // Cargar todos los equipos
-      const allTeamsRes = await fetch("/api/teams", { cache: "no-store" })
+      // Resolver temporada activa en esta carga (evita carrera con useEffect de seasons)
+      let currentActiveSeason = activeSeason
+      if (!currentActiveSeason) {
+        try {
+          const seasonsRes = await fetch("/api/seasons", { cache: "no-store" })
+          const seasonsData = await seasonsRes.json()
+          if (seasonsData.success) {
+            const active = (seasonsData.data || []).find((s: Season) => s.is_active)
+            if (active) {
+              currentActiveSeason = active
+              setActiveSeason(active)
+              setSeasons(seasonsData.data || [])
+            }
+          }
+        } catch {
+          // continue without active season
+        }
+      }
+
+      // Cargar todos los equipos (todas las temporadas) para matches y reinscripción
+      const allTeamsRes = await fetch("/api/teams?all_seasons=1", { cache: "no-store" })
       const allTeamsData = await allTeamsRes.json()
 
       if (allTeamsData.success) {
@@ -343,8 +369,9 @@ export default function CoachDashboard() {
         console.log("🎯 Matches potenciales:", matches)
       }
 
-      // Cargar equipos del coach específico
-      const teamsRes = await fetch(`/api/teams?coach_id=${user.id}`, { cache: "no-store" })
+      // Equipos del coach en TODAS las temporadas (para banner de reinscripción),
+      // pero el roster/UI de gestión se filtra a temporada activa vía managedTeams.
+      const teamsRes = await fetch(`/api/teams?coach_id=${user.id}&all_seasons=1`, { cache: "no-store" })
       const teamsData = await teamsRes.json()
 
       console.log("🏈 Respuesta equipos del coach:", teamsData)
@@ -353,15 +380,19 @@ export default function CoachDashboard() {
         setTeams(teamsData.data || [])
         console.log("✅ Equipos del coach cargados:", teamsData.data?.length || 0)
 
-        if (teamsData.data && teamsData.data.length > 0) {
-          // Cargar jugadores de los equipos del coach
-          const teamIds = teamsData.data.map((t: Team) => t.id)
-          const playersRes = await fetch(`/api/players?team_ids=${teamIds.join(",")}`, { cache: "no-store" })
+        const activeTeamIds = (teamsData.data || [])
+          .filter((t: Team) => !currentActiveSeason || t.season_id === currentActiveSeason.id)
+          .map((t: Team) => t.id)
+
+        if (activeTeamIds.length > 0) {
+          const playersRes = await fetch(`/api/players?team_ids=${activeTeamIds.join(",")}`, { cache: "no-store" })
           const playersData = await playersRes.json()
 
           if (playersData.success) {
             setPlayers(playersData.data || [])
           }
+        } else {
+          setPlayers([])
         }
       } else {
         console.error("❌ Error cargando equipos:", teamsData.message)
@@ -376,11 +407,13 @@ export default function CoachDashboard() {
         setGames(gamesData.data || [])
       }
 
-      // Cargar solicitudes de ingreso para los equipos del coach
+      // Solicitudes solo de equipos de temporada activa (o todos si aún no hay activa)
       if (teamsData.success && teamsData.data && teamsData.data.length > 0) {
-        const teamIds = teamsData.data.map((t: Team) => t.id)
+        const requestTeamIds = (teamsData.data as Team[])
+          .filter((t) => !currentActiveSeason || t.season_id === currentActiveSeason.id)
+          .map((t) => t.id)
         const allRequests: JoinRequest[] = []
-        for (const tid of teamIds) {
+        for (const tid of requestTeamIds) {
           const reqRes = await fetch(`/api/team-join-requests?team_id=${tid}`, { cache: "no-store" })
           const reqData = await reqRes.json()
           if (reqData.success) {
@@ -428,8 +461,16 @@ export default function CoachDashboard() {
     }
   }
 
-  const pendingJoinRequests = joinRequests.filter(r => r.status === "pending" || r.status === "pending_coordinator")
-  const resolvedJoinRequests = joinRequests.filter(r => r.status === "accepted" || r.status === "rejected")
+  const pendingJoinRequests = joinRequests.filter((r) => {
+    if (!(r.status === "pending" || r.status === "pending_coordinator")) return false
+    if (requestsSeasonFilter === "all") return true
+    return (r.season_id || r.teams?.season_id) === requestsSeasonFilter
+  })
+  const resolvedJoinRequests = joinRequests.filter((r) => {
+    if (!(r.status === "accepted" || r.status === "rejected" || r.status === "released")) return false
+    if (requestsSeasonFilter === "all") return true
+    return (r.season_id || r.teams?.season_id) === requestsSeasonFilter
+  })
 
   const teamsNeedingReenroll = (() => {
     if (!activeSeason) return []
@@ -441,9 +482,19 @@ export default function CoachDashboard() {
     )
   })()
 
-  const managedTeams = activeSeason
-    ? teams.filter((team) => team.season_id === activeSeason.id)
-    : teams
+  const managedTeams = (() => {
+    const filtered = activeSeason
+      ? teams.filter((team) => team.season_id === activeSeason.id)
+      : teams
+    // Evitar duplicados visuales (mismo nombre+categoría): quedarse con el más reciente
+    const byKey = new Map<string, Team>()
+    for (const team of filtered) {
+      const key = `${(team.name || "").toLowerCase()}::${team.category || ""}`
+      const prev = byKey.get(key)
+      if (!prev || team.id > prev.id) byKey.set(key, team)
+    }
+    return Array.from(byKey.values()).sort((a, b) => a.name.localeCompare(b.name))
+  })()
 
   const handleReenrollTeam = async (team: Team) => {
     if (!user || !activeSeason) return
@@ -2294,16 +2345,30 @@ export default function CoachDashboard() {
               {/* Requests Tab */}
               {activeTab === "requests" && (
                 <div className="space-y-6">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <h2 className="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
                       <Inbox className="w-6 h-6" />
                       Solicitudes de Ingreso
                     </h2>
-                    {pendingJoinRequests.length > 0 && (
-                      <Badge className="bg-amber-100 text-amber-800 border-amber-200">
-                        {pendingJoinRequests.length} pendiente{pendingJoinRequests.length !== 1 ? "s" : ""}
-                      </Badge>
-                    )}
+                    <div className="flex items-center gap-3">
+                      <select
+                        value={requestsSeasonFilter}
+                        onChange={(e) => setRequestsSeasonFilter(e.target.value)}
+                        className="text-sm rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900"
+                      >
+                        <option value="all">Todas las temporadas</option>
+                        {seasons.map((season) => (
+                          <option key={season.id} value={season.id}>
+                            {season.name}{season.is_active ? " (activa)" : ""}
+                          </option>
+                        ))}
+                      </select>
+                      {pendingJoinRequests.length > 0 && (
+                        <Badge className="bg-amber-100 text-amber-800 border-amber-200">
+                          {pendingJoinRequests.length} pendiente{pendingJoinRequests.length !== 1 ? "s" : ""}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
 
                   {/* Pending Requests */}
@@ -2318,6 +2383,9 @@ export default function CoachDashboard() {
                               <div className="flex-1 space-y-3">
                                 <div className="flex flex-wrap items-center gap-2">
                                   <h4 className="font-bold text-gray-900 text-lg">{req.player_name}</h4>
+                                  <Badge className="bg-slate-100 text-slate-800 border-slate-200 text-xs">
+                                    {req.season_name || req.teams?.seasons?.name || "Sin temporada"}
+                                  </Badge>
                                   {req.is_transfer && (
                                     <Badge className="bg-orange-100 text-orange-800 border-orange-200 text-xs">
                                       Transferencia
@@ -2446,6 +2514,8 @@ export default function CoachDashboard() {
                                 <span className="text-gray-500 ml-2">
                                   {req.position} - #{req.jersey_number}
                                   {req.is_transfer && " (Transferencia)"}
+                                  {" · "}
+                                  {req.season_name || req.teams?.seasons?.name || "Sin temporada"}
                                 </span>
                               </div>
                             </div>

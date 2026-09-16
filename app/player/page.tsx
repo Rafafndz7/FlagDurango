@@ -95,6 +95,10 @@ interface JoinRequest {
   status: string
   created_at: string
   message?: string
+  season_id?: string | null
+  season_name?: string | null
+  season_year?: number | null
+  season_is_active?: boolean | null
   teams?: {
     id: number
     name: string
@@ -102,6 +106,8 @@ interface JoinRequest {
     logo_url?: string
     color1?: string
     color2?: string
+    season_id?: string
+    seasons?: { id: string; name: string; year: number; is_active: boolean } | null
   }
 }
 
@@ -514,7 +520,14 @@ export default function PlayerPortal() {
     .map(r => r.team_id)
 
   const getRequestStatus = (teamId: number) => {
-    const req = joinRequests.find(r => r.team_id === teamId)
+    // Ignorar released/rejected: tras una baja el jugador debe poder volver a unirse
+    const req = joinRequests.find(
+      (r) =>
+        r.team_id === teamId &&
+        (r.status === "pending" ||
+          r.status === "pending_coordinator" ||
+          r.status === "accepted"),
+    )
     return req?.status || null
   }
 
@@ -639,7 +652,9 @@ export default function PlayerPortal() {
                           <div>
                             <p className="font-medium">{req.teams?.name || "Equipo"}</p>
                             <p className="text-xs text-muted-foreground">
-                              {req.teams?.category} - Enviada el{" "}
+                              {req.teams?.category}
+                              {(req.season_name || req.teams?.seasons?.name) ? ` · ${req.season_name || req.teams?.seasons?.name}` : ""}
+                              {" - Enviada el "}
                               {new Date(req.created_at).toLocaleDateString("es-MX")}
                             </p>
                           </div>
@@ -1230,7 +1245,10 @@ export default function PlayerPortal() {
                             <div>
                               <p className="font-medium text-sm">{req.teams?.name || "Equipo"}</p>
                               <p className="text-xs text-muted-foreground">
-                                {req.teams?.category} - {new Date(req.created_at).toLocaleDateString("es-MX")}
+                                {req.teams?.category}
+                                {(req.season_name || req.teams?.seasons?.name) ? ` · ${req.season_name || req.teams?.seasons?.name}` : ""}
+                                {" - "}
+                                {new Date(req.created_at).toLocaleDateString("es-MX")}
                               </p>
                             </div>
                           </div>

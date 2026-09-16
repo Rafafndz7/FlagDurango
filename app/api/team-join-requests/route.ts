@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const teamId = searchParams.get("team_id")
     const playerUserId = searchParams.get("player_user_id")
+    const seasonId = searchParams.get("season") || searchParams.get("season_id")
 
     let query = supabase
       .from("team_join_requests")
@@ -25,7 +26,14 @@ export async function GET(request: NextRequest) {
           category,
           logo_url,
           color1,
-          color2
+          color2,
+          season_id,
+          seasons (
+            id,
+            name,
+            year,
+            is_active
+          )
         )
       `)
       .order("created_at", { ascending: false })
@@ -48,7 +56,21 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    return NextResponse.json({ success: true, data: data || [] })
+    let rows = data || []
+    if (seasonId) {
+      rows = rows.filter((row: any) => row.teams?.season_id === seasonId)
+    }
+
+    // Facilita consumo en app/web: temporada aplanada en la solicitud
+    const enriched = rows.map((row: any) => ({
+      ...row,
+      season_id: row.teams?.season_id || null,
+      season_name: row.teams?.seasons?.name || null,
+      season_year: row.teams?.seasons?.year || null,
+      season_is_active: row.teams?.seasons?.is_active ?? null,
+    }))
+
+    return NextResponse.json({ success: true, data: enriched })
   } catch (error) {
     console.error("Error in GET join requests:", error)
     return NextResponse.json(
@@ -74,6 +96,73 @@ function requiresCoordinatorApproval(fromCategory: string, toCategory: string): 
   const fromBranch = getCategoryBranch(fromCategory)
   const toBranch = getCategoryBranch(toCategory)
   return fromBranch === toBranch
+}
+
+/**
+ * Si el team_id apunta a un equipo de temporada vieja, redirige al clon
+ * más reciente de la temporada activa (mismo nombre + categoría, preferible mismo coach).
+ */
+async function resolveToActiveSeasonTeam(requestedTeamId: number) {
+  const { data: requestedTeam, error } = await supabase
+    .from("teams")
+    .select("*")
+    .eq("id", requestedTeamId)
+    .maybeSingle()
+
+  if (error || !requestedTeam) {
+    return { team: null as any, activeSeason: null as any, remapped: false }
+  }
+
+  const { data: activeSeason } = await supabase
+    .from("seasons")
+    .select("id, name, year, is_active")
+    .eq("is_active", true)
+    .maybeSingle()
+
+  if (!activeSeason) {
+    return { team: requestedTeam, activeSeason: null, remapped: false }
+  }
+
+  if (requestedTeam.season_id === activeSeason.id) {
+    return { team: requestedTeam, activeSeason, remapped: false }
+  }
+
+  let activeCloneQuery = supabase
+    .from("teams")
+    .select("*")
+    .eq("season_id", activeSeason.id)
+    .eq("name", requestedTeam.name)
+    .eq("category", requestedTeam.category)
+    .order("id", { ascending: false })
+    .limit(1)
+
+  if (requestedTeam.coach_id) {
+    activeCloneQuery = activeCloneQuery.eq("coach_id", requestedTeam.coach_id)
+  }
+
+  const { data: activeClone } = await activeCloneQuery.maybeSingle()
+
+  if (activeClone) {
+    return { team: activeClone, activeSeason, remapped: true }
+  }
+
+  // Fallback sin filtrar por coach (por si el coach_id cambió)
+  const { data: byName } = await supabase
+    .from("teams")
+    .select("*")
+    .eq("season_id", activeSeason.id)
+    .eq("name", requestedTeam.name)
+    .eq("category", requestedTeam.category)
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (byName) {
+    return { team: byName, activeSeason, remapped: true }
+  }
+
+  // No hay clon en activa: mantener el solicitado (admin puede manejarlo)
+  return { team: requestedTeam, activeSeason, remapped: false }
 }
 
 async function assignPlayerToTeam(joinRequest: Record<string, any>) {
@@ -231,13 +320,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if the player already belongs to this specific team (by user_id or name)
+    // Redirigir a equipo de temporada activa si mandaron un team_id antiguo
+    const { team: resolvedTeam, remapped } = await resolveToActiveSeasonTeam(Number(team_id))
+    if (!resolvedTeam) {
+      return NextResponse.json({ success: false, message: "Equipo no encontrado" }, { status: 404 })
+    }
+    const resolvedTeamId = Number(resolvedTeam.id)
+
+    // Check if the player already belongs to this specific (resolved) team
     let alreadyOnTeam = false
     const { data: byUserId } = await supabase
       .from("players")
       .select("id")
       .eq("user_id", Number(player_user_id))
-      .eq("team_id", Number(team_id))
+      .eq("team_id", resolvedTeamId)
       .maybeSingle()
 
     if (byUserId) alreadyOnTeam = true
@@ -247,7 +343,7 @@ export async function POST(request: NextRequest) {
         .from("players")
         .select("id")
         .ilike("name", player_name.trim())
-        .eq("team_id", Number(team_id))
+        .eq("team_id", resolvedTeamId)
         .maybeSingle()
 
       if (byName) alreadyOnTeam = true
@@ -260,21 +356,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check for existing pending request to this team
-    const { data: existing } = await supabase
+    // Solicitudes previas del mismo jugador al mismo equipo (cualquier estado)
+    const { data: existingRows } = await supabase
       .from("team_join_requests")
-      .select("id")
+      .select("*")
       .eq("player_user_id", Number(player_user_id))
-      .eq("team_id", Number(team_id))
-      .eq("status", "pending")
-      .maybeSingle()
+      .eq("team_id", resolvedTeamId)
+      .order("created_at", { ascending: false })
 
-    if (existing) {
+    const existingPending = (existingRows || []).find(
+      (r) => r.status === "pending" || r.status === "pending_coordinator",
+    )
+    if (existingPending) {
       return NextResponse.json(
         { success: false, message: "Ya tienes una solicitud pendiente para este equipo" },
         { status: 400 }
       )
     }
+
+    const reusable = (existingRows || []).find(
+      (r) => r.status === "released" || r.status === "rejected",
+    )
 
     // Determine if coordinator approval is needed for transfers
     let needsCoordinatorApproval = false
@@ -283,10 +385,8 @@ export async function POST(request: NextRequest) {
 
     if (is_transfer && from_team_id) {
       const { data: fromTeam } = await supabase.from("teams").select("category").eq("id", Number(from_team_id)).single()
-      const { data: toTeam } = await supabase.from("teams").select("category").eq("id", Number(team_id)).single()
-
       fromTeamCategory = fromTeam?.category || null
-      toTeamCategory = toTeam?.category || null
+      toTeamCategory = resolvedTeam.category || null
 
       if (fromTeamCategory && toTeamCategory) {
         needsCoordinatorApproval = requiresCoordinatorApproval(fromTeamCategory, toTeamCategory)
@@ -295,25 +395,44 @@ export async function POST(request: NextRequest) {
 
     const initialStatus = needsCoordinatorApproval ? "pending_coordinator" : "accepted"
 
-    // Insert the join request
-    const { data, error } = await supabase
-      .from("team_join_requests")
-      .insert({
-        player_user_id: Number(player_user_id),
-        player_id: player_id ? Number(player_id) : null,
-        team_id: Number(team_id),
-        player_name: player_name.trim(),
-        position,
-        jersey_number: Number(jersey_number),
-        phone: phone || null,
-        message: message || null,
-        status: initialStatus,
-        is_transfer: is_transfer || false,
-        from_team_id: from_team_id ? Number(from_team_id) : null,
-        requires_coordinator_approval: needsCoordinatorApproval,
-      })
-      .select()
-      .single()
+    const requestPayload = {
+      player_user_id: Number(player_user_id),
+      player_id: player_id ? Number(player_id) : null,
+      team_id: resolvedTeamId,
+      player_name: player_name.trim(),
+      position,
+      jersey_number: Number(jersey_number),
+      phone: phone || null,
+      message: message || null,
+      status: initialStatus,
+      is_transfer: is_transfer || false,
+      from_team_id: from_team_id ? Number(from_team_id) : null,
+      requires_coordinator_approval: needsCoordinatorApproval,
+      updated_at: new Date().toISOString(),
+    }
+
+    let data: any = null
+    let error: any = null
+
+    if (reusable) {
+      // Tras baja (released) o rechazo: reutilizar la fila y permitir reingreso
+      const result = await supabase
+        .from("team_join_requests")
+        .update(requestPayload)
+        .eq("id", reusable.id)
+        .select()
+        .single()
+      data = result.data
+      error = result.error
+    } else {
+      const result = await supabase
+        .from("team_join_requests")
+        .insert(requestPayload)
+        .select()
+        .single()
+      data = result.data
+      error = result.error
+    }
 
     if (error) {
       console.error("Error creating join request:", error)
@@ -326,7 +445,7 @@ export async function POST(request: NextRequest) {
     const { data: teamData } = await supabaseAdmin
       .from("teams")
       .select("coach_id, name")
-      .eq("id", Number(team_id))
+      .eq("id", resolvedTeamId)
       .single()
 
     if (!needsCoordinatorApproval) {
@@ -382,10 +501,16 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        data,
+        data: {
+          ...data,
+          remapped_to_active_season: remapped,
+          resolved_team_id: resolvedTeamId,
+        },
         message: is_transfer
           ? "Transferencia completada automáticamente"
-          : "Te uniste al equipo exitosamente",
+          : remapped
+            ? `Te uniste al equipo de la temporada activa (${resolvedTeam.name})`
+            : "Te uniste al equipo exitosamente",
       })
     }
 
@@ -412,7 +537,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data,
+      data: {
+        ...data,
+        remapped_to_active_season: remapped,
+        resolved_team_id: resolvedTeamId,
+      },
       message: "Solicitud de transferencia enviada. Requiere aprobación del coordinador de liga y ambos capitanes.",
     })
   } catch (error) {
@@ -485,6 +614,15 @@ export async function PUT(request: NextRequest) {
 
     if (status === "accepted") {
       try {
+        // Si la solicitud apunta a equipo de temporada vieja, moverla al clon activo
+        const { team: resolvedTeam, remapped } = await resolveToActiveSeasonTeam(Number(joinRequest.team_id))
+        if (resolvedTeam && remapped && Number(resolvedTeam.id) !== Number(joinRequest.team_id)) {
+          await supabase
+            .from("team_join_requests")
+            .update({ team_id: resolvedTeam.id, updated_at: new Date().toISOString() })
+            .eq("id", Number(id))
+          joinRequest.team_id = resolvedTeam.id
+        }
         await assignPlayerToTeam(joinRequest)
       } catch (assignError) {
         console.error("Error assigning player on accept:", assignError)
