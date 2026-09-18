@@ -1,14 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { supabase } from "@/lib/supabase-admin"
-
-function normalizeCategory(value: unknown): string {
-  if (value === undefined || value === null) return ""
-  return String(value)
-    .toLowerCase()
-    .replace(/[_\s]+/g, "-")
-    .replace(/-+/g, "-")
-    .trim()
-}
+import { getCategorySuffix, normalizeCategory } from "@/lib/categories"
 
 function isAdmin(req: NextRequest) {
   try {
@@ -153,22 +145,7 @@ export async function POST(req: NextRequest) {
     }
 
     const normalizedCategory = normalizeCategory(category)
-
-    const categoryMap: { [key: string]: string } = {
-      "varonil-gold": "VG",
-      "varonil-master": "VM",
-      "varonil-silver": "VS",
-      "varonil-cooper": "VC", // <--- NUEVA
-      "femenil-gold": "FG",
-      "femenil-silver": "FS",
-      "femenil-cooper": "FC",
-      "mixto-gold": "MG",
-      "mixto-silver": "MS",
-      "mixto-cooper": "MC",   // <--- NUEVA
-      teens: "T",
-    }
-
-    const suffix = categoryMap[normalizedCategory] || ""
+    const suffix = getCategorySuffix(normalizedCategory)
     const teamName = suffix ? `${name} ${suffix}` : name
 
     const base: any = {

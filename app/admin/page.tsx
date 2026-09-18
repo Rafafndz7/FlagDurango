@@ -40,6 +40,7 @@ import PrintableQRSheet from "@/components/printable-qr-sheet"
 import Link from "next/link"
 import type { Season } from "@/lib/seasons"
 import TeamQuickManager from "@/components/team-quick-manager" // <-- IMPORTADO AQUÍ
+import AdminFinanzasPanel from "@/components/admin-finanzas-panel"
 
 type Team = {
   id?: any
@@ -285,6 +286,7 @@ export default function AdminPage() {
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [showAccountForm, setShowAccountForm] = useState<Player | null>(null)
   const [accountForm, setAccountForm] = useState({ email: "", password: "" })
+  const [coordForm, setCoordForm] = useState({ username: "", email: "", password: "" })
 
   const [isUploading, setIsUploading] = useState(false)
 
@@ -1524,6 +1526,20 @@ const [gameForm, setGameForm] = useState({
               Arbitraje Diario
             </TabsTrigger>
             <TabsTrigger
+              value="asignacion-arbitros"
+              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
+            >
+              <Shield className="w-4 h-4 mr-2" />
+              Árbitros
+            </TabsTrigger>
+            <TabsTrigger
+              value="finanzas"
+              className="data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-900 text-gray-700 py-2"
+            >
+              <DollarSign className="w-4 h-4 mr-2" />
+              Finanzas
+            </TabsTrigger>
+            <TabsTrigger
               value="payments"
               className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
             >
@@ -1736,7 +1752,8 @@ const [gameForm, setGameForm] = useState({
                         <option value="varonil-cooper">Varonil Cooper (VC)</option> {/* NUEVA */}
                         <option value="femenil-gold">Femenil Gold (FG)</option>
                         <option value="femenil-silver">Femenil Silver (FS)</option>
-                        <option value="femenil-cooper">Femenil Cooper (FC)</option>
+                        <option value="femenil-cooper-a">Femenil Cooper A (FCA)</option>
+                        <option value="femenil-cooper-b">Femenil Cooper B (FCB)</option>
                         <option value="mixto-gold">Mixto Gold (MG)</option>
                         <option value="mixto-silver">Mixto Silver (MS)</option>
                         <option value="mixto-cooper">Mixto Cooper (MC)</option> {/* NUEVA */}
@@ -1879,7 +1896,8 @@ const [gameForm, setGameForm] = useState({
                                 <option value="varonil-cooper">Varonil Cooper (VC)</option> {/* NUEVA */}
                                 <option value="femenil-gold">Femenil Gold (FG)</option>
                                 <option value="femenil-silver">Femenil Silver (FS)</option>
-                                <option value="femenil-cooper">Femenil Cooper (FC)</option>
+                                <option value="femenil-cooper-a">Femenil Cooper A (FCA)</option>
+                        <option value="femenil-cooper-b">Femenil Cooper B (FCB)</option>
                                 <option value="mixto-gold">Mixto Gold (MG)</option>
                                 <option value="mixto-silver">Mixto Silver (MS)</option>
                                 <option value="mixto-cooper">Mixto Cooper (MC)</option> {/* NUEVA */}
@@ -2636,7 +2654,8 @@ const [gameForm, setGameForm] = useState({
                         <option value="varonil-cooper">Varonil Cooper</option>
                         <option value="femenil-gold">Femenil Gold</option>
                         <option value="femenil-silver">Femenil Silver</option>
-                        <option value="femenil-cooper">Femenil Cooper</option>
+                        <option value="femenil-cooper-a">Femenil Cooper A</option>
+                        <option value="femenil-cooper-b">Femenil Cooper B</option>
                         <option value="mixto-gold">Mixto Gold</option>
                         <option value="mixto-silver">Mixto Silver</option>
                         <option value="mixto-cooper">Mixto Cooper</option>
@@ -2840,7 +2859,8 @@ const [gameForm, setGameForm] = useState({
                       <option value="varonil-cooper">Varonil Cooper</option>
                       <option value="femenil-gold">Femenil Gold</option>
                       <option value="femenil-silver">Femenil Silver</option>
-                      <option value="femenil-cooper">Femenil Cooper</option>
+                      <option value="femenil-cooper-a">Femenil Cooper A</option>
+                      <option value="femenil-cooper-b">Femenil Cooper B</option>
                       <option value="mixto-gold">Mixto Gold</option>
                       <option value="mixto-silver">Mixto Silver</option>
                       <option value="mixto-cooper">Mixto Cooper</option>
@@ -3390,6 +3410,36 @@ const [gameForm, setGameForm] = useState({
             </Card>
           </TabsContent>
 
+          <TabsContent value="finanzas">
+            <AdminFinanzasPanel />
+          </TabsContent>
+
+          <TabsContent value="asignacion-arbitros">
+            <Card className="bg-white border border-gray-200">
+              <CardHeader>
+                <CardTitle className="text-gray-900 flex items-center gap-2">
+                  <Shield className="w-5 h-5" />
+                  Asignación de Árbitros
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-gray-700 text-sm">
+                  Gestiona árbitros, asígnalos a partidos de la temporada activa y edita salarios por juego.
+                  Los administradores y el coordinador de árbitros comparten el mismo portal.
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  <Button
+                    onClick={() => (window.location.href = "/arbitros")}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <Shield className="w-4 h-4 mr-2" />
+                    Abrir portal de árbitros
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="coaches">
             <div className="grid gap-4">
               {coachPermissions.length === 0 ? (
@@ -3504,7 +3554,8 @@ const [gameForm, setGameForm] = useState({
                       { value: "varonil-cooper", label: "Varonil Cooper" }, // <-- NUEVA
                       { value: "femenil-gold", label: "Femenil Gold" },
                       { value: "femenil-silver", label: "Femenil Silver" },
-                      { value: "femenil-cooper", label: "Femenil Cooper" },
+                      { value: "femenil-cooper-a", label: "Femenil Cooper A" },
+                      { value: "femenil-cooper-b", label: "Femenil Cooper B" },
                       { value: "mixto-gold", label: "Mixto Gold" },
                       { value: "mixto-silver", label: "Mixto Silver" },
                       { value: "mixto-cooper", label: "Mixto Cooper" }, // <-- NUEVA
@@ -3557,6 +3608,67 @@ const [gameForm, setGameForm] = useState({
                       Guardar
                     </Button>
                   </div>
+                </div>
+
+                <div className="border border-gray-200 rounded-lg p-4 space-y-3">
+                  <div className="font-semibold text-gray-900">Coordinador de árbitros</div>
+                  <p className="text-gray-500 text-sm">
+                    Crea una cuenta con rol <code>referee_coordinator</code> para acceder a{" "}
+                    <Link href="/arbitros" className="text-blue-600 underline">
+                      /arbitros
+                    </Link>
+                    .
+                  </p>
+                  <div className="grid md:grid-cols-3 gap-3">
+                    <Input
+                      placeholder="Usuario"
+                      value={coordForm.username}
+                      onChange={(e) => setCoordForm((p) => ({ ...p, username: e.target.value }))}
+                      className="bg-white border-gray-300"
+                    />
+                    <Input
+                      placeholder="Email"
+                      type="email"
+                      value={coordForm.email}
+                      onChange={(e) => setCoordForm((p) => ({ ...p, email: e.target.value }))}
+                      className="bg-white border-gray-300"
+                    />
+                    <Input
+                      placeholder="Contraseña"
+                      type="password"
+                      value={coordForm.password}
+                      onChange={(e) => setCoordForm((p) => ({ ...p, password: e.target.value }))}
+                      className="bg-white border-gray-300"
+                    />
+                  </div>
+                  <Button
+                    onClick={async () => {
+                      if (!coordForm.username || !coordForm.email || !coordForm.password) {
+                        alert("Completa usuario, email y contraseña")
+                        return
+                      }
+                      const res = await fetch("/api/users", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          username: coordForm.username,
+                          email: coordForm.email,
+                          password: coordForm.password,
+                          role: "referee_coordinator",
+                        }),
+                      })
+                      const data = await res.json()
+                      if (!data.success) {
+                        alert(data.message || "No se pudo crear el usuario")
+                        return
+                      }
+                      alert("Coordinador creado. Puede iniciar sesión y será enviado a /arbitros")
+                      setCoordForm({ username: "", email: "", password: "" })
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    Crear coordinador
+                  </Button>
                 </div>
               </CardContent>
             </Card>

@@ -135,7 +135,9 @@ export default function PlayerStatsAdmin({ games, teams, players }: PlayerStatsA
       "varonil-silver": "Varonil Silver",
       "femenil-gold": "Femenil Gold",
       "femenil-silver": "Femenil Silver",
-      "femenil-cooper": "Femenil Cooper",
+      "femenil-cooper": "Femenil Cooper A",
+      "femenil-cooper-a": "Femenil Cooper A",
+      "femenil-cooper-b": "Femenil Cooper B",
       "mixto-gold": "Mixto Gold",
       "mixto-silver": "Mixto Silver",
     }

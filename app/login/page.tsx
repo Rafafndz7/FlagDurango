@@ -24,6 +24,8 @@ export default function LoginPage() {
         const user = JSON.parse(userStr)
         if (user.role === "admin") {
           router.push("/admin")
+        } else if (user.role === "referee_coordinator") {
+          router.push("/arbitros")
         } else if (user.role === "player") {
           router.push("/player")
         } else if (user.role === "coach") {
@@ -79,6 +81,9 @@ export default function LoginPage() {
       if (user.role === "admin" || user.role === "staff") {
         console.log("Redirigiendo a admin")
         router.push("/admin")
+      } else if (user.role === "referee_coordinator") {
+        console.log("Redirigiendo a portal de árbitros")
+        router.push("/arbitros")
       } else if (user.role === "player") {
         console.log("Redirigiendo a player portal")
         router.push("/player")

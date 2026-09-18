@@ -10,13 +10,11 @@ export async function POST() {
       sql: `
         ALTER TABLE teams DROP CONSTRAINT IF EXISTS teams_category_check;
         ALTER TABLE teams ADD CONSTRAINT teams_category_check 
-        CHECK (category IN (
-            'varonil-libre',
-            'femenil-gold',
-            'femenil-silver',
-            'femenil-cooper',
-            'mixto-gold',
-            'mixto-silver'
+        CHECK (category IS NULL OR category IN (
+            'varonil-libre','varonil-gold','varonil-master','varonil-silver','varonil-cooper',
+            'femenil-gold','femenil-silver','femenil-cooper','femenil-cooper-a','femenil-cooper-b',
+            'mixto-gold','mixto-silver','mixto-cooper','mixto-recreativo',
+            'teens','1v1'
         ));
       `,
     })

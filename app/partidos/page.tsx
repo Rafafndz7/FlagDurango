@@ -161,6 +161,8 @@ function GamesPageContent() {
       "femenil-silver": "bg-pink-400",
       "femenil-gold": "bg-pink-500",
       "femenil-cooper": "bg-pink-600",
+      "femenil-cooper-a": "bg-pink-600",
+      "femenil-cooper-b": "bg-fuchsia-700",
       "varonil-silver": "bg-blue-400",
       "varonil-gold": "bg-blue-500",
       "varonil-libre": "bg-blue-600",
@@ -174,7 +176,9 @@ function GamesPageContent() {
     const labels: Record<string, string> = {
       "femenil-silver": "Femenil Silver",
       "femenil-gold": "Femenil Gold",
-      "femenil-cooper": "Femenil Cooper",
+      "femenil-cooper": "Femenil Cooper A",
+      "femenil-cooper-a": "Femenil Cooper A",
+      "femenil-cooper-b": "Femenil Cooper B",
       "varonil-silver": "Varonil Silver",
       "varonil-gold": "Varonil Gold",
       "varonil-libre": "Varonil Libre",
@@ -517,7 +521,8 @@ function GamesPageContent() {
                 <option value="varonil-silver">Varonil Silver</option>
                 <option value="femenil-gold">Femenil Gold</option>
                 <option value="femenil-silver">Femenil Silver</option>
-                <option value="femenil-cooper">Femenil Cooper</option>
+                <option value="femenil-cooper-a">Femenil Cooper A</option>
+                <option value="femenil-cooper-b">Femenil Cooper B</option>
                 <option value="mixto-gold">Mixto Gold</option>
                 <option value="mixto-silver">Mixto Silver</option>
               </select>

@@ -37,7 +37,8 @@ const categories = [
   { value: "varonil-silver", label: "Varonil Silver" },
   { value: "femenil-gold", label: "Femenil Gold" },
   { value: "femenil-silver", label: "Femenil Silver" },
-  { value: "femenil-cooper", label: "Femenil Cooper" },
+  { value: "femenil-cooper-a", label: "Femenil Cooper A" },
+  { value: "femenil-cooper-b", label: "Femenil Cooper B" },
   { value: "mixto-gold", label: "Mixto Gold" },
   { value: "mixto-silver", label: "Mixto Silver" },
 ]

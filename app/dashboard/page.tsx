@@ -635,7 +635,8 @@ export default function Dashboard() {
                         <option value="femenil-silver">Femenil Silver</option>
                         <option value="mixto-gold">Mixto Gold</option>
                         <option value="mixto-silver">Mixto Silver</option>
-                        <option value="femenil-cooper">Femenil Cooper</option>
+                        <option value="femenil-cooper-a">Femenil Cooper A</option>
+                        <option value="femenil-cooper-b">Femenil Cooper B</option>
                       </select>
                     </div>
                     <div>
@@ -898,7 +899,8 @@ export default function Dashboard() {
                       <option value="varonil-silver">Varonil Silver</option>
                       <option value="femenil-gold">Femenil Gold</option>
                       <option value="femenil-silver">Femenil Silver</option>
-                      <option value="femenil-cooper">Femenil Cooper</option>
+                      <option value="femenil-cooper-a">Femenil Cooper A</option>
+                      <option value="femenil-cooper-b">Femenil Cooper B</option>
                       <option value="mixto-gold">Mixto Gold</option>
                       <option value="mixto-silver">Mixto Silver</option>
                     </select>
