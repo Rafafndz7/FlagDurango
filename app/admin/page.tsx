@@ -32,6 +32,7 @@ import {
   Copy,
   Check,
   QrCode,
+  FileText,
 } from "lucide-react"
 import AttendanceSection from "@/components/attendance-section"
 import PlayerStatsAdmin from "@/components/player-stats-admin"
@@ -1261,6 +1262,30 @@ const [gameForm, setGameForm] = useState({
       }
     } catch (error) {
       console.error("Error toggling clock:", error)
+    }
+  }
+
+  const downloadCedula = async (game: Game) => {
+    try {
+      const response = await fetch(`/api/games/cedula?id=${game.id}`)
+      if (!response.ok) {
+        const err = await response.json().catch(() => null)
+        alert(err?.message || "No se pudo generar la cédula")
+        return
+      }
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      const datePart = (game.game_date || "").toString().slice(0, 10)
+      a.href = url
+      a.download = `Cedula_${game.home_team}_vs_${game.away_team}_${datePart}.docx`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error("Error generando cédula:", error)
+      alert("Error al generar la cédula Word")
     }
   }
 
@@ -2911,6 +2936,14 @@ const [gameForm, setGameForm] = useState({
                           )}
                           <Button
                             size="sm"
+                            onClick={() => downloadCedula(game)}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                            title="Generar cédula Word"
+                          >
+                            <FileText className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
                             onClick={() => setEditingGame(game)}
                             className="bg-blue-600 hover:bg-blue-700 text-white"
                           >
@@ -3120,6 +3153,14 @@ const [gameForm, setGameForm] = useState({
                         className="text-gray-700 border-gray-300 hover:bg-gray-100"
                       >
                         Cancelar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => downloadCedula(editingGame)}
+                        className="border-emerald-600 text-emerald-700 hover:bg-emerald-50"
+                      >
+                        <FileText className="w-4 h-4 mr-2" />
+                        Cédula Word
                       </Button>
                       <Button
                         onClick={() =>
