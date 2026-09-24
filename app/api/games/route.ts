@@ -105,7 +105,10 @@ export async function GET(request: NextRequest) {
         current_period,
         clock_running,
         clock_last_started_at,
-        seconds_remaining
+        seconds_remaining,
+        is_draft,
+        allow_shared_slot,
+        draft_notes
       `)
       .eq("season_id", seasonId)
 
@@ -118,9 +121,43 @@ export async function GET(request: NextRequest) {
     }
     if (gameTypeFilter) query = query.eq("game_type", gameTypeFilter)
 
+    // Borradores: solo admin con include_drafts=1; público nunca los ve
+    const includeDrafts = searchParams.get("include_drafts") === "1"
+    if (!(includeDrafts && isAdmin(request))) {
+      // Si la columna no existe aún, el filtro puede fallar — se atrapa abajo
+      query = query.or("is_draft.is.null,is_draft.eq.false")
+    }
+
     const { data, error } = await query.order("game_date", { ascending: true }).order("game_time", { ascending: true })
 
     if (error) {
+      // Compat: BD sin columna is_draft → reintentar sin filtro/select draft
+      if (/is_draft|draft_notes|allow_shared/i.test(error.message)) {
+        let fallback = supabase
+          .from("games")
+          .select(`
+            id, home_team, away_team, home_score, away_score, game_date, game_time,
+            venue, field, category, status, match_type, jornada, referee1, referee2,
+            mvp, stage, season, season_id, game_type, sport_type, counts_for_standings,
+            created_at, updated_at, current_period, clock_running, clock_last_started_at, seconds_remaining
+          `)
+          .eq("season_id", seasonId)
+        if (category && category !== "all") fallback = fallback.eq("category", category)
+        if (status) fallback = fallback.eq("status", status)
+        if (gameTypeFilter) fallback = fallback.eq("game_type", gameTypeFilter)
+        const retry = await fallback.order("game_date", { ascending: true }).order("game_time", { ascending: true })
+        if (retry.error) {
+          return NextResponse.json({ success: false, message: retry.error.message }, { status: 500 })
+        }
+        const sanitizedFallback = retry.data?.map((game) => {
+          if (game.game_date) {
+            const baseDate = game.game_date.split("T")[0]
+            game.game_date = `${baseDate}T00:00:00Z`
+          }
+          return game
+        }) || []
+        return NextResponse.json({ success: true, data: sanitizedFallback })
+      }
       console.error("Error fetching games:", error)
       return NextResponse.json({ success: false, message: error.message }, { status: 500 })
     }
@@ -166,6 +203,9 @@ export async function POST(request: NextRequest) {
       season_id,
       game_type,
       sport_type,
+      is_draft,
+      allow_shared_slot,
+      draft_notes,
     } = body
 
     if (!home_team || !away_team || !game_date || !game_time || !category || !season_id || !game_type) {
@@ -227,11 +267,49 @@ export async function POST(request: NextRequest) {
           game_type: normalizedGameType,
           sport_type: sport_type === "wildbrowl" ? "wildbrowl" : "flag",
           counts_for_standings: shouldCountForStandings(normalizedGameType),
+          is_draft: is_draft === true,
+          allow_shared_slot: allow_shared_slot === true,
+          draft_notes: draft_notes || null,
         },
       ])
       .select()
 
     if (error) {
+      // Compat sin migración: reintentar sin columnas draft
+      if (/is_draft|draft_notes|allow_shared/i.test(error.message)) {
+        const retry = await supabase
+          .from("games")
+          .insert([
+            {
+              home_team,
+              away_team,
+              home_score: home_score || null,
+              away_score: away_score || null,
+              game_date: safeDate,
+              game_time,
+              venue: venue || null,
+              field: field || null,
+              category,
+              status: status || "programado",
+              match_type: match_type || "jornada",
+              jornada: jornada || null,
+              referee1: referee1 || null,
+              referee2: referee2 || null,
+              mvp: mvp || null,
+              stage: stage || "regular",
+              season_id: selectedSeasonId,
+              season: String(selectedSeason?.year || ""),
+              game_type: normalizedGameType,
+              sport_type: sport_type === "wildbrowl" ? "wildbrowl" : "flag",
+              counts_for_standings: shouldCountForStandings(normalizedGameType),
+            },
+          ])
+          .select()
+        if (retry.error) {
+          return NextResponse.json({ success: false, message: retry.error.message }, { status: 500 })
+        }
+        return NextResponse.json({ success: true, data: retry.data[0] })
+      }
       console.error("Error creating game:", error)
       return NextResponse.json({ success: false, message: error.message }, { status: 500 })
     }

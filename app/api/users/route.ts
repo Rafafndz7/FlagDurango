@@ -2,8 +2,20 @@ import { type NextRequest, NextResponse } from "next/server"
 import { supabase } from "@/lib/supabase-admin"
 import bcrypt from "bcryptjs"
 
-export async function GET() {
+function isAdmin(request: NextRequest) {
   try {
+    return JSON.parse(request.cookies.get("auth-token")?.value || "{}").role === "admin"
+  } catch {
+    return false
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    if (!isAdmin(request)) {
+      return NextResponse.json({ success: false, message: "Solo administradores" }, { status: 403 })
+    }
+
     const { data: users, error } = await supabase
       .from("users")
       .select("id, username, email, role, status, created_at")
@@ -23,6 +35,10 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    if (!isAdmin(request)) {
+      return NextResponse.json({ success: false, message: "Solo administradores" }, { status: 403 })
+    }
+
     const body = await request.json()
     const { username, email, password, role } = body
 
@@ -36,7 +52,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verificar si el usuario ya existe
     const { data: existingUser } = await supabase
       .from("users")
       .select("id")
@@ -53,7 +68,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Hash de la contraseña
     const saltRounds = 10
     const passwordHash = await bcrypt.hash(password, saltRounds)
 
@@ -85,6 +99,10 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    if (!isAdmin(request)) {
+      return NextResponse.json({ success: false, message: "Solo administradores" }, { status: 403 })
+    }
+
     const body = await request.json()
     const { id, role, status } = body
 
@@ -98,7 +116,7 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    const updateData: any = {}
+    const updateData: Record<string, unknown> = {}
     if (role) updateData.role = role
     if (status) updateData.status = status
 

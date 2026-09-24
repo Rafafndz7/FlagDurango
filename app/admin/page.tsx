@@ -42,6 +42,8 @@ import Link from "next/link"
 import type { Season } from "@/lib/seasons"
 import TeamQuickManager from "@/components/team-quick-manager" // <-- IMPORTADO AQUÍ
 import AdminFinanzasPanel from "@/components/admin-finanzas-panel"
+import AdminScheduleGenerator from "@/components/admin-schedule-generator"
+import AdminUsersPanel from "@/components/admin-users-panel"
 
 type Team = {
   id?: any
@@ -1544,6 +1546,13 @@ const [gameForm, setGameForm] = useState({
               Partidos
             </TabsTrigger>
             <TabsTrigger
+              value="schedule-generator"
+              className="data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-900 text-gray-700 py-2"
+            >
+              <Calendar className="w-4 h-4 mr-2" />
+              Generador
+            </TabsTrigger>
+            <TabsTrigger
               value="arbitraje"
               className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-900 text-gray-700 py-2 border-b-2 border-transparent data-[state=active]:border-blue-600"
             >
@@ -1612,6 +1621,13 @@ const [gameForm, setGameForm] = useState({
             >
               <Settings className="w-4 h-4 mr-2" />
               Configuración
+            </TabsTrigger>
+            <TabsTrigger
+              value="usuarios"
+              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
+            >
+              <Key className="w-4 h-4 mr-2" />
+              Usuarios
             </TabsTrigger>
             <TabsTrigger
               value="mvps"
@@ -3453,6 +3469,18 @@ const [gameForm, setGameForm] = useState({
 
           <TabsContent value="finanzas">
             <AdminFinanzasPanel />
+          </TabsContent>
+
+          <TabsContent value="schedule-generator">
+            <AdminScheduleGenerator
+              teams={teams}
+              seasons={seasons}
+              activeSeasonId={seasons.find((s) => s.is_active)?.id || gameForm.season_id || ""}
+            />
+          </TabsContent>
+
+          <TabsContent value="usuarios">
+            <AdminUsersPanel />
           </TabsContent>
 
           <TabsContent value="asignacion-arbitros">

@@ -7,7 +7,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Users, Trophy, Calendar, DollarSign, RefreshCw, CheckCircle, XCircle, Clock, Edit, Trash2, Settings, UserCheck } from 'lucide-react'
+import { Plus, Users, Trophy, Calendar, DollarSign, RefreshCw, CheckCircle, XCircle, Clock, Edit, Trash2, Settings, UserCheck, Key } from 'lucide-react'
+import AdminScheduleGenerator from "@/components/admin-schedule-generator"
+import AdminUsersPanel from "@/components/admin-users-panel"
 
 interface Team {
   id: number
@@ -574,7 +576,7 @@ export default function Dashboard() {
         </div>
 
         <Tabs defaultValue="teams" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 bg-white/10 backdrop-blur-sm">
+          <TabsList className="grid w-full grid-cols-7 bg-white/10 backdrop-blur-sm">
             <TabsTrigger value="teams" className="data-[state=active]:bg-white/20">
               <Users className="w-4 h-4 mr-2" />
               Equipos
@@ -589,11 +591,15 @@ export default function Dashboard() {
             </TabsTrigger>
             <TabsTrigger value="schedule" className="data-[state=active]:bg-white/20">
               <Calendar className="w-4 h-4 mr-2" />
-              Calendario
+              Generador
             </TabsTrigger>
             <TabsTrigger value="coaches" className="data-[state=active]:bg-white/20">
               <UserCheck className="w-4 h-4 mr-2" />
               Entrenadores
+            </TabsTrigger>
+            <TabsTrigger value="usuarios" className="data-[state=active]:bg-white/20">
+              <Key className="w-4 h-4 mr-2" />
+              Usuarios
             </TabsTrigger>
             <TabsTrigger value="config" className="data-[state=active]:bg-white/20">
               <Settings className="w-4 h-4 mr-2" />
@@ -1186,11 +1192,13 @@ export default function Dashboard() {
             </Card>
           </TabsContent>
 
-          {/* Calendario - simple placeholder para mantener tabs sin errores */}
+          {/* Generador de partidos en borrador */}
           <TabsContent value="schedule">
-            <Card className="bg-white/10 backdrop-blur-sm border-white/20">
-              <CardContent className="p-6 text-white/80">Calendario próximamente.</CardContent>
-            </Card>
+            <AdminScheduleGenerator teams={teams} />
+          </TabsContent>
+
+          <TabsContent value="usuarios">
+            <AdminUsersPanel />
           </TabsContent>
         </Tabs>
       </div>
