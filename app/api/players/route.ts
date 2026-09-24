@@ -117,6 +117,75 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+
+    // Bulk: { bulk: true, team_id, players: [{ name, jersey_number?, position? }] }
+    if (body.bulk === true) {
+      const teamId = Number(body.team_id)
+      const list = Array.isArray(body.players) ? body.players : []
+      if (!teamId || list.length === 0) {
+        return NextResponse.json(
+          { success: false, message: "team_id y players[] son requeridos" },
+          { status: 400 },
+        )
+      }
+
+      const created: any[] = []
+      const errors: string[] = []
+
+      for (const raw of list) {
+        const name = String(raw?.name || "").trim()
+        if (!name) {
+          errors.push("Fila sin nombre omitida")
+          continue
+        }
+        const jersey =
+          raw.jersey_number !== undefined && raw.jersey_number !== null && raw.jersey_number !== ""
+            ? Number(raw.jersey_number)
+            : null
+
+        if (jersey !== null && !Number.isNaN(jersey)) {
+          const { data: existing } = await supabase
+            .from("players")
+            .select("id")
+            .eq("team_id", teamId)
+            .eq("jersey_number", jersey)
+          if (existing && existing.length > 0) {
+            errors.push(`#${jersey} ${name}: número ocupado`)
+            continue
+          }
+        }
+
+        const { data: newPlayer, error } = await supabase
+          .from("players")
+          .insert({
+            name,
+            jersey_number: jersey !== null && !Number.isNaN(jersey) ? jersey : null,
+            position: raw.position || null,
+            team_id: teamId,
+            photo_url: null,
+          })
+          .select("id, name, jersey_number, position, team_id")
+          .single()
+
+        if (error) {
+          errors.push(`${name}: ${error.message}`)
+        } else if (newPlayer) {
+          created.push(newPlayer)
+        }
+      }
+
+      return NextResponse.json({
+        success: created.length > 0,
+        data: created,
+        created: created.length,
+        errors,
+        message:
+          created.length > 0
+            ? `${created.length} jugador(es) creados${errors.length ? `, ${errors.length} con error` : ""}`
+            : errors[0] || "No se creó ningún jugador",
+      }, { status: created.length > 0 ? 201 : 400 })
+    }
+
     console.log("👤 Creating player with data:", body)
 
     const { name, jersey_number, position, team_id, photo_url } = body

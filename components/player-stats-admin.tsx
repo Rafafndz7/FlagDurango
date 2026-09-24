@@ -1,11 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Target, Shield, Loader2, Save, ChevronDown, ChevronUp } from "lucide-react"
+import { Target, Shield, Loader2, Save, ChevronDown, ChevronUp, UserPlus, AlertCircle, CheckCircle2 } from "lucide-react"
+import { getCategoryLabel } from "@/lib/categories"
 
 interface Game {
   id: number
@@ -34,7 +36,6 @@ interface PlayerStat {
   player_id: number
   game_id: number
   team_id: number
-  // Ataque
   pases_completos: number
   pases_intentados: number
   yardas_pase: number
@@ -47,14 +48,12 @@ interface PlayerStat {
   yardas_recepcion: number
   touchdowns_recepcion: number
   puntos_extra: number
-  // Defensa
   sacks: number
   intercepciones: number
   yardas_intercepcion: number
   touchdowns_intercepcion: number
   pases_defendidos: number
   banderas_jaladas: number
-  // Totales
   touchdowns_totales: number
   puntos_totales: number
 }
@@ -110,39 +109,68 @@ interface PlayerStatsAdminProps {
   games: Game[]
   teams: Team[]
   players: Player[]
+  onPlayersChange?: () => void
 }
 
-export default function PlayerStatsAdmin({ games, teams, players }: PlayerStatsAdminProps) {
+export default function PlayerStatsAdmin({ games, teams, players, onPlayersChange }: PlayerStatsAdminProps) {
   const [selectedGame, setSelectedGame] = useState<number | null>(null)
   const [selectedCategory, setSelectedCategory] = useState("")
+  const [coverageFilter, setCoverageFilter] = useState<"missing" | "done" | "all">("missing")
+  const [statsCounts, setStatsCounts] = useState<Record<number, number>>({})
   const [statsMap, setStatsMap] = useState<Record<number, typeof EMPTY_STAT>>({})
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
   const [expandedPlayer, setExpandedPlayer] = useState<number | null>(null)
   const [statView, setStatView] = useState<"offense" | "defense">("offense")
-
-  const categories = [...new Set(games.map((g) => g.category).filter(Boolean))]
-
-  const filteredGames = games.filter((g) => {
-    if (selectedCategory && g.category !== selectedCategory) return false
-    return true
+  const [addForm, setAddForm] = useState({
+    team_id: "",
+    name: "",
+    jersey_number: "",
+    position: "",
   })
+  const [addingPlayer, setAddingPlayer] = useState(false)
 
-  const getCategoryLabel = (cat: string) => {
-    const labels: Record<string, string> = {
-      "varonil-gold": "Varonil Gold",
-      "varonil-silver": "Varonil Silver",
-      "femenil-gold": "Femenil Gold",
-      "femenil-silver": "Femenil Silver",
-      "femenil-cooper": "Femenil Cooper A",
-      "femenil-cooper-a": "Femenil Cooper A",
-      "femenil-cooper-b": "Femenil Cooper B",
-      "mixto-gold": "Mixto Gold",
-      "mixto-silver": "Mixto Silver",
+  const categories = [...new Set(games.map((g) => g.category).filter(Boolean))] as string[]
+
+  const loadCoverage = useCallback(async () => {
+    try {
+      const res = await fetch("/api/player-stats?coverage=1", { cache: "no-store" })
+      const data = await res.json()
+      if (data.success) setStatsCounts(data.counts || {})
+    } catch {
+      /* ignore */
     }
-    return labels[cat] || cat
-  }
+  }, [])
+
+  useEffect(() => {
+    loadCoverage()
+  }, [loadCoverage])
+
+  const filteredGames = useMemo(() => {
+    return games
+      .filter((g) => {
+        if (selectedCategory && g.category !== selectedCategory) return false
+        const count = statsCounts[g.id] || 0
+        if (coverageFilter === "missing") return count === 0
+        if (coverageFilter === "done") return count > 0
+        return true
+      })
+      .sort((a, b) => {
+        const da = (a.game_date || "").slice(0, 10)
+        const db = (b.game_date || "").slice(0, 10)
+        return db.localeCompare(da)
+      })
+  }, [games, selectedCategory, coverageFilter, statsCounts])
+
+  const missingCount = useMemo(
+    () => games.filter((g) => !(statsCounts[g.id] > 0)).length,
+    [games, statsCounts],
+  )
+  const doneCount = useMemo(
+    () => games.filter((g) => statsCounts[g.id] > 0).length,
+    [games, statsCounts],
+  )
 
   const selectedGameData = games.find((g) => g.id === selectedGame)
 
@@ -151,8 +179,10 @@ export default function PlayerStatsAdmin({ games, teams, players }: PlayerStatsA
     const homeTeam = teams.find((t) => t.name === selectedGameData.home_team)
     const awayTeam = teams.find((t) => t.name === selectedGameData.away_team)
     return {
-      home: players.filter((p) => homeTeam && p.team_id === homeTeam.id),
-      away: players.filter((p) => awayTeam && p.team_id === awayTeam.id),
+      home: players.filter((p) => homeTeam && Number(p.team_id) === Number(homeTeam.id)),
+      away: players.filter((p) => awayTeam && Number(p.team_id) === Number(awayTeam.id)),
+      homeTeam,
+      awayTeam,
     }
   }
 
@@ -177,6 +207,14 @@ export default function PlayerStatsAdmin({ games, teams, players }: PlayerStatsA
     else setStatsMap({})
   }, [selectedGame])
 
+  useEffect(() => {
+    if (!selectedGameData) return
+    const homeTeam = teams.find((t) => t.name === selectedGameData.home_team)
+    if (homeTeam && !addForm.team_id) {
+      setAddForm((f) => ({ ...f, team_id: String(homeTeam.id) }))
+    }
+  }, [selectedGameData, teams])
+
   const updateStat = (playerId: number, field: string, value: number) => {
     setStatsMap((prev) => ({
       ...prev,
@@ -193,8 +231,6 @@ export default function PlayerStatsAdmin({ games, teams, players }: PlayerStatsA
     setMessage(null)
 
     const { home, away } = getGamePlayers()
-    const homeTeam = teams.find((t) => t.name === selectedGameData.home_team)
-    const awayTeam = teams.find((t) => t.name === selectedGameData.away_team)
     const allPlayers = [...home, ...away]
 
     const stats = allPlayers
@@ -207,7 +243,7 @@ export default function PlayerStatsAdmin({ games, teams, players }: PlayerStatsA
       }))
 
     if (stats.length === 0) {
-      setMessage({ type: "error", text: "No hay estadisticas para guardar" })
+      setMessage({ type: "error", text: "No hay estadisticas para guardar (expande un jugador y captura datos)" })
       setSaving(false)
       return
     }
@@ -221,6 +257,7 @@ export default function PlayerStatsAdmin({ games, teams, players }: PlayerStatsA
       const data = await res.json()
       if (data.success) {
         setMessage({ type: "success", text: `Estadisticas guardadas para ${data.data.length} jugadores` })
+        await loadCoverage()
       } else {
         setMessage({ type: "error", text: data.message || "Error al guardar" })
       }
@@ -228,6 +265,36 @@ export default function PlayerStatsAdmin({ games, teams, players }: PlayerStatsA
       setMessage({ type: "error", text: "Error al guardar estadisticas" })
     }
     setSaving(false)
+  }
+
+  const addMissingPlayer = async () => {
+    if (!addForm.team_id || !addForm.name.trim()) {
+      alert("Equipo y nombre requeridos")
+      return
+    }
+    setAddingPlayer(true)
+    try {
+      const res = await fetch("/api/players", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          team_id: Number(addForm.team_id),
+          name: addForm.name.trim(),
+          jersey_number: addForm.jersey_number ? Number(addForm.jersey_number) : null,
+          position: addForm.position || null,
+        }),
+      })
+      const data = await res.json()
+      if (!data.success) {
+        alert(data.message || "No se pudo crear")
+        return
+      }
+      setAddForm((f) => ({ ...f, name: "", jersey_number: "", position: "" }))
+      setMessage({ type: "success", text: `Jugador ${data.data.name} agregado al roster` })
+      onPlayersChange?.()
+    } finally {
+      setAddingPlayer(false)
+    }
   }
 
   const renderPlayerStats = (player: Player) => {
@@ -287,7 +354,9 @@ export default function PlayerStatsAdmin({ games, teams, players }: PlayerStatsA
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
               {fields.map((f) => (
                 <div key={f.key} className="flex flex-col">
-                  <label className="text-xs text-gray-500 mb-1 truncate" title={f.label}>{f.short} - {f.label}</label>
+                  <label className="text-xs text-gray-500 mb-1 truncate" title={f.label}>
+                    {f.short} - {f.label}
+                  </label>
                   <Input
                     type="number"
                     min={0}
@@ -304,96 +373,210 @@ export default function PlayerStatsAdmin({ games, teams, players }: PlayerStatsA
     )
   }
 
-  const { home, away } = getGamePlayers()
+  const { home, away, homeTeam, awayTeam } = getGamePlayers()
 
   return (
-    <Card className="bg-white border-gray-200">
-      <CardHeader>
-        <CardTitle className="text-gray-900 flex items-center gap-2">
-          <Target className="w-5 h-5 text-blue-600" />
-          Estadisticas de Jugadores
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <select
-            value={selectedCategory}
-            onChange={(e) => { setSelectedCategory(e.target.value); setSelectedGame(null) }}
-            className="p-2 rounded bg-white border border-gray-300 text-gray-900 text-sm"
-          >
-            <option value="">Todas las categorias</option>
-            {categories.map((c) => (
-              <option key={c} value={c}>{getCategoryLabel(c!)}</option>
-            ))}
-          </select>
-          <select
-            value={selectedGame || ""}
-            onChange={(e) => setSelectedGame(e.target.value ? Number(e.target.value) : null)}
-            className="flex-1 p-2 rounded bg-white border border-gray-300 text-gray-900 text-sm"
-          >
-            <option value="">Seleccionar partido</option>
-            {filteredGames.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.home_team} vs {g.away_team} - {new Date(g.game_date).toLocaleDateString("es-MX")} ({g.status})
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {message && (
-          <div className={`p-3 rounded-lg text-sm ${message.type === "success" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
-            {message.text}
+    <div className="space-y-4">
+      <Card className="bg-white border-gray-200">
+        <CardHeader>
+          <CardTitle className="text-gray-900 flex items-center gap-2">
+            <Target className="w-5 h-5 text-blue-600" />
+            Estadísticas rápidas por partido
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-2 text-sm">
+            <Badge className="bg-amber-500">
+              <AlertCircle className="w-3 h-3 mr-1" />
+              Sin stats: {missingCount}
+            </Badge>
+            <Badge className="bg-emerald-600">
+              <CheckCircle2 className="w-3 h-3 mr-1" />
+              Con stats: {doneCount}
+            </Badge>
           </div>
-        )}
 
-        {loading && <div className="text-center py-8 text-gray-500">Cargando estadisticas...</div>}
-
-        {selectedGame && !loading && (
-          <>
-            {/* Home Team */}
-            {home.length > 0 && (
-              <div>
-                <h3 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                  {selectedGameData?.home_team} (Local)
-                </h3>
-                <div className="space-y-2">{home.map(renderPlayerStats)}</div>
-              </div>
-            )}
-
-            {/* Away Team */}
-            {away.length > 0 && (
-              <div>
-                <h3 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                  {selectedGameData?.away_team} (Visitante)
-                </h3>
-                <div className="space-y-2">{away.map(renderPlayerStats)}</div>
-              </div>
-            )}
-
-            {home.length === 0 && away.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                No se encontraron jugadores para los equipos de este partido
-              </div>
-            )}
-
-            {(home.length > 0 || away.length > 0) && (
-              <Button onClick={handleSave} disabled={saving} className="w-full bg-green-600 hover:bg-green-700">
-                {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-                Guardar Estadisticas
-              </Button>
-            )}
-          </>
-        )}
-
-        {!selectedGame && !loading && (
-          <div className="text-center py-8 text-gray-500">
-            Selecciona un partido para cargar las estadisticas de los jugadores
+          <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+            <select
+              value={coverageFilter}
+              onChange={(e) => {
+                setCoverageFilter(e.target.value as any)
+                setSelectedGame(null)
+              }}
+              className="p-2 rounded bg-white border border-gray-300 text-gray-900 text-sm"
+            >
+              <option value="missing">Solo partidos SIN estadísticas</option>
+              <option value="done">Solo partidos CON estadísticas</option>
+              <option value="all">Todos los partidos</option>
+            </select>
+            <select
+              value={selectedCategory}
+              onChange={(e) => {
+                setSelectedCategory(e.target.value)
+                setSelectedGame(null)
+              }}
+              className="p-2 rounded bg-white border border-gray-300 text-gray-900 text-sm"
+            >
+              <option value="">Todas las categorías</option>
+              {categories.map((c) => (
+                <option key={c} value={c}>
+                  {getCategoryLabel(c)}
+                </option>
+              ))}
+            </select>
+            <select
+              value={selectedGame || ""}
+              onChange={(e) => setSelectedGame(e.target.value ? Number(e.target.value) : null)}
+              className="flex-1 min-w-[220px] p-2 rounded bg-white border border-gray-300 text-gray-900 text-sm"
+            >
+              <option value="">Seleccionar partido ({filteredGames.length})</option>
+              {filteredGames.map((g) => {
+                const count = statsCounts[g.id] || 0
+                const mark = count > 0 ? `✓ ${count} filas` : "⚠ sin stats"
+                return (
+                  <option key={g.id} value={g.id}>
+                    {mark} · {g.home_team} vs {g.away_team} ·{" "}
+                    {(g.game_date || "").toString().slice(0, 10)} ({g.status})
+                  </option>
+                )
+              })}
+            </select>
           </div>
-        )}
-      </CardContent>
-    </Card>
+
+          {!selectedGame && coverageFilter === "missing" && filteredGames.length > 0 && (
+            <div className="border rounded-lg divide-y max-h-64 overflow-y-auto">
+              {filteredGames.slice(0, 40).map((g) => (
+                <button
+                  key={g.id}
+                  type="button"
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-amber-50 flex justify-between gap-2"
+                  onClick={() => setSelectedGame(g.id)}
+                >
+                  <span className="font-medium text-gray-900">
+                    {g.home_team} vs {g.away_team}
+                  </span>
+                  <span className="text-gray-500 shrink-0">
+                    {(g.game_date || "").toString().slice(0, 10)} · {getCategoryLabel(g.category)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {message && (
+            <div
+              className={`p-3 rounded-lg text-sm ${
+                message.type === "success"
+                  ? "bg-green-50 text-green-700 border border-green-200"
+                  : "bg-red-50 text-red-700 border border-red-200"
+              }`}
+            >
+              {message.text}
+            </div>
+          )}
+
+          {loading && <div className="text-center py-8 text-gray-500">Cargando estadisticas...</div>}
+
+          {selectedGame && !loading && (
+            <>
+              {/* Alta rápida si falta alguien en el roster */}
+              <div className="rounded-xl border border-dashed border-blue-300 bg-blue-50/50 p-4 space-y-3">
+                <h4 className="font-semibold text-gray-900 flex items-center gap-2 text-sm">
+                  <UserPlus className="w-4 h-4" />
+                  ¿Falta un jugador? Regístralo aquí y sigue capturando stats
+                </h4>
+                <div className="grid md:grid-cols-5 gap-2 items-end">
+                  <div>
+                    <Label className="text-xs">Equipo</Label>
+                    <select
+                      className="w-full rounded-md border p-2 text-sm"
+                      value={addForm.team_id}
+                      onChange={(e) => setAddForm({ ...addForm, team_id: e.target.value })}
+                    >
+                      <option value="">—</option>
+                      {homeTeam && (
+                        <option value={String(homeTeam.id)}>
+                          Local: {homeTeam.name}
+                        </option>
+                      )}
+                      {awayTeam && (
+                        <option value={String(awayTeam.id)}>
+                          Visita: {awayTeam.name}
+                        </option>
+                      )}
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">#</Label>
+                    <Input
+                      value={addForm.jersey_number}
+                      onChange={(e) => setAddForm({ ...addForm, jersey_number: e.target.value })}
+                      placeholder="12"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label className="text-xs">Nombre</Label>
+                    <Input
+                      value={addForm.name}
+                      onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
+                      placeholder="Nombre completo"
+                    />
+                  </div>
+                  <Button
+                    onClick={addMissingPlayer}
+                    disabled={addingPlayer}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    {addingPlayer ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4 mr-1" />}
+                    Agregar
+                  </Button>
+                </div>
+              </div>
+
+              {home.length > 0 && (
+                <div>
+                  <h3 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                    {selectedGameData?.home_team} (Local) — {home.length} jugadores
+                  </h3>
+                  <div className="space-y-2">{home.map(renderPlayerStats)}</div>
+                </div>
+              )}
+
+              {away.length > 0 && (
+                <div>
+                  <h3 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                    {selectedGameData?.away_team} (Visitante) — {away.length} jugadores
+                  </h3>
+                  <div className="space-y-2">{away.map(renderPlayerStats)}</div>
+                </div>
+              )}
+
+              {home.length === 0 && away.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  No hay jugadores en el roster de estos equipos. Usa el alta rápida de arriba.
+                </div>
+              )}
+
+              {(home.length > 0 || away.length > 0) && (
+                <Button onClick={handleSave} disabled={saving} className="w-full bg-green-600 hover:bg-green-700">
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                  Guardar Estadisticas
+                </Button>
+              )}
+            </>
+          )}
+
+          {!selectedGame && !loading && filteredGames.length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              {coverageFilter === "missing"
+                ? "No hay partidos pendientes de estadísticas con estos filtros."
+                : "No hay partidos con estos filtros."}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   )
 }

@@ -44,6 +44,7 @@ import TeamQuickManager from "@/components/team-quick-manager" // <-- IMPORTADO 
 import AdminFinanzasPanel from "@/components/admin-finanzas-panel"
 import AdminScheduleGenerator from "@/components/admin-schedule-generator"
 import AdminUsersPanel from "@/components/admin-users-panel"
+import AdminBulkRoster from "@/components/admin-bulk-roster"
 
 type Team = {
   id?: any
@@ -2145,6 +2146,8 @@ const [gameForm, setGameForm] = useState({
           {/* Jugadores - Información Completa */}
           <TabsContent value="players">
             <div className="grid gap-6">
+              <AdminBulkRoster teams={teams} onDone={() => loadData()} />
+
               <Card className="bg-white border border-gray-200">
                 <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                   <CardTitle className="text-gray-900 flex items-center shrink-0">
@@ -3446,7 +3449,7 @@ const [gameForm, setGameForm] = useState({
 
           {/* Estadisticas */}
           <TabsContent value="stats">
-            <PlayerStatsAdmin games={games} teams={teams} players={players} />
+            <PlayerStatsAdmin games={games} teams={teams} players={players} onPlayersChange={() => loadData()} />
           </TabsContent>
 
           {/* Calendario */}

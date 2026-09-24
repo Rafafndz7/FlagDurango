@@ -9,6 +9,26 @@ export async function GET(request: NextRequest) {
     const playerId = searchParams.get("player_id")
     const teamId = searchParams.get("team_id")
     const ranking = searchParams.get("ranking")
+    const coverage = searchParams.get("coverage")
+
+    // Cobertura: qué partidos ya tienen filas de stats
+    if (coverage === "1" || coverage === "true") {
+      const { data, error } = await supabase.from("player_game_stats").select("game_id")
+      if (error) {
+        return NextResponse.json({ success: false, message: error.message }, { status: 500 })
+      }
+      const counts: Record<number, number> = {}
+      for (const row of data || []) {
+        const gid = Number(row.game_id)
+        if (!gid) continue
+        counts[gid] = (counts[gid] || 0) + 1
+      }
+      return NextResponse.json({
+        success: true,
+        game_ids: Object.keys(counts).map(Number),
+        counts,
+      })
+    }
 
     if (ranking === "true") {
       // Obtener estadisticas acumuladas de todos los jugadores
