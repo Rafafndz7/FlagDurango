@@ -16,12 +16,14 @@ interface Game {
   game_date: string
   status: string
   category?: string
+  season_id?: string
 }
 
 interface Team {
   id: number
   name: string
   category?: string
+  season_id?: string
 }
 
 interface Player {
@@ -30,6 +32,41 @@ interface Player {
   jersey_number: number
   position?: string
   team_id: number
+}
+
+/** Resuelve el equipo del partido por nombre + temporada (evita roster de temporada anterior). */
+function findTeamForGame(
+  teams: Team[],
+  teamName: string,
+  game?: Game | null,
+): Team | undefined {
+  if (!teamName) return undefined
+  const name = teamName.trim()
+  const seasonId = game?.season_id
+  const category = game?.category
+
+  if (seasonId) {
+    const bySeasonCat = teams.find(
+      (t) =>
+        t.name === name &&
+        t.season_id === seasonId &&
+        (!category || t.category === category),
+    )
+    if (bySeasonCat) return bySeasonCat
+
+    const bySeason = teams.find((t) => t.name === name && t.season_id === seasonId)
+    if (bySeason) return bySeason
+  }
+
+  if (category) {
+    const byCat = teams.find((t) => t.name === name && t.category === category)
+    if (byCat) return byCat
+  }
+
+  // Último recurso: preferir el de mayor id (más reciente)
+  const matches = teams.filter((t) => t.name === name)
+  if (matches.length === 0) return undefined
+  return matches.reduce((a, b) => (Number(a.id) >= Number(b.id) ? a : b))
 }
 
 interface PlayerStat {
@@ -175,9 +212,9 @@ export default function PlayerStatsAdmin({ games, teams, players, onPlayersChang
   const selectedGameData = games.find((g) => g.id === selectedGame)
 
   const getGamePlayers = () => {
-    if (!selectedGameData) return { home: [] as Player[], away: [] as Player[] }
-    const homeTeam = teams.find((t) => t.name === selectedGameData.home_team)
-    const awayTeam = teams.find((t) => t.name === selectedGameData.away_team)
+    if (!selectedGameData) return { home: [] as Player[], away: [] as Player[], homeTeam: undefined, awayTeam: undefined }
+    const homeTeam = findTeamForGame(teams, selectedGameData.home_team, selectedGameData)
+    const awayTeam = findTeamForGame(teams, selectedGameData.away_team, selectedGameData)
     return {
       home: players.filter((p) => homeTeam && Number(p.team_id) === Number(homeTeam.id)),
       away: players.filter((p) => awayTeam && Number(p.team_id) === Number(awayTeam.id)),
@@ -209,8 +246,8 @@ export default function PlayerStatsAdmin({ games, teams, players, onPlayersChang
 
   useEffect(() => {
     if (!selectedGameData) return
-    const homeTeam = teams.find((t) => t.name === selectedGameData.home_team)
-    if (homeTeam && !addForm.team_id) {
+    const homeTeam = findTeamForGame(teams, selectedGameData.home_team, selectedGameData)
+    if (homeTeam) {
       setAddForm((f) => ({ ...f, team_id: String(homeTeam.id) }))
     }
   }, [selectedGameData, teams])

@@ -300,6 +300,7 @@ export default function AdminPage() {
   // Estados nuevos para edición y filtrado de jugadores
   const [playersTeamFilter, setPlayersTeamFilter] = useState<string>("")
   const [playersSearchFilter, setPlayersSearchFilter] = useState<string>("")
+  const [playersSeasonFilter, setPlayersSeasonFilter] = useState<string>("active")
   const [editingPlayerId, setEditingPlayerId] = useState<string | number | null>(null)
   const [editPlayerData, setEditPlayerData] = useState<any>({})
 
@@ -448,6 +449,39 @@ const [gameForm, setGameForm] = useState({
   })
 
   const canCreatePlayer = useMemo(() => !!newPlayer.team_id, [newPlayer.team_id])
+
+  const activeSeasonId = useMemo(
+    () => seasons.find((s) => s.is_active)?.id || "",
+    [seasons],
+  )
+
+  const playersResolvedSeasonId = useMemo(() => {
+    if (playersSeasonFilter === "active") return activeSeasonId
+    if (playersSeasonFilter === "all") return ""
+    return playersSeasonFilter
+  }, [playersSeasonFilter, activeSeasonId])
+
+  const teamsForPlayersUi = useMemo(() => {
+    if (!playersResolvedSeasonId) return teams
+    return teams.filter((t) => t.season_id === playersResolvedSeasonId)
+  }, [teams, playersResolvedSeasonId])
+
+  const teamIdsForPlayersUi = useMemo(
+    () => new Set(teamsForPlayersUi.map((t) => String(t.id))),
+    [teamsForPlayersUi],
+  )
+
+  const teamsForActiveSeason = useMemo(() => {
+    if (!activeSeasonId) return teams
+    return teams.filter((t) => t.season_id === activeSeasonId)
+  }, [teams, activeSeasonId])
+
+  // Sync season filter when seasons load
+  useEffect(() => {
+    if (activeSeasonId && playersSeasonFilter === "active") {
+      // keep "active" token; resolved via activeSeasonId
+    }
+  }, [activeSeasonId, playersSeasonFilter])
 
   // Lógica de Arbitraje: Actualiza el estado localmente mientras escribes
   const updateArbitrajeLocal = (gameId: number, field: string, value: any) => {
@@ -1894,9 +1928,9 @@ const [gameForm, setGameForm] = useState({
                         className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900"
                       >
                         <option value="">Seleccionar equipo</option>
-                        {teams.map((team) => (
+                        {teamsForActiveSeason.map((team) => (
                           <option key={team.id} value={team.id}>
-                            {team.name}
+                            {team.name} ({team.category})
                           </option>
                         ))}
                       </select>
@@ -2146,7 +2180,7 @@ const [gameForm, setGameForm] = useState({
           {/* Jugadores - Información Completa */}
           <TabsContent value="players">
             <div className="grid gap-6">
-              <AdminBulkRoster teams={teams} onDone={() => loadData()} />
+              <AdminBulkRoster teams={teamsForActiveSeason} onDone={() => loadData()} />
 
               <Card className="bg-white border border-gray-200">
                 <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -2162,14 +2196,34 @@ const [gameForm, setGameForm] = useState({
                       className="w-full sm:w-64 bg-white border-gray-300 text-gray-900"
                     />
                     <div className="flex items-center gap-2 w-full sm:w-auto">
-                      <span className="text-sm text-gray-700 whitespace-nowrap">Filtrar por equipo:</span>
+                      <span className="text-sm text-gray-700 whitespace-nowrap">Temporada:</span>
+                      <select
+                        value={playersSeasonFilter}
+                        onChange={(e) => {
+                          setPlayersSeasonFilter(e.target.value)
+                          setPlayersTeamFilter("")
+                        }}
+                        className="p-2 rounded bg-white border border-gray-300 text-gray-900"
+                      >
+                        <option value="active">Temporada activa</option>
+                        {seasons.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                            {s.is_active ? " (activa)" : ""}
+                          </option>
+                        ))}
+                        <option value="all">Todas</option>
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                      <span className="text-sm text-gray-700 whitespace-nowrap">Equipo:</span>
                       <select
                         value={playersTeamFilter}
                         onChange={(e) => setPlayersTeamFilter(e.target.value)}
                         className="p-2 rounded bg-white border border-gray-300 text-gray-900"
                       >
                         <option value="">Todos los equipos</option>
-                        {teams.map((team) => (
+                        {teamsForPlayersUi.map((team) => (
                           <option key={team.id} value={team.id.toString()}>
                             {team.name} ({team.category})
                           </option>
@@ -2186,6 +2240,11 @@ const [gameForm, setGameForm] = useState({
                   {/* Lista de jugadores con información completa */}
                   <div className="space-y-4">
                     {players
+                      .filter((player) =>
+                        playersSeasonFilter === "all"
+                          ? true
+                          : teamIdsForPlayersUi.has(String(player.team_id)),
+                      )
                       .filter((player) => !playersTeamFilter || player.team_id?.toString() === playersTeamFilter)
                       .filter((player) => !playersSearchFilter || player.name.toLowerCase().includes(playersSearchFilter.toLowerCase()))
                       .map((player) => (
@@ -2238,9 +2297,9 @@ const [gameForm, setGameForm] = useState({
                                     className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900"
                                   >
                                     <option value="">Seleccionar equipo</option>
-                                    {teams.map((team) => (
+                                    {teamsForPlayersUi.map((team) => (
                                       <option key={team.id} value={team.id}>
-                                        {team.name}
+                                        {team.name} ({team.category})
                                       </option>
                                     ))}
                                   </select>
@@ -3449,7 +3508,12 @@ const [gameForm, setGameForm] = useState({
 
           {/* Estadisticas */}
           <TabsContent value="stats">
-            <PlayerStatsAdmin games={games} teams={teams} players={players} onPlayersChange={() => loadData()} />
+            <PlayerStatsAdmin
+              games={games}
+              teams={teams}
+              players={players}
+              onPlayersChange={() => loadData()}
+            />
           </TabsContent>
 
           {/* Calendario */}

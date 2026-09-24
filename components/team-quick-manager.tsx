@@ -17,12 +17,14 @@ interface Game {
   status: string
   category?: string
   jornada?: number
+  season_id?: string
 }
 
 interface Team {
   id: number
   name: string
   category?: string
+  season_id?: string
 }
 
 interface Player {
@@ -60,9 +62,11 @@ export default function TeamQuickManager({ games, teams, players }: TeamQuickMan
 
   const selectedTeam = teams.find(t => t.id === selectedTeamId)
   
-  // Filtrar partidos donde juega el equipo seleccionado
+  // Filtrar partidos del mismo equipo Y misma temporada
   const teamGames = games.filter(g => 
-    selectedTeam && (g.home_team === selectedTeam.name || g.away_team === selectedTeam.name)
+    selectedTeam &&
+    (g.home_team === selectedTeam.name || g.away_team === selectedTeam.name) &&
+    (!selectedTeam.season_id || !g.season_id || g.season_id === selectedTeam.season_id)
   ).sort((a, b) => new Date(b.game_date).getTime() - new Date(a.game_date).getTime())
 
   const selectedGame = games.find(g => g.id === selectedGameId)
