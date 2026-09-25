@@ -57,8 +57,8 @@ export default function AdminScheduleGenerator({
   seasons?: { id: string; name?: string; is_active?: boolean }[]
   activeSeasonId?: string
 }) {
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
-  const [jornada, setJornada] = useState("")
+  const [date, setDate] = useState("2026-09-27")
+  const [jornada, setJornada] = useState("2")
   const [venue, setVenue] = useState("Deportivo Tapias")
   const [seasonId, setSeasonId] = useState(activeSeasonId)
   const [rows, setRows] = useState<MatchRow[]>([])
@@ -270,6 +270,46 @@ export default function AdminScheduleGenerator({
     }
   }
 
+  const fixTeamNames = async () => {
+    if (
+      !confirm(
+        "¿Remapear nombres de los partidos (incluidos ya publicados) a equipos de la temporada activa?\n\nUsa la jornada del campo (ej. 2).",
+      )
+    ) {
+      return
+    }
+    setSaving(true)
+    setMessage(null)
+    try {
+      const res = await fetch("/api/games/fix-team-names", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          drafts_only: false,
+          jornada: jornada ? Number(jornada) : 2,
+        }),
+      })
+      const data = await res.json()
+      if (!data.success) {
+        alert(data.message || "Error al corregir")
+        return
+      }
+      let msg = data.message
+      if (data.unmatched?.length) {
+        const sample = data.unmatched
+          .slice(0, 10)
+          .map((u: any) => `#${u.id} ${u.before.home} vs ${u.before.away} (${u.before.category})`)
+          .join("\n")
+        msg += `\n\nSin match (revisa nombres en Equipos):\n${sample}`
+      }
+      alert(msg)
+      setMessage(data.message)
+      await load()
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const adjustGame = async (g: DraftGame) => {
     const time = prompt("Nueva hora (HH:MM)", g.game_time || "08:00")
     if (time === null) return
@@ -374,7 +414,7 @@ export default function AdminScheduleGenerator({
             </div>
             <div>
               <Label>Jornada</Label>
-              <Input value={jornada} onChange={(e) => setJornada(e.target.value)} placeholder="3" />
+              <Input value={jornada} onChange={(e) => setJornada(e.target.value)} placeholder="2" />
             </div>
             <div>
               <Label>Sede</Label>
@@ -532,6 +572,9 @@ export default function AdminScheduleGenerator({
                 />
                 Solo fecha {date || "—"}
               </label>
+              <Button size="sm" variant="outline" onClick={fixTeamNames} disabled={saving} className="border-amber-500 text-amber-800">
+                Corregir nombres J{jornada || 2} (aunque ya publicados)
+              </Button>
               <Button size="sm" onClick={publishSelected} disabled={saving || selected.length === 0} className="bg-emerald-600 hover:bg-emerald-700 text-white">
                 <Upload className="w-4 h-4 mr-1" />
                 Publicar seleccionados
