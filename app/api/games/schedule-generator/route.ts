@@ -53,9 +53,11 @@ export async function GET(req: NextRequest) {
         "id, home_team, away_team, game_date, game_time, venue, field, category, status, is_draft, allow_shared_slot, draft_notes, jornada, season_id",
       )
       .eq("season_id", seasonId)
+      .order("game_date", { ascending: true })
       .order("game_time", { ascending: true })
 
-    if (date) query = query.eq("game_date", `${date}T00:00:00Z`)
+    // game_date es tipo DATE → filtrar con YYYY-MM-DD (no timestamptz)
+    if (date) query = query.eq("game_date", date.slice(0, 10))
     if (draftsOnly) query = query.eq("is_draft", true)
 
     const { data, error } = await query
@@ -133,7 +135,7 @@ export async function POST(req: NextRequest) {
       .from("games")
       .select("id, home_team, away_team, game_time, field, category, is_draft, allow_shared_slot")
       .eq("season_id", seasonId)
-      .eq("game_date", `${gameDate}T00:00:00Z`)
+      .eq("game_date", gameDate)
 
     const slotUsage = new Map<string, { count: number; allowShare: boolean; games: any[] }>()
     for (const g of existing || []) {
@@ -234,7 +236,7 @@ export async function POST(req: NextRequest) {
         home_team: m.home_team,
         away_team: m.away_team,
         category: m.category,
-        game_date: `${gameDate}T00:00:00Z`,
+        game_date: gameDate,
         game_time: time,
         venue,
         field: fieldName,
@@ -340,7 +342,7 @@ export async function PUT(req: NextRequest) {
       const patch: Record<string, unknown> = {}
       if (body.game_time) patch.game_time = String(body.game_time).slice(0, 5)
       if (body.field) patch.field = formatFieldName(normalizeFieldLetter(body.field) || body.field)
-      if (body.game_date) patch.game_date = `${String(body.game_date).slice(0, 10)}T00:00:00Z`
+      if (body.game_date) patch.game_date = String(body.game_date).slice(0, 10)
       if (body.venue !== undefined) patch.venue = body.venue
       if (body.allow_shared_slot !== undefined) patch.allow_shared_slot = !!body.allow_shared_slot
       if (body.draft_notes !== undefined) patch.draft_notes = body.draft_notes
@@ -360,7 +362,7 @@ export async function PUT(req: NextRequest) {
         .from("games")
         .update({ is_draft: false, status: "programado" })
         .eq("season_id", seasonId)
-        .eq("game_date", `${date}T00:00:00Z`)
+        .eq("game_date", date)
         .eq("is_draft", true)
         .select()
       if (error) return NextResponse.json({ success: false, message: error.message }, { status: 500 })
@@ -368,6 +370,22 @@ export async function PUT(req: NextRequest) {
         success: true,
         data,
         message: `${data?.length || 0} borradores del ${date} publicados.`,
+      })
+    }
+
+    if (action === "publish_all_drafts") {
+      const seasonId = await resolveSeason(body.season_id)
+      const { data, error } = await supabase
+        .from("games")
+        .update({ is_draft: false, status: "programado" })
+        .eq("season_id", seasonId)
+        .eq("is_draft", true)
+        .select()
+      if (error) return NextResponse.json({ success: false, message: error.message }, { status: 500 })
+      return NextResponse.json({
+        success: true,
+        data,
+        message: `${data?.length || 0} borradores publicados.`,
       })
     }
 

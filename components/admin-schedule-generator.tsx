@@ -78,6 +78,8 @@ export default function AdminScheduleGenerator({
     related_game_id: "",
   })
 
+  const [filterDraftsByDate, setFilterDraftsByDate] = useState(false)
+
   useEffect(() => {
     if (activeSeasonId) setSeasonId(activeSeasonId)
   }, [activeSeasonId])
@@ -96,25 +98,43 @@ export default function AdminScheduleGenerator({
     setLoading(true)
     setMessage(null)
     try {
-      const params = new URLSearchParams({ date, drafts: "0" })
-      if (seasonId) params.set("season", seasonId)
-      const [gridRes, reqRes] = await Promise.all([
-        fetch(`/api/games/schedule-generator?${params}`, { cache: "no-store" }),
+      // 1) Todos los borradores de la temporada (sin filtrar fecha — así salen los del SQL J2)
+      const draftParams = new URLSearchParams({ drafts: "1" })
+      if (seasonId) draftParams.set("season", seasonId)
+
+      // 2) Opcional: ocupación del día seleccionado
+      const dayParams = new URLSearchParams({ date })
+      if (seasonId) dayParams.set("season", seasonId)
+
+      const [draftsRes, dayRes, reqRes] = await Promise.all([
+        fetch(`/api/games/schedule-generator?${draftParams}`, { cache: "no-store" }),
+        fetch(`/api/games/schedule-generator?${dayParams}`, { cache: "no-store" }),
         fetch("/api/schedule-requests?status=pending", { cache: "no-store" }),
       ])
-      const grid = await gridRes.json()
+      const draftsJson = await draftsRes.json()
+      const dayJson = await dayRes.json()
       const req = await reqRes.json()
-      if (grid.needs_migration || req.needs_migration) {
+      if (draftsJson.needs_migration || req.needs_migration) {
         setMessage("Ejecuta en Supabase: scripts/2026-09-schedule-drafts.sql")
       }
-      if (grid.success) {
-        setDrafts((grid.data || []).filter((g: DraftGame) => g.is_draft))
-      } else if (grid.message) setMessage(grid.message)
+      if (draftsJson.success) {
+        let list = (draftsJson.data || []).filter((g: DraftGame) => g.is_draft)
+        if (filterDraftsByDate && date) {
+          list = list.filter((g: DraftGame) => String(g.game_date || "").slice(0, 10) === date)
+        }
+        setDrafts(list)
+        if (list.length === 0 && !filterDraftsByDate) {
+          setMessage("No hay partidos en borrador. Si corriste el SQL J2, verifica temporada activa y is_draft=true.")
+        }
+      } else if (draftsJson.message) {
+        setMessage(draftsJson.message)
+      }
       if (req.success) setRequests(req.data || [])
+      void dayJson
     } finally {
       setLoading(false)
     }
-  }, [date, seasonId])
+  }, [date, seasonId, filterDraftsByDate])
 
   useEffect(() => {
     load()
@@ -223,6 +243,27 @@ export default function AdminScheduleGenerator({
       })
       const data = await res.json()
       alert(data.message || "Listo")
+      await load()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const publishAllDrafts = async () => {
+    if (!confirm(`¿Publicar TODOS los ${drafts.length} borradores de la temporada?`)) return
+    setSaving(true)
+    try {
+      const res = await fetch("/api/games/schedule-generator", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "publish_all_drafts",
+          season_id: seasonId,
+        }),
+      })
+      const data = await res.json()
+      alert(data.message || "Listo")
+      setSelected([])
       await load()
     } finally {
       setSaving(false)
@@ -481,21 +522,39 @@ export default function AdminScheduleGenerator({
       <Card className="bg-white border-gray-200">
         <CardHeader>
           <CardTitle className="text-gray-900 flex items-center justify-between flex-wrap gap-2">
-            <span>Borradores del {date}</span>
-            <div className="flex gap-2">
+            <span>Borradores pendientes ({drafts.length})</span>
+            <div className="flex gap-2 flex-wrap">
+              <label className="flex items-center gap-2 text-sm font-normal text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={filterDraftsByDate}
+                  onChange={(e) => setFilterDraftsByDate(e.target.checked)}
+                />
+                Solo fecha {date || "—"}
+              </label>
               <Button size="sm" onClick={publishSelected} disabled={saving || selected.length === 0} className="bg-emerald-600 hover:bg-emerald-700 text-white">
                 <Upload className="w-4 h-4 mr-1" />
                 Publicar seleccionados
               </Button>
               <Button size="sm" variant="outline" onClick={publishAllDay} disabled={saving}>
-                Publicar todos del día
+                Publicar del día
+              </Button>
+              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={publishAllDrafts} disabled={saving || drafts.length === 0}>
+                Publicar todos los borradores
               </Button>
             </div>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {drafts.length === 0 ? (
-            <p className="text-sm text-gray-500">No hay borradores para esta fecha.</p>
+          {loading ? (
+            <p className="text-sm text-gray-500 flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" /> Cargando borradores…
+            </p>
+          ) : drafts.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              No hay borradores{filterDraftsByDate ? ` el ${date}` : ""}. Tip: desactiva “Solo fecha” o pon la fecha del
+              SQL (ej. 2026-09-27).
+            </p>
           ) : (
             drafts.map((g) => (
               <div key={g.id} className="flex flex-wrap items-center justify-between gap-2 border rounded-lg p-3">
@@ -512,7 +571,8 @@ export default function AdminScheduleGenerator({
                       {g.home_team} vs {g.away_team}
                     </p>
                     <p className="text-gray-600">
-                      {String(g.game_time || "").slice(0, 5)} · {g.field} · {getCategoryLabel(g.category)}
+                      {String(g.game_date || "").slice(0, 10)} · {String(g.game_time || "").slice(0, 5)} · {g.field} ·{" "}
+                      {getCategoryLabel(g.category)}
                       {g.allow_shared_slot ? " · cupo compartido" : ""}
                     </p>
                   </div>

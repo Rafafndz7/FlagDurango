@@ -179,6 +179,7 @@ interface Game {
   clock_last_started_at?: string | null
   seconds_remaining?: number
   jornada?: number | string | null
+  is_draft?: boolean
 }
 
 interface NewsArticle {
@@ -276,6 +277,7 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState("teams")
   const [wildbrowlEnabled, setWildbrowlEnabled] = useState<boolean>(false)
   const [gamesCategoryFilter, setGamesCategoryFilter] = useState<string>("")
+  const [gamesDraftFilter, setGamesDraftFilter] = useState<"all" | "draft" | "published">("all")
   const [systemConfig, setSystemConfig] = useState<{ [key: string]: string }>({})
   const [editingTeamId, setEditingTeamId] = useState<number | null>(null)
   const [editTeamData, setEditTeamData] = useState<any>({})
@@ -566,7 +568,7 @@ const [gameForm, setGameForm] = useState({
           fetch("/api/staff"),
           fetch("/api/referees"),
           fetch("/api/payments"),
-          fetch("/api/games"),
+          fetch("/api/games?include_drafts=1", { cache: "no-store" }),
           fetch("/api/news"),
           fetch("/api/venues"),
           fetch("/api/fields"),
@@ -680,7 +682,7 @@ const [gameForm, setGameForm] = useState({
       const [teamsRes, playersRes, gamesRes, paymentsRes, venuesRes, fieldsRes, requestsRes] = await Promise.all([
         fetch("/api/teams?all_seasons=1").catch(() => ({ json: () => ({ success: false, data: [] }) })),
         fetch("/api/players", { cache: "no-store" }).catch(() => ({ json: () => ({ success: false, data: [] }) })),
-        fetch("/api/games").catch(() => ({ json: () => ({ success: false, data: [] }) })),
+        fetch("/api/games?include_drafts=1", { cache: "no-store" }).catch(() => ({ json: () => ({ success: false, data: [] }) })),
         fetch("/api/payments").catch(() => ({ json: () => ({ success: false, data: [] }) })),
         fetch("/api/venues").catch(() => ({ json: () => ({ success: false, data: [] }) })),
         fetch("/api/fields").catch(() => ({ json: () => ({ success: false, data: [] }) })),
@@ -1323,6 +1325,25 @@ const [gameForm, setGameForm] = useState({
     } catch (error) {
       console.error("Error generando cédula:", error)
       alert("Error al generar la cédula Word")
+    }
+  }
+
+  const publishDraftGame = async (gameId: number) => {
+    try {
+      const res = await fetch("/api/games/schedule-generator", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "publish", ids: [gameId] }),
+      })
+      const data = await res.json()
+      if (!data.success) {
+        alert(data.message || "No se pudo publicar")
+        return
+      }
+      await loadData()
+    } catch (error) {
+      console.error(error)
+      alert("Error al publicar borrador")
     }
   }
 
@@ -2946,9 +2967,24 @@ const [gameForm, setGameForm] = useState({
 
               <Card className="bg-white border border-gray-200">
                 <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                  <CardTitle className="text-gray-900">Partidos Programados</CardTitle>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-700">Filtrar por categoría:</span>
+                  <CardTitle className="text-gray-900">
+                    Partidos Programados{" "}
+                    <span className="text-sm font-normal text-amber-600">
+                      ({games.filter((g) => g.is_draft).length} borradores)
+                    </span>
+                  </CardTitle>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm text-gray-700">Visibilidad:</span>
+                    <select
+                      value={gamesDraftFilter}
+                      onChange={(e) => setGamesDraftFilter(e.target.value as any)}
+                      className="p-2 rounded bg-white border border-gray-300 text-gray-900"
+                    >
+                      <option value="all">Todos</option>
+                      <option value="draft">Solo borradores</option>
+                      <option value="published">Solo publicados</option>
+                    </select>
+                    <span className="text-sm text-gray-700">Categoría:</span>
                     <select
                       value={gamesCategoryFilter}
                       onChange={(e) => setGamesCategoryFilter(e.target.value)}
@@ -2975,6 +3011,11 @@ const [gameForm, setGameForm] = useState({
                 <CardContent className="p-4">
                   {games
                     .filter((game) => !gamesCategoryFilter || game.category === gamesCategoryFilter)
+                    .filter((game) => {
+                      if (gamesDraftFilter === "draft") return !!game.is_draft
+                      if (gamesDraftFilter === "published") return !game.is_draft
+                      return true
+                    })
                     .map((game) => (
                       <div key={game.id} className="flex items-center justify-between mb-4 p-4 bg-gray-50 rounded border border-gray-100">
                         <div>
@@ -2991,11 +3032,12 @@ const [gameForm, setGameForm] = useState({
                             Árbitros: {[game.referee1, game.referee2].filter(Boolean).join(", ") || "Sin asignar"}
                           </div>
                           <div className="flex gap-2 mt-1">
-	                            {game.game_type && (
-	                              <Badge className={game.game_type === "regular" ? "bg-green-600 text-white" : game.game_type === "playoff" ? "bg-orange-600 text-white" : "bg-slate-600 text-white"}>
-	                                {game.game_type === "regular" ? "Regular · suma puntos" : game.game_type === "playoff" ? "Playoff · no suma" : "Amistoso · no suma"}
-	                              </Badge>
-	                            )}
+                            {game.is_draft && <Badge className="bg-amber-500 text-white">Borrador</Badge>}
+                            {game.game_type && (
+                              <Badge className={game.game_type === "regular" ? "bg-green-600 text-white" : game.game_type === "playoff" ? "bg-orange-600 text-white" : "bg-slate-600 text-white"}>
+                                {game.game_type === "regular" ? "Regular · suma puntos" : game.game_type === "playoff" ? "Playoff · no suma" : "Amistoso · no suma"}
+                              </Badge>
+                            )}
                             {game.stage && game.stage !== 'regular' && (
                                <Badge className="bg-orange-500 text-white capitalize">
                                  {game.stage === 'comodin' ? 'Comodín' : game.stage}
@@ -3011,6 +3053,16 @@ const [gameForm, setGameForm] = useState({
                             <div className="text-gray-900 font-bold text-lg">
                               {game.home_score} - {game.away_score}
                             </div>
+                          )}
+                          {game.is_draft && (
+                            <Button
+                              size="sm"
+                              onClick={() => publishDraftGame(game.id)}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                              title="Publicar borrador"
+                            >
+                              Publicar
+                            </Button>
                           )}
                           <Button
                             size="sm"
