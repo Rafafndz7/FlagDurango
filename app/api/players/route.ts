@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
-    // Bulk: { bulk: true, team_id, players: [{ name, jersey_number?, position? }] }
+    // Bulk: { bulk: true, team_id, players: [...], skip_duplicates?: true }
     if (body.bulk === true) {
       const teamId = Number(body.team_id)
       const list = Array.isArray(body.players) ? body.players : []
@@ -129,8 +129,59 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      const { data: existingRoster } = await supabase
+        .from("players")
+        .select("id, name, jersey_number, position, team_id")
+        .eq("team_id", teamId)
+
+      const existing = existingRoster || []
+      const byJersey = new Map<number, any>()
+      const byName = new Map<string, any[]>()
+      for (const p of existing) {
+        if (p.jersey_number != null) byJersey.set(Number(p.jersey_number), p)
+        const key = String(p.name || "")
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .trim()
+        if (!byName.has(key)) byName.set(key, [])
+        byName.get(key)!.push(p)
+      }
+
+      // Duplicados ya en BD (mismo # o mismo nombre)
+      const rosterDuplicates: any[] = []
+      const seenJersey = new Map<number, any[]>()
+      const seenName = new Map<string, any[]>()
+      for (const p of existing) {
+        if (p.jersey_number != null) {
+          const j = Number(p.jersey_number)
+          if (!seenJersey.has(j)) seenJersey.set(j, [])
+          seenJersey.get(j)!.push(p)
+        }
+        const key = String(p.name || "")
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .trim()
+        if (!seenName.has(key)) seenName.set(key, [])
+        seenName.get(key)!.push(p)
+      }
+      for (const [, arr] of seenJersey) {
+        if (arr.length > 1) rosterDuplicates.push(...arr.map((p) => ({ ...p, reason: `número #${p.jersey_number} repetido` })))
+      }
+      for (const [, arr] of seenName) {
+        if (arr.length > 1) {
+          for (const p of arr) {
+            if (!rosterDuplicates.some((d) => d.id === p.id)) {
+              rosterDuplicates.push({ ...p, reason: "nombre repetido" })
+            }
+          }
+        }
+      }
+
       const created: any[] = []
       const errors: string[] = []
+      const conflicts: any[] = []
 
       for (const raw of list) {
         const name = String(raw?.name || "").trim()
@@ -143,16 +194,31 @@ export async function POST(request: NextRequest) {
             ? Number(raw.jersey_number)
             : null
 
-        if (jersey !== null && !Number.isNaN(jersey)) {
-          const { data: existing } = await supabase
-            .from("players")
-            .select("id")
-            .eq("team_id", teamId)
-            .eq("jersey_number", jersey)
-          if (existing && existing.length > 0) {
-            errors.push(`#${jersey} ${name}: número ocupado`)
-            continue
-          }
+        const nameKey = name
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .trim()
+
+        const jerseyHit = jersey !== null && !Number.isNaN(jersey) ? byJersey.get(jersey) : null
+        const nameHits = byName.get(nameKey) || []
+
+        if (jerseyHit || nameHits.length > 0) {
+          conflicts.push({
+            incoming: { name, jersey_number: jersey, position: raw.position || null },
+            existing: jerseyHit
+              ? [jerseyHit]
+              : nameHits,
+            reason: jerseyHit
+              ? `Ya existe #${jersey} (${jerseyHit.name})`
+              : `Ya existe nombre similar (${nameHits.map((p) => p.name).join(", ")})`,
+          })
+          errors.push(
+            jerseyHit
+              ? `#${jersey} ${name}: número ocupado por ${jerseyHit.name} (id ${jerseyHit.id})`
+              : `${name}: nombre duplicado (id ${nameHits.map((p) => p.id).join(",")})`,
+          )
+          continue
         }
 
         const { data: newPlayer, error } = await supabase
@@ -171,19 +237,29 @@ export async function POST(request: NextRequest) {
           errors.push(`${name}: ${error.message}`)
         } else if (newPlayer) {
           created.push(newPlayer)
+          if (newPlayer.jersey_number != null) byJersey.set(Number(newPlayer.jersey_number), newPlayer)
+          if (!byName.has(nameKey)) byName.set(nameKey, [])
+          byName.get(nameKey)!.push(newPlayer)
         }
       }
 
-      return NextResponse.json({
-        success: created.length > 0,
-        data: created,
-        created: created.length,
-        errors,
-        message:
-          created.length > 0
-            ? `${created.length} jugador(es) creados${errors.length ? `, ${errors.length} con error` : ""}`
-            : errors[0] || "No se creó ningún jugador",
-      }, { status: created.length > 0 ? 201 : 400 })
+      return NextResponse.json(
+        {
+          success: created.length > 0,
+          data: created,
+          created: created.length,
+          errors,
+          conflicts,
+          roster_duplicates: rosterDuplicates,
+          message:
+            created.length > 0
+              ? `${created.length} jugador(es) creados${conflicts.length ? `, ${conflicts.length} conflicto(s)` : ""}${errors.length - conflicts.length > 0 ? `, ${errors.length - conflicts.length} error(es)` : ""}`
+              : conflicts.length
+                ? `Ninguno creado: ${conflicts.length} conflicto(s) con roster existente. Puedes borrar duplicados e intentar de nuevo.`
+                : errors[0] || "No se creó ningún jugador",
+        },
+        { status: created.length > 0 ? 201 : 400 },
+      )
     }
 
     console.log("👤 Creating player with data:", body)
@@ -361,6 +437,27 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get("id")
+    const idsParam = searchParams.get("ids")
+
+    // Bulk delete: ?ids=1,2,3
+    if (idsParam) {
+      const ids = idsParam
+        .split(",")
+        .map((x) => Number(x.trim()))
+        .filter((n) => Number.isFinite(n) && n > 0)
+      if (ids.length === 0) {
+        return NextResponse.json({ success: false, message: "ids inválidos" }, { status: 400 })
+      }
+      const { error } = await supabase.from("players").delete().in("id", ids)
+      if (error) {
+        return NextResponse.json({ success: false, message: error.message }, { status: 500 })
+      }
+      return NextResponse.json({
+        success: true,
+        deleted: ids.length,
+        message: `${ids.length} jugador(es) eliminados`,
+      })
+    }
 
     if (!id) {
       return NextResponse.json(
