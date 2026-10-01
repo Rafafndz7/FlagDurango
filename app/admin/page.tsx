@@ -45,6 +45,7 @@ import AdminFinanzasPanel from "@/components/admin-finanzas-panel"
 import AdminScheduleGenerator from "@/components/admin-schedule-generator"
 import AdminUsersPanel from "@/components/admin-users-panel"
 import AdminBulkRoster from "@/components/admin-bulk-roster"
+import AdminTeamGamesCleaner from "@/components/admin-team-games-cleaner"
 
 type Team = {
   id?: any
@@ -1609,6 +1610,13 @@ const [gameForm, setGameForm] = useState({
               Generador
             </TabsTrigger>
             <TabsTrigger
+              value="team-cleaner"
+              className="data-[state=active]:bg-red-50 data-[state=active]:text-red-900 text-gray-700 py-2"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Limpiar tablas
+            </TabsTrigger>
+            <TabsTrigger
               value="arbitraje"
               className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-900 text-gray-700 py-2 border-b-2 border-transparent data-[state=active]:border-blue-600"
             >
@@ -1803,6 +1811,10 @@ const [gameForm, setGameForm] = useState({
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="team-cleaner">
+            <AdminTeamGamesCleaner />
           </TabsContent>
 
           {/* NUEVO CONTENIDO: Gestión Rápida */}
