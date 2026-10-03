@@ -1,86 +1,91 @@
 // Service Worker para Liga Flag Durango
-const CACHE_NAME = "liga-flag-durango-v2"
-const urlsToCache = [
-  "/",
-  "/partidos",
-  "/estadisticas",
-  "/equipos",
-  "/wildbrowl",
-  "/icons/icon-192x192.png",
-  "/icons/icon-512x512.png",
-  "/imagenes/20años.png",
-]
+// Cambiar CACHE_NAME borra en "activate" todo lo guardado por versiones anteriores.
+const CACHE_NAME = "liga-flag-durango-v3"
+const OFFLINE_PAGES_CACHE = "liga-flag-durango-pages-v3"
+const STATIC_ASSETS = ["/icons/icon-192x192.png", "/icons/icon-512x512.png"]
 
-// Instalar Service Worker
+// Solo archivos que nunca cambian con la misma URL (Next los publica con hash)
+function isImmutableAsset(url) {
+  return (
+    url.pathname.startsWith("/_next/static/") ||
+    url.pathname.startsWith("/icons/") ||
+    url.pathname.startsWith("/imagenes/")
+  )
+}
+
 self.addEventListener("install", (event) => {
-  console.log("🔧 Service Worker installing...")
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log("📦 Cache opened")
-      return cache.addAll(urlsToCache).catch((error) => {
-        console.error("❌ Failed to cache resources:", error)
-        return Promise.resolve()
-      })
-    }),
+    caches
+      .open(CACHE_NAME)
+      .then((cache) => cache.addAll(STATIC_ASSETS))
+      .catch(() => Promise.resolve()),
   )
   self.skipWaiting()
 })
 
-// Activar Service Worker
 self.addEventListener("activate", (event) => {
-  console.log("✅ Service Worker activating...")
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            console.log("🗑️ Deleting old cache:", cacheName)
-            return caches.delete(cacheName)
-          }
-        }),
+    caches
+      .keys()
+      .then((names) =>
+        Promise.all(
+          names
+            .filter((name) => name !== CACHE_NAME && name !== OFFLINE_PAGES_CACHE)
+            .map((name) => caches.delete(name)),
+        ),
       )
-    }),
+      .then(() => self.clients.claim()),
   )
-  self.clients.claim()
 })
 
-// Interceptar requests
 self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") return
-  if (!event.request.url.startsWith("http")) return
+  const request = event.request
+  if (request.method !== "GET") return
 
-  event.respondWith(
-    caches.match(event.request).then((response) => {
-      return (
-        response ||
-        fetch(event.request)
-          .then((fetchResponse) => {
-            if (event.request.url.includes("/api/") || !fetchResponse.ok) {
-              return fetchResponse
+  const url = new URL(request.url)
+  if (url.origin !== self.location.origin) return
+
+  // API y datos: siempre a la red, nunca se guardan
+  if (url.pathname.startsWith("/api/")) return
+
+  // JS/CSS con hash, íconos e imágenes: caché primero
+  if (isImmutableAsset(url)) {
+    event.respondWith(
+      caches.match(request).then(
+        (cached) =>
+          cached ||
+          fetch(request).then((response) => {
+            if (response.ok) {
+              const copy = response.clone()
+              caches.open(CACHE_NAME).then((cache) => cache.put(request, copy))
             }
+            return response
+          }),
+      ),
+    )
+    return
+  }
 
-            const responseToCache = fetchResponse.clone()
-            caches
-              .open(CACHE_NAME)
-              .then((cache) => {
-                cache.put(event.request, responseToCache)
-              })
-              .catch((error) => {
-                console.error("❌ Failed to cache response:", error)
-              })
-
-            return fetchResponse
-          })
-          .catch((error) => {
-            console.error("❌ Fetch failed:", error)
-            if (event.request.mode === "navigate") {
-              return caches.match("/") || new Response("Offline", { status: 503 })
-            }
-            throw error
-          })
-      )
-    }),
-  )
+  // Páginas: red primero (siempre la versión nueva); la copia solo se usa sin internet
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const copy = response.clone()
+            caches.open(OFFLINE_PAGES_CACHE).then((cache) => cache.put(request, copy))
+          }
+          return response
+        })
+        .catch(() =>
+          caches
+            .match(request)
+            .then((cached) => cached || caches.match("/"))
+            .then((cached) => cached || new Response("Sin conexión", { status: 503 })),
+        ),
+    )
+  }
+  // Todo lo demás (RSC de Next, etc.) va directo a la red sin pasar por caché
 })
 
 // 🔔 MANEJAR NOTIFICACIONES PUSH

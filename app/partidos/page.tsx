@@ -56,6 +56,18 @@ interface Team {
   logo_url?: string | null
 }
 
+const dateKey = (value: string) => String(value || "").slice(0, 10)
+
+const localDateKey = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+
+/** Interpreta YYYY-MM-DD como día local, sin importar la zona horaria del dispositivo */
+const formatGameDate = (value: string, options?: Intl.DateTimeFormatOptions) => {
+  const key = dateKey(value)
+  if (!key) return ""
+  return new Date(`${key}T12:00:00`).toLocaleDateString("es-MX", options)
+}
+
 // --- HOOK Y COMPONENTE PARA EL CRONÓMETRO EN VIVO ---
 function useLiveTimer(game: Game) {
   const [displayTime, setDisplayTime] = useState("");
@@ -119,13 +131,17 @@ function GamesPageContent() {
   const [categoryFilter, setCategoryFilter] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
   const [matchTypeFilter, setMatchTypeFilter] = useState("")
+  const [jornadaFilter, setJornadaFilter] = useState<string>("current")
   const gameCardRefs = useRef<{ [key: number]: HTMLDivElement | null }>({})
 
   useEffect(() => {
     const loadData = async () => {
       try {
         const gamesUrl = selectedSeason ? `/api/games?season=${encodeURIComponent(selectedSeason)}` : "/api/games"
-        const [gamesRes, teamsRes] = await Promise.all([fetch(gamesUrl), fetch("/api/teams")])
+        const [gamesRes, teamsRes] = await Promise.all([
+          fetch(gamesUrl, { cache: "no-store" }),
+          fetch("/api/teams", { cache: "no-store" }),
+        ])
         const [gamesData, teamsData] = await Promise.all([gamesRes.json(), teamsRes.json()])
 
         if (gamesData.success) {
@@ -149,6 +165,31 @@ function GamesPageContent() {
     const i = setInterval(loadData, 15000) 
     return () => clearInterval(i)
   }, [selectedSeason])
+
+  const jornadas = useMemo(
+    () =>
+      Array.from(new Set(games.map((g) => g.jornada).filter((j): j is number => typeof j === "number"))).sort(
+        (a, b) => a - b,
+      ),
+    [games],
+  )
+
+  /** Jornada del siguiente día con partidos pendientes; si ya no hay, la última jugada */
+  const currentJornada = useMemo(() => {
+    const today = localDateKey(new Date())
+    const pending = games
+      .filter((g) => typeof g.jornada === "number" && g.status !== "finalizado" && dateKey(g.game_date) >= today)
+      .sort((a, b) => dateKey(a.game_date).localeCompare(dateKey(b.game_date)))
+    if (pending.length) {
+      const nextDay = dateKey(pending[0].game_date)
+      return Math.min(...pending.filter((g) => dateKey(g.game_date) === nextDay).map((g) => g.jornada as number))
+    }
+    const played = games.filter((g) => typeof g.jornada === "number" && g.status === "finalizado")
+    return played.length ? Math.max(...played.map((g) => g.jornada as number)) : null
+  }, [games])
+
+  const activeJornada: number | null =
+    jornadaFilter === "all" ? null : jornadaFilter === "current" ? currentJornada : Number(jornadaFilter)
 
   const teamMap = useMemo(() => {
     const map = new Map<string, Team>()
@@ -232,8 +273,9 @@ function GamesPageContent() {
       const matchesCategory = !categoryFilter || game.category === categoryFilter
       const matchesStatus = !statusFilter || normalizedStatus(game.status) === statusFilter
       const matchesMatchType = !matchTypeFilter || game.match_type === matchTypeFilter
+      const matchesJornada = activeJornada == null || game.jornada === activeJornada
 
-      return matchesSearch && matchesCategory && matchesStatus && matchesMatchType
+      return matchesSearch && matchesCategory && matchesStatus && matchesMatchType && matchesJornada
     })
   }
 
@@ -264,12 +306,20 @@ function GamesPageContent() {
   const upcomingGames = filteredGames(
     games
       .filter((g) => normalizedStatus(g.status) === "programado")
-      .sort((a, b) => new Date(a.game_date).getTime() - new Date(b.game_date).getTime()),
+      .sort(
+        (a, b) =>
+          dateKey(a.game_date).localeCompare(dateKey(b.game_date)) ||
+          String(a.game_time || "").localeCompare(String(b.game_time || "")),
+      ),
   )
   const finishedGames = filteredGames(
     games
       .filter((g) => normalizedStatus(g.status) === "finalizado")
-      .sort((a, b) => new Date(b.game_date).getTime() - new Date(a.game_date).getTime()),
+      .sort(
+        (a, b) =>
+          dateKey(b.game_date).localeCompare(dateKey(a.game_date)) ||
+          String(a.game_time || "").localeCompare(String(b.game_time || "")),
+      ),
   )
 
   const renderTeam = (name: string, isHome = true) => {
@@ -383,7 +433,7 @@ function GamesPageContent() {
               <svg style="width: 20px; height: 20px; margin-right: 8px; color: #3b82f6;" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd"></path>
               </svg>
-              ${new Date(game.game_date).toLocaleDateString("es-ES", {
+              ${formatGameDate(game.game_date, {
                 weekday: "long",
                 year: "numeric",
                 month: "long",
@@ -511,6 +561,21 @@ function GamesPageContent() {
             <div className="flex items-center gap-2">
               <Filter className="w-4 h-4 text-gray-600" />
               <select
+                value={jornadaFilter}
+                onChange={(e) => setJornadaFilter(e.target.value)}
+                className="px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="current">
+                  {currentJornada != null ? `Jornada actual (J${currentJornada})` : "Jornada actual"}
+                </option>
+                <option value="all">Todas las jornadas</option>
+                {jornadas.map((j) => (
+                  <option key={j} value={String(j)}>
+                    Jornada {j}
+                  </option>
+                ))}
+              </select>
+              <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
                 className="px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -584,7 +649,7 @@ function GamesPageContent() {
                         <div className="flex items-center gap-8 flex-1">
                           <div className="text-center min-w-[80px]">
                             <p className="text-sm text-gray-600">
-                              {new Date(game.game_date).toLocaleDateString("es-ES")}
+                              {formatGameDate(game.game_date)}
                             </p>
                             <p className="font-semibold text-gray-900">{game.game_time}</p>
                           </div>
@@ -650,8 +715,13 @@ function GamesPageContent() {
             <h2 className="text-4xl font-bold text-gray-900 mb-4 flex items-center justify-center">
               <Calendar className="w-8 h-8 mr-3 text-blue-400" />
               Próximos Partidos
+              {activeJornada != null && <Badge className="ml-3 bg-blue-600 text-lg">J{activeJornada}</Badge>}
             </h2>
-            <p className="text-gray-600 text-lg">Partidos programados para los próximos días</p>
+            <p className="text-gray-600 text-lg">
+              {activeJornada != null
+                ? `Partidos programados de la jornada ${activeJornada}`
+                : "Partidos programados para los próximos días"}
+            </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {upcomingGames.length > 0 ? (
@@ -697,7 +767,7 @@ function GamesPageContent() {
                       <div className="text-center text-gray-600 space-y-2">
                         <p className="flex items-center justify-center text-sm">
                           <Calendar className="w-4 h-4 mr-2 text-gray-500" />
-                          {new Date(game.game_date).toLocaleDateString("es-ES", {
+                          {formatGameDate(game.game_date, {
                             weekday: "long",
                             year: "numeric",
                             month: "long",
@@ -750,8 +820,13 @@ function GamesPageContent() {
             <h2 className="text-4xl font-bold text-gray-900 mb-4 flex items-center justify-center">
               <Trophy className="w-8 h-8 mr-3 text-green-400" />
               Partidos Finalizados
+              {activeJornada != null && <Badge className="ml-3 bg-green-600 text-lg">J{activeJornada}</Badge>}
             </h2>
-            <p className="text-gray-600 text-lg">Resultados de los partidos más recientes</p>
+            <p className="text-gray-600 text-lg">
+              {activeJornada != null
+                ? `Resultados de la jornada ${activeJornada}`
+                : "Resultados de los partidos más recientes"}
+            </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {finishedGames.length > 0 ? (
@@ -799,7 +874,7 @@ function GamesPageContent() {
                       <div className="text-center text-gray-600 space-y-2">
                         <p className="flex items-center justify-center text-sm">
                           <Calendar className="w-4 h-4 mr-2 text-gray-500" />
-                          {new Date(game.game_date).toLocaleDateString("es-ES", {
+                          {formatGameDate(game.game_date, {
                             weekday: "long",
                             year: "numeric",
                             month: "long",

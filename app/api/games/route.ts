@@ -10,6 +10,16 @@ async function resolveSeasonId(requested?: string | null) {
   return data.id
 }
 
+const NO_STORE = { "Cache-Control": "no-store, max-age=0" }
+
+/**
+ * Mediodía UTC: en cualquier zona de UTC-11 a UTC+11 `new Date()` cae en el mismo día.
+ * Medianoche UTC (T00:00:00Z) se mostraba como el día anterior en México (UTC-6), web y móvil.
+ */
+function toNoonUtc(value: string) {
+  return `${String(value).slice(0, 10)}T12:00:00Z`
+}
+
 function isAdmin(request: NextRequest) {
   try {
     return JSON.parse(request.cookies.get("auth-token")?.value || "{}").role === "admin"
@@ -150,29 +160,21 @@ export async function GET(request: NextRequest) {
           return NextResponse.json({ success: false, message: retry.error.message }, { status: 500 })
         }
         const sanitizedFallback = retry.data?.map((game) => {
-          if (game.game_date) {
-            const baseDate = game.game_date.split("T")[0]
-            game.game_date = `${baseDate}T00:00:00Z`
-          }
+          if (game.game_date) game.game_date = toNoonUtc(game.game_date)
           return game
         }) || []
-        return NextResponse.json({ success: true, data: sanitizedFallback })
+        return NextResponse.json({ success: true, data: sanitizedFallback }, { headers: NO_STORE })
       }
       console.error("Error fetching games:", error)
       return NextResponse.json({ success: false, message: error.message }, { status: 500 })
     }
 
-    // 🔥 AJUSTE PARA QUE LA WEB RESTE UN DÍA IGUAL QUE EL MÓVIL 🔥
-    // Lo enviamos a la medianoche UTC. Al recibirlo, la zona horaria le restará horas.
     const sanitizedData = data?.map((game) => {
-      if (game.game_date) {
-        const baseDate = game.game_date.split('T')[0]; 
-        game.game_date = `${baseDate}T00:00:00Z`; // Medianoche UTC
-      }
-      return game;
-    }) || [];
+      if (game.game_date) game.game_date = toNoonUtc(game.game_date)
+      return game
+    }) || []
 
-    return NextResponse.json({ success: true, data: sanitizedData })
+    return NextResponse.json({ success: true, data: sanitizedData }, { headers: NO_STORE })
   } catch (error: any) {
     console.error("GET /api/games error:", error)
     return NextResponse.json({ success: false, message: error.message || "Error interno" }, { status: 500 })

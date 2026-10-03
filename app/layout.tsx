@@ -104,14 +104,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           dangerouslySetInnerHTML={{
             __html: `
               if ('serviceWorker' in navigator) {
+                var hadController = !!navigator.serviceWorker.controller;
+                var reloaded = false;
+                navigator.serviceWorker.addEventListener('controllerchange', function() {
+                  if (!hadController || reloaded) return;
+                  reloaded = true;
+                  window.location.reload();
+                });
                 window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js')
-                    .then(function(registration) {
-                      console.log('SW registered: ', registration);
-                    })
-                    .catch(function(registrationError) {
-                      console.log('SW registration failed: ', registrationError);
-                    });
+                  navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
+                    .then(function(registration) { registration.update(); })
+                    .catch(function(err) { console.log('SW registration failed: ', err); });
                 });
               }
             `,
