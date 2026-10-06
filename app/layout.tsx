@@ -1,8 +1,19 @@
 import type React from "react"
 import type { Metadata, Viewport } from "next"
 import "./globals.css"
+import { GeistSans } from "geist/font/sans"
+import { Barlow_Condensed } from "next/font/google"
 import { Navigation } from "@/components/navigation"
 import { NavGuard } from "@/components/nav-guard"
+import { FooterGuard } from "@/components/footer-guard"
+
+const display = Barlow_Condensed({
+  subsets: ["latin"],
+  weight: ["600", "700", "800", "900"],
+  style: ["normal", "italic"],
+  variable: "--font-display",
+  display: "swap",
+})
 
 export const dynamic = "force-dynamic"
 
@@ -90,7 +101,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="msapplication-TileColor" content="#3b82f6" />
         <meta name="msapplication-config" content="/browserconfig.xml" />
       </head>
-      <body className="min-h-screen bg-white antialiased">
+      <body className={`${GeistSans.variable} ${display.variable} font-sans min-h-screen bg-white antialiased`}>
         
 
         {/* Navbar global blanca. NavGuard la oculta en dashboards */}
@@ -98,6 +109,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Navigation />
         </NavGuard>
         <main>{children}</main>
+        <FooterGuard />
 
         {/* Service Worker Registration */}
         <script

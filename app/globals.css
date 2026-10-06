@@ -57,82 +57,171 @@
     @apply bg-background text-foreground;
   }
 
-  /* ✅ ARREGLO DEL PROBLEMA DE VISIBILIDAD */
-  /* Asegurar que todos los elementos sean visibles por defecto */
-  select,
-  option,
-  input,
-  button,
-  label,
-  div,
-  span,
-  p,
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
+  /* ✅ ARREGLO DEL PROBLEMA DE VISIBILIDAD (solo pantallas sin rediseño)
+     Las secciones con .ui-v2 usan sus propios colores y animaciones de opacidad. */
+  :is(select, option, input, button, label, div, span, p, h1, h2, h3, h4, h5, h6):not(.ui-v2, .ui-v2 *) {
     opacity: 1 !important;
     visibility: visible !important;
     color: inherit !important;
   }
 
-  /* Arreglar específicamente los selects que se ven blancos */
-  select {
+  select:not(.ui-v2 *) {
     background-color: inherit !important;
     color: inherit !important;
   }
 
-  select option {
+  select:not(.ui-v2 *) option {
     background-color: rgb(30 41 59) !important; /* slate-800 */
     color: white !important;
     opacity: 1 !important;
   }
 
-  /* Arreglar inputs que se ven blancos */
-  input[type="text"],
-  input[type="email"],
-  input[type="password"],
-  input[type="number"],
-  input[type="date"],
-  input[type="time"],
-  input[type="color"] {
+  :is(
+      input[type="text"],
+      input[type="email"],
+      input[type="password"],
+      input[type="number"],
+      input[type="date"],
+      input[type="time"],
+      input[type="color"]
+    ):not(.ui-v2 *) {
     background-color: inherit !important;
     color: inherit !important;
     opacity: 1 !important;
   }
 
-  /* Arreglar placeholders */
-  ::placeholder {
+  :not(.ui-v2 *)::placeholder {
     opacity: 0.7 !important;
     color: inherit !important;
   }
 
   /* Arreglar botones */
-  button {
+  button:not(.ui-v2 *) {
     opacity: 1 !important;
     visibility: visible !important;
   }
 
   /* Arreglar texto en general */
-  .text-white {
+  .text-white:not(.ui-v2 *) {
     color: white !important;
     opacity: 1 !important;
   }
 
-  .text-white\/70 {
+  .text-white\/70:not(.ui-v2 *) {
     color: rgba(255, 255, 255, 0.7) !important;
     opacity: 1 !important;
   }
 
-  .text-white\/80 {
+  .text-white\/80:not(.ui-v2 *) {
     color: rgba(255, 255, 255, 0.8) !important;
     opacity: 1 !important;
   }
 
-  .text-white\/50 {
+  .text-white\/50:not(.ui-v2 *) {
     color: rgba(255, 255, 255, 0.5) !important;
     opacity: 1 !important;
+  }
+}
+
+/* ============================================================
+   Identidad visual Flag Durango (rediseño .ui-v2)
+   Colores del logo: rosa #e266be · naranja #ff6d06 · azul #0857b5
+   ============================================================ */
+:root {
+  --brand-pink: #e266be;
+  --brand-orange: #ff6d06;
+  --brand-blue: #0857b5;
+  --brand-ink: #0b0b12;
+  --brand-gradient: linear-gradient(110deg, #0857b5 0%, #e266be 50%, #ff6d06 100%);
+}
+
+.ui-v2 {
+  color: #0f172a;
+}
+
+.ui-v2 select option {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+@layer utilities {
+  .bg-brand-gradient {
+    background-image: var(--brand-gradient);
+  }
+
+  .bg-brand-gradient-animated {
+    background-image: linear-gradient(110deg, #0857b5, #e266be, #ff6d06, #e266be, #0857b5);
+    background-size: 300% 100%;
+    animation: brand-pan 14s ease-in-out infinite;
+  }
+
+  .text-brand-gradient {
+    background-image: var(--brand-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Tres franjas del logo */
+  .brand-stripes {
+    background-image: linear-gradient(
+      90deg,
+      #e266be 0 33.33%,
+      #ff6d06 33.33% 66.66%,
+      #0857b5 66.66% 100%
+    );
+  }
+
+  .glass {
+    background: rgba(255, 255, 255, 0.72);
+    -webkit-backdrop-filter: saturate(180%) blur(16px);
+    backdrop-filter: saturate(180%) blur(16px);
+  }
+
+  .glass-dark {
+    background: rgba(11, 11, 18, 0.45);
+    -webkit-backdrop-filter: saturate(160%) blur(14px);
+    backdrop-filter: saturate(160%) blur(14px);
+  }
+
+  .bg-grid {
+    background-image: linear-gradient(to right, rgba(15, 23, 42, 0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(15, 23, 42, 0.06) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+
+  .bg-grid-white {
+    background-image: linear-gradient(to right, rgba(255, 255, 255, 0.09) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.09) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+
+  .mask-fade-b {
+    -webkit-mask-image: linear-gradient(to bottom, black 55%, transparent);
+    mask-image: linear-gradient(to bottom, black 55%, transparent);
+  }
+
+  .shadow-brand {
+    box-shadow: 0 10px 30px -12px rgba(8, 87, 181, 0.35), 0 6px 18px -10px rgba(226, 102, 190, 0.3);
+  }
+
+  .ring-brand {
+    box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.06), 0 12px 32px -16px rgba(8, 87, 181, 0.35);
+  }
+}
+
+@keyframes brand-pan {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bg-brand-gradient-animated {
+    animation: none;
   }
 }

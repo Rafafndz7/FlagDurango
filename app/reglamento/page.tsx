@@ -5,6 +5,8 @@ import {
   FileWarning, HeartPulse, Camera, ClipboardList, Ban,
   MapPin, CloudLightning, BarChart, Trophy
 } from 'lucide-react';
+import { PageHero } from '@/components/ui-v2/brand';
+import { ReglamentoToc } from '@/components/ui-v2/reglamento-toc';
 
 export const metadata = {
   title: 'Reglamento Administrativo | Flag Durango',
@@ -17,26 +19,29 @@ export const dynamic = 'force-dynamic';
 
 export default function ReglamentoPage() {
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto bg-white dark:bg-slate-900 shadow-xl rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
-        
-        {/* Header del Reglamento */}
-        <div className="bg-blue-900 dark:bg-blue-950 px-8 py-10 text-center border-b border-blue-800">
-          <Scale className="w-16 h-16 mx-auto text-blue-400 mb-4" />
-          <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">
-            Reglamento Administrativo
-          </h1>
-          <p className="mt-3 text-lg text-blue-200">
-            Liga de Tocho Bandera • Flag Durango
-          </p>
-        </div>
+    <div className="ui-v2 min-h-screen bg-slate-50">
+      <PageHero
+        compact
+        eyebrow={
+          <span className="inline-flex items-center gap-2">
+            <Scale className="h-4 w-4" /> Liga de Tocho Bandera • Flag Durango
+          </span>
+        }
+        title="Reglamento"
+        highlight="Administrativo"
+        description="Reglamento oficial y normativas administrativas de la Liga Flag Durango."
+      />
+      <div className="container mx-auto px-4 py-12">
+      <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[270px_1fr]">
+      <ReglamentoToc />
+      <div data-reglamento className="min-w-0 overflow-hidden rounded-3xl bg-white shadow-xl ring-1 ring-slate-200">
 
         {/* Contenido Completo */}
-        <div className="px-6 md:px-10 py-10 space-y-12 text-slate-700 dark:text-slate-300">
+        <div className="px-6 md:px-10 py-10 space-y-12 text-slate-700 leading-relaxed">
           
           <section>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center mb-4 border-b pb-2">
-              <FileText className="w-6 h-6 mr-3 text-blue-600 dark:text-blue-400" />
+            <h2 className="scroll-mt-28 font-display text-2xl md:text-3xl font-extrabold uppercase italic tracking-tight text-slate-900 flex items-center gap-3 mb-5 pb-3 border-b border-slate-100">
+              <FileText className="w-9 h-9 shrink-0 rounded-xl bg-brand-gradient p-2 text-white shadow-brand" />
               1. Objeto del Reglamento
             </h2>
             <p className="leading-relaxed text-justify">
@@ -46,8 +51,8 @@ export default function ReglamentoPage() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center mb-4 border-b pb-2">
-              <Users className="w-6 h-6 mr-3 text-blue-600 dark:text-blue-400" />
+            <h2 className="scroll-mt-28 font-display text-2xl md:text-3xl font-extrabold uppercase italic tracking-tight text-slate-900 flex items-center gap-3 mb-5 pb-3 border-b border-slate-100">
+              <Users className="w-9 h-9 shrink-0 rounded-xl bg-brand-gradient p-2 text-white shadow-brand" />
               2. Estructura de la Liga y Mesa Directiva
             </h2>
             <p className="mb-4">La liga estará dirigida y administrada por los siguientes órganos y sus respectivos titulares:</p>
@@ -61,8 +66,8 @@ export default function ReglamentoPage() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center mb-4 border-b pb-2">
-              <ClipboardList className="w-6 h-6 mr-3 text-blue-600 dark:text-blue-400" />
+            <h2 className="scroll-mt-28 font-display text-2xl md:text-3xl font-extrabold uppercase italic tracking-tight text-slate-900 flex items-center gap-3 mb-5 pb-3 border-b border-slate-100">
+              <ClipboardList className="w-9 h-9 shrink-0 rounded-xl bg-brand-gradient p-2 text-white shadow-brand" />
               3. Registro de Equipos
             </h2>
             <p className="mb-4">Para participar en la liga, cada equipo deberá cumplir con los siguientes requisitos antes del inicio del torneo:</p>
@@ -76,8 +81,8 @@ export default function ReglamentoPage() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center mb-4 border-b pb-2">
-              <Monitor className="w-6 h-6 mr-3 text-blue-600 dark:text-blue-400" />
+            <h2 className="scroll-mt-28 font-display text-2xl md:text-3xl font-extrabold uppercase italic tracking-tight text-slate-900 flex items-center gap-3 mb-5 pb-3 border-b border-slate-100">
+              <Monitor className="w-9 h-9 shrink-0 rounded-xl bg-brand-gradient p-2 text-white shadow-brand" />
               4. Registro de Jugadores y Plataforma
             </h2>
             <ol className="list-decimal pl-6 space-y-3">
@@ -90,8 +95,8 @@ export default function ReglamentoPage() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center mb-4 border-b pb-2">
-              <CheckSquare className="w-6 h-6 mr-3 text-blue-600 dark:text-blue-400" />
+            <h2 className="scroll-mt-28 font-display text-2xl md:text-3xl font-extrabold uppercase italic tracking-tight text-slate-900 flex items-center gap-3 mb-5 pb-3 border-b border-slate-100">
+              <CheckSquare className="w-9 h-9 shrink-0 rounded-xl bg-brand-gradient p-2 text-white shadow-brand" />
               5. Control de Categorías y Elegibilidad
             </h2>
             <p className="mb-4">Con el objetivo de mantener un nivel competitivo justo y evitar ventajas indebidas:</p>
@@ -105,8 +110,8 @@ export default function ReglamentoPage() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center mb-4 border-b pb-2">
-              <Clock className="w-6 h-6 mr-3 text-blue-600 dark:text-blue-400" />
+            <h2 className="scroll-mt-28 font-display text-2xl md:text-3xl font-extrabold uppercase italic tracking-tight text-slate-900 flex items-center gap-3 mb-5 pb-3 border-b border-slate-100">
+              <Clock className="w-9 h-9 shrink-0 rounded-xl bg-brand-gradient p-2 text-white shadow-brand" />
               6. Calendario, Reglas IFAF y Equipamiento Ilegal
             </h2>
             <ol className="list-decimal pl-6 space-y-4">
@@ -135,8 +140,8 @@ export default function ReglamentoPage() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center mb-4 border-b pb-2">
-              <CreditCard className="w-6 h-6 mr-3 text-blue-600 dark:text-blue-400" />
+            <h2 className="scroll-mt-28 font-display text-2xl md:text-3xl font-extrabold uppercase italic tracking-tight text-slate-900 flex items-center gap-3 mb-5 pb-3 border-b border-slate-100">
+              <CreditCard className="w-9 h-9 shrink-0 rounded-xl bg-brand-gradient p-2 text-white shadow-brand" />
               7. Cuotas, Pagos e Instalaciones
             </h2>
             <div className="bg-red-50 dark:bg-red-950/30 border-l-4 border-red-500 p-5 rounded-r-lg my-6 text-red-900 dark:text-red-200 shadow-sm">
@@ -155,8 +160,8 @@ export default function ReglamentoPage() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center mb-4 border-b pb-2">
-              <MapPin className="w-6 h-6 mr-3 text-blue-600 dark:text-blue-400" />
+            <h2 className="scroll-mt-28 font-display text-2xl md:text-3xl font-extrabold uppercase italic tracking-tight text-slate-900 flex items-center gap-3 mb-5 pb-3 border-b border-slate-100">
+              <MapPin className="w-9 h-9 shrink-0 rounded-xl bg-brand-gradient p-2 text-white shadow-brand" />
               8. Sede Oficial, Horarios y Partidos Extraoficiales
             </h2>
             <ul className="list-disc pl-6 space-y-4">
@@ -173,8 +178,8 @@ export default function ReglamentoPage() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center mb-4 border-b pb-2">
-              <CloudLightning className="w-6 h-6 mr-3 text-blue-600 dark:text-blue-400" />
+            <h2 className="scroll-mt-28 font-display text-2xl md:text-3xl font-extrabold uppercase italic tracking-tight text-slate-900 flex items-center gap-3 mb-5 pb-3 border-b border-slate-100">
+              <CloudLightning className="w-9 h-9 shrink-0 rounded-xl bg-brand-gradient p-2 text-white shadow-brand" />
               9. Protocolo de Clima y Fuerza Mayor
             </h2>
             <p className="mb-4 text-justify">
@@ -188,8 +193,8 @@ export default function ReglamentoPage() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center mb-4 border-b pb-2">
-              <UserCheck className="w-6 h-6 mr-3 text-blue-600 dark:text-blue-400" />
+            <h2 className="scroll-mt-28 font-display text-2xl md:text-3xl font-extrabold uppercase italic tracking-tight text-slate-900 flex items-center gap-3 mb-5 pb-3 border-b border-slate-100">
+              <UserCheck className="w-9 h-9 shrink-0 rounded-xl bg-brand-gradient p-2 text-white shadow-brand" />
               10. Representantes de Equipo
             </h2>
             <p className="leading-relaxed text-justify mb-6">
@@ -215,8 +220,8 @@ export default function ReglamentoPage() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center mb-4 border-b pb-2">
-              <Gavel className="w-6 h-6 mr-3 text-blue-600 dark:text-blue-400" />
+            <h2 className="scroll-mt-28 font-display text-2xl md:text-3xl font-extrabold uppercase italic tracking-tight text-slate-900 flex items-center gap-3 mb-5 pb-3 border-b border-slate-100">
+              <Gavel className="w-9 h-9 shrink-0 rounded-xl bg-brand-gradient p-2 text-white shadow-brand" />
               11. Disciplina, Sanciones y Autoridad Arbitral
             </h2>
             <p className="mb-4">La liga se rige por el respeto y la deportividad. Se aplicarán las siguientes reglas:</p>
@@ -231,8 +236,8 @@ export default function ReglamentoPage() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center mb-4 border-b pb-2">
-              <FileWarning className="w-6 h-6 mr-3 text-blue-600 dark:text-blue-400" />
+            <h2 className="scroll-mt-28 font-display text-2xl md:text-3xl font-extrabold uppercase italic tracking-tight text-slate-900 flex items-center gap-3 mb-5 pb-3 border-b border-slate-100">
+              <FileWarning className="w-9 h-9 shrink-0 rounded-xl bg-brand-gradient p-2 text-white shadow-brand" />
               12. Protestas Administrativas
             </h2>
             <p className="leading-relaxed text-justify">
@@ -241,8 +246,8 @@ export default function ReglamentoPage() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center mb-4 border-b pb-2">
-              <HeartPulse className="w-6 h-6 mr-3 text-blue-600 dark:text-blue-400" />
+            <h2 className="scroll-mt-28 font-display text-2xl md:text-3xl font-extrabold uppercase italic tracking-tight text-slate-900 flex items-center gap-3 mb-5 pb-3 border-b border-slate-100">
+              <HeartPulse className="w-9 h-9 shrink-0 rounded-xl bg-brand-gradient p-2 text-white shadow-brand" />
               13. Riesgos Deportivos, Responsabilidad y Servicios Médicos
             </h2>
             <ol className="list-decimal pl-6 space-y-3">
@@ -255,8 +260,8 @@ export default function ReglamentoPage() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center mb-4 border-b pb-2">
-              <Camera className="w-6 h-6 mr-3 text-blue-600 dark:text-blue-400" />
+            <h2 className="scroll-mt-28 font-display text-2xl md:text-3xl font-extrabold uppercase italic tracking-tight text-slate-900 flex items-center gap-3 mb-5 pb-3 border-b border-slate-100">
+              <Camera className="w-9 h-9 shrink-0 rounded-xl bg-brand-gradient p-2 text-white shadow-brand" />
               14. Imagen y Difusión
             </h2>
             <p className="leading-relaxed text-justify">
@@ -266,8 +271,8 @@ export default function ReglamentoPage() {
 
           {/* NUEVA SECCIÓN DE ESTADÍSTICAS */}
           <section>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center mb-4 border-b pb-2">
-              <BarChart className="w-6 h-6 mr-3 text-blue-600 dark:text-blue-400" />
+            <h2 className="scroll-mt-28 font-display text-2xl md:text-3xl font-extrabold uppercase italic tracking-tight text-slate-900 flex items-center gap-3 mb-5 pb-3 border-b border-slate-100">
+              <BarChart className="w-9 h-9 shrink-0 rounded-xl bg-brand-gradient p-2 text-white shadow-brand" />
               15. Criterios de Estadísticas Individuales
             </h2>
             <p className="mb-4">Para llevar un control justo y estandarizado del rendimiento de los jugadores, la toma de estadísticas se rige estrictamente bajo los siguientes criterios:</p>
@@ -294,8 +299,8 @@ export default function ReglamentoPage() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center mb-4 border-b pb-2">
-              <ShieldAlert className="w-6 h-6 mr-3 text-blue-600 dark:text-blue-400" />
+            <h2 className="scroll-mt-28 font-display text-2xl md:text-3xl font-extrabold uppercase italic tracking-tight text-slate-900 flex items-center gap-3 mb-5 pb-3 border-b border-slate-100">
+              <ShieldAlert className="w-9 h-9 shrink-0 rounded-xl bg-brand-gradient p-2 text-white shadow-brand" />
               16. Facultades de la Directiva y Aceptación
             </h2>
             <ul className="list-disc pl-6 space-y-3">
@@ -311,6 +316,8 @@ export default function ReglamentoPage() {
           </div>
 
         </div>
+      </div>
+      </div>
       </div>
     </div>
   );

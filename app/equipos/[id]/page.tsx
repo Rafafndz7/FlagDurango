@@ -1,12 +1,28 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, type CSSProperties, type ReactNode } from "react"
 import { useParams } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Navigation } from "@/components/navigation"
-import { Users, Trophy, Star, Phone, MapPin, Calendar, Clock, CheckCircle, XCircle, User, Upload, Loader2, Medal } from "lucide-react"
+import { motion } from "framer-motion"
+import {
+  Users,
+  Trophy,
+  Star,
+  Phone,
+  Calendar,
+  CheckCircle,
+  XCircle,
+  User,
+  Upload,
+  Loader2,
+  Medal,
+  ArrowLeft,
+  Radio,
+} from "lucide-react"
+import { cn } from "@/lib/utils"
+import { BrandBlobs, BrandLoader, SectionHeading, brandButtonClass } from "@/components/ui-v2/brand"
+import { CountUp, Reveal, Stagger, StaggerItem } from "@/components/ui-v2/motion"
+import { MatchCard } from "@/components/ui-v2/match-card"
+import { TeamAvatar } from "@/components/ui-v2/team-avatar"
 
 interface Team {
   id: number
@@ -246,83 +262,68 @@ export default function TeamPage() {
 
   const liveGames = games.filter((game) => game.status === "en_vivo" || game.status === "en vivo")
 
+
   if (loading) {
-    return (
-      <div className="min-h-screen bg-white">
-        <Navigation />
-        <div className="flex items-center justify-center h-96">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-        </div>
-      </div>
-    )
+    return <BrandLoader label="Cargando equipo…" />
   }
 
   if (error || !team) {
     return (
-      <div className="min-h-screen bg-white">
-        <Navigation />
-        <div className="container mx-auto px-4 py-8">
-          <Card className="bg-white border-gray-200">
-            <CardContent className="p-8 text-center">
-              <h1 className="text-2xl font-bold text-gray-900 mb-4">Error</h1>
-              <p className="text-gray-600">{error || "Equipo no encontrado"}</p>
-              <Button onClick={() => (window.location.href = "/equipos")} className="mt-4">
-                Volver a Equipos
-              </Button>
-            </CardContent>
-          </Card>
+      <div className="ui-v2 flex min-h-[70vh] items-center justify-center px-4">
+        <div className="max-w-md rounded-3xl bg-white p-10 text-center shadow-xl ring-1 ring-slate-200">
+          <h1 className="mb-3 font-display text-4xl font-extrabold uppercase italic text-slate-900">Error</h1>
+          <p className="text-slate-600">{error || "Equipo no encontrado"}</p>
+          <button onClick={() => (window.location.href = "/equipos")} className={`${brandButtonClass} mt-6`}>
+            Volver a Equipos
+          </button>
         </div>
       </div>
     )
   }
 
+  const c1 = team.color1 || "#0857b5"
+  const c2 = team.color2 || "#e266be"
+  const getTeam = (name: string) => (name === team.name ? team : undefined)
+
   return (
-    <div className="min-h-screen bg-white">
-      <Navigation />
+    <div className="ui-v2 min-h-screen bg-slate-50">
+      <section className="relative isolate overflow-hidden bg-brand-ink py-16 text-white md:py-24">
+        <div
+          aria-hidden
+          className="absolute inset-0 opacity-60"
+          style={{
+            background: `radial-gradient(60% 80% at 15% 20%, ${c1}aa, transparent 70%), radial-gradient(50% 70% at 85% 30%, ${c2}aa, transparent 70%)`,
+          }}
+        />
+        <BrandBlobs intensity={0.35} />
+        <div className="absolute inset-0 bg-grid-white mask-fade-b" aria-hidden />
 
-      {/* Hero Section */}
-      <section
-        className="relative py-20 overflow-hidden"
-        style={{ background: "linear-gradient(to right, #0857b5, #e266be, #ff6d06)" }}
-      >
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="text-center max-w-4xl mx-auto">
-            <Button
-              onClick={() => (window.location.href = "/equipos")}
-              className="mb-6 bg-white/20 hover:bg-white/30 text-white border-white/20"
-              variant="outline"
+        <div className="container relative mx-auto px-4">
+          <motion.button
+            initial={{ opacity: 0, x: -12 }}
+            animate={{ opacity: 1, x: 0 }}
+            onClick={() => (window.location.href = "/equipos")}
+            className="mb-10 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white hover:text-slate-900"
+          >
+            <ArrowLeft className="h-4 w-4" /> Volver a Equipos
+          </motion.button>
+
+          <div className="flex flex-col items-center gap-8 text-center md:flex-row md:items-end md:text-left">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8, rotate: -6 }}
+              animate={{ opacity: 1, scale: 1, rotate: 0 }}
+              transition={{ type: "spring", stiffness: 200, damping: 18 }}
+              className="relative"
             >
-              ← Volver a Equipos
-            </Button>
-
-            <div className="relative w-32 h-32 mx-auto mb-6">
-              <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white/20 shadow-2xl">
-                {team.logo_url ? (
-                  <img
-                    src={team.logo_url}
-                    alt={`Logo de ${team.name}`}
-                    className="w-full h-full object-cover"
-                    crossOrigin="anonymous"
-                    referrerPolicy="no-referrer"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement
-                      target.style.display = "none"
-                      const fallback = target.parentElement?.querySelector('[data-fallback]') as HTMLElement
-                      if (fallback) fallback.style.display = "flex"
-                    }}
-                  />
-                ) : null}
-                <div
-                  data-fallback
-                  className="w-full h-full items-center justify-center text-white font-bold text-4xl"
-                  style={{
-                    display: team.logo_url ? "none" : "flex",
-                    background: `linear-gradient(135deg, ${team.color1}, ${team.color2})`,
-                  }}
-                >
-                  {team.name ? team.name.charAt(0) : "?"}
-                </div>
-              </div>
+              <div className="absolute -inset-3 rounded-full bg-brand-gradient opacity-50 blur-xl" aria-hidden />
+              <TeamAvatar
+                name={team.name}
+                logoUrl={team.logo_url}
+                color1={team.color1}
+                color2={team.color2}
+                size="xl"
+                className="relative h-32 w-32 text-5xl ring-4 md:h-40 md:w-40"
+              />
               {isCoach && (
                 <>
                   <input
@@ -336,109 +337,103 @@ export default function TeamPage() {
                     type="button"
                     onClick={() => logoRef.current?.click()}
                     disabled={uploadingLogo}
-                    className="absolute bottom-0 right-0 w-9 h-9 rounded-full bg-white text-gray-700 flex items-center justify-center shadow-lg hover:bg-gray-100 transition-colors border-2 border-white/50"
+                    className="absolute bottom-1 right-1 flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-700 shadow-lg ring-2 ring-white/50 transition-colors hover:bg-slate-100"
                   >
                     {uploadingLogo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                   </button>
                 </>
               )}
+            </motion.div>
+
+            <div className="flex-1">
+              <Reveal>
+                <div className="mb-4 flex flex-wrap justify-center gap-2 md:justify-start">
+                  <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold uppercase tracking-wider backdrop-blur">
+                    {getCategoryLabel(team.category)}
+                  </span>
+                  {team.is_institutional && (
+                    <span className="rounded-full bg-violet-500/80 px-3 py-1 text-xs font-bold uppercase tracking-wider">
+                      Institucional
+                    </span>
+                  )}
+                  {team.paid ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/90 px-3 py-1 text-xs font-bold uppercase tracking-wider">
+                      <CheckCircle className="h-3.5 w-3.5" /> Inscripción Pagada
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-red-500/90 px-3 py-1 text-xs font-bold uppercase tracking-wider">
+                      <XCircle className="h-3.5 w-3.5" /> Pendiente de Pago
+                    </span>
+                  )}
+                </div>
+                <h1 className="font-display text-5xl font-black uppercase italic leading-[0.9] tracking-tight text-white md:text-7xl">
+                  {team.name}
+                </h1>
+              </Reveal>
+
+              <Stagger className="mt-8 grid grid-cols-3 gap-3 md:max-w-lg">
+                {[
+                  { v: games.length, l: "Partidos" },
+                  { v: players.length, l: "Jugadores" },
+                  { v: championships.length, l: "Títulos" },
+                ].map((s) => (
+                  <StaggerItem key={s.l}>
+                    <div className="rounded-2xl border border-white/15 bg-white/10 px-3 py-3 text-center backdrop-blur-md">
+                      <CountUp value={s.v} className="block font-display text-4xl font-extrabold italic leading-none" />
+                      <div className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-white/60">{s.l}</div>
+                    </div>
+                  </StaggerItem>
+                ))}
+              </Stagger>
             </div>
-
-            <h1 className="text-5xl md:text-6xl font-bold text-white mb-4">{team.name}</h1>
-
-            <div className="flex flex-wrap gap-4 justify-center mb-6">
-              <Badge className="bg-blue-600 text-white text-lg px-4 py-2">{getCategoryLabel(team.category)}</Badge>
-              {team.is_institutional && (
-                <Badge className="bg-purple-600 text-white text-lg px-4 py-2">Institucional</Badge>
-              )}
-              {team.paid ? (
-                <Badge className="bg-green-600 text-white text-lg px-4 py-2">Inscripción Pagada</Badge>
-              ) : (
-                <Badge className="bg-red-600 text-white text-lg px-4 py-2">Pendiente de Pago</Badge>
-              )}
-            </div>
-
-            <p className="text-xl text-white/90 mb-8">
-              {games.length} partidos programados • {players.length} jugadores registrados
-            </p>
           </div>
         </div>
+        <div className="brand-stripes absolute bottom-0 left-0 h-1.5 w-full" />
       </section>
 
-      <div className="container mx-auto px-4 py-8">
-        {/* EN VIVO */}
+      <div className="container mx-auto px-4 py-12">
         {liveGames.length > 0 && (
-          <section className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center">
-              <div className="w-3 h-3 bg-red-500 rounded-full mr-3 animate-pulse"></div>
-              EN VIVO
-            </h2>
-            <div className="grid gap-4">
+          <section className="mb-12">
+            <SectionHeading align="left" icon={<Radio className="h-6 w-6" />} title="En vivo" />
+            <div className="grid gap-6 md:grid-cols-2">
               {liveGames.map((game) => (
-                <Card key={game.id} className="bg-red-50 border-red-200">
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <h3 className="font-bold text-lg">
-                          {game.home_team} vs {game.away_team}
-                        </h3>
-                        <div className="text-2xl font-bold text-red-600">
-                          {game.home_score || 0} - {game.away_score || 0}
-                        </div>
-                      </div>
-                      <Badge className="bg-red-500 text-white animate-pulse">🔴 EN VIVO</Badge>
-                    </div>
-                  </CardContent>
-                </Card>
+                <MatchCard
+                  key={game.id}
+                  game={game}
+                  variant="live"
+                  categoryLabel={getCategoryLabel(game.category)}
+                  getTeam={getTeam}
+                  showReferees={false}
+                />
               ))}
             </div>
           </section>
         )}
 
-        <div className="grid lg:grid-cols-2 gap-8">
-          {/* Información del equipo */}
-          <Card className="bg-white border-gray-200">
-            <CardHeader>
-              <CardTitle className="text-gray-900 flex items-center">
-                <Users className="w-5 h-5 mr-2" />
+        <div className="grid gap-8 lg:grid-cols-3">
+          <div className="space-y-8">
+            <Reveal className="rounded-3xl bg-white p-6 ring-1 ring-slate-200">
+              <h2 className="mb-5 flex items-center gap-2 text-lg font-bold text-slate-900">
+                <Users className="h-5 w-5 text-brand-blue" />
                 Información del Equipo
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {/* Coach */}
+              </h2>
+              <div className="space-y-3">
                 {(team.coach_name || team.coach_photo_url || isCoach) && (
-                  <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
-                    <div className="relative flex-shrink-0">
-                      <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-blue-300">
-                        {team.coach_photo_url ? (
-                          <img
-                            src={team.coach_photo_url}
-                            alt={`Coach ${team.coach_name || "del equipo"}`}
-                            className="w-full h-full object-cover"
-                            crossOrigin="anonymous"
-                            referrerPolicy="no-referrer"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement
-                              target.style.display = "none"
-                              const fallback = target.parentElement?.querySelector('[data-fallback]') as HTMLElement
-                              if (fallback) fallback.style.display = "flex"
-                            }}
-                          />
-                        ) : null}
-                        <div
-                          data-fallback
-                          className="w-full h-full bg-blue-100 items-center justify-center"
-                          style={{ display: team.coach_photo_url ? "none" : "flex" }}
-                        >
-                          <User className="w-6 h-6 text-blue-400" />
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-blue-600 font-medium uppercase tracking-wide">Coach</p>
-                      <p className="font-semibold text-gray-900">{team.coach_name || "Coach"}</p>
-                      {team.coach_phone && <p className="text-gray-500 text-sm">{team.coach_phone}</p>}
+                  <div className="flex items-center gap-3 rounded-2xl bg-blue-50/70 p-3 ring-1 ring-blue-100">
+                    <PersonPhoto
+                      src={team.coach_photo_url}
+                      alt={`Coach ${team.coach_name || "del equipo"}`}
+                      fallback={<User className="h-6 w-6 text-blue-400" />}
+                      className="bg-blue-100 ring-blue-300"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-brand-blue">Coach</p>
+                      <p className="font-semibold text-slate-900">{team.coach_name || "Coach"}</p>
+                      {team.coach_phone && (
+                        <p className="flex items-center gap-1 text-sm text-slate-500">
+                          <Phone className="h-3.5 w-3.5" /> {team.coach_phone}
+                        </p>
+                      )}
                       {isCoach && (
                         <>
                           <input
@@ -448,284 +443,238 @@ export default function TeamPage() {
                             onChange={handleCoachPhotoChange}
                             className="hidden"
                           />
-                          <Button
+                          <button
                             type="button"
-                            variant="outline"
-                            size="sm"
                             onClick={() => coachPhotoRef.current?.click()}
                             disabled={uploadingCoachPhoto}
-                            className="mt-2 h-7 text-xs border-blue-300 text-blue-600 hover:bg-blue-100 hover:text-blue-700"
+                            className="mt-2 inline-flex h-7 items-center gap-1 rounded-full bg-white px-3 text-xs font-semibold text-brand-blue ring-1 ring-blue-200 transition-colors hover:bg-blue-100"
                           >
-                            {uploadingCoachPhoto ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Upload className="h-3 w-3 mr-1" />}
+                            {uploadingCoachPhoto ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
                             {team.coach_photo_url ? "Cambiar foto" : "Subir mi foto"}
-                          </Button>
+                          </button>
                         </>
                       )}
                     </div>
                   </div>
                 )}
 
-                {/* Captain */}
                 {(team.captain_name || team.captain_photo_url) && (
-                  <div className="flex items-center gap-3 p-3 bg-yellow-50 rounded-lg">
-                    <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-yellow-400 flex-shrink-0">
-                      {team.captain_photo_url ? (
-                        <img
-                          src={team.captain_photo_url}
-                          alt={`Capitan ${team.captain_name || "del equipo"}`}
-                          className="w-full h-full object-cover"
-                          crossOrigin="anonymous"
-                          referrerPolicy="no-referrer"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement
-                            target.style.display = "none"
-                            const fallback = target.parentElement?.querySelector('[data-fallback]') as HTMLElement
-                            if (fallback) fallback.style.display = "flex"
-                          }}
-                        />
-                      ) : null}
-                      <div
-                        data-fallback
-                        className="w-full h-full bg-yellow-100 items-center justify-center"
-                        style={{ display: team.captain_photo_url ? "none" : "flex" }}
-                      >
-                        <Star className="w-6 h-6 text-yellow-500" />
-                      </div>
-                    </div>
+                  <div className="flex items-center gap-3 rounded-2xl bg-amber-50/70 p-3 ring-1 ring-amber-100">
+                    <PersonPhoto
+                      src={team.captain_photo_url}
+                      alt={`Capitan ${team.captain_name || "del equipo"}`}
+                      fallback={<Star className="h-6 w-6 text-amber-500" />}
+                      className="bg-amber-100 ring-amber-400"
+                    />
                     <div>
-                      <p className="text-xs text-yellow-700 font-medium uppercase tracking-wide">Capitan</p>
-                      <p className="font-semibold text-gray-900">{team.captain_name || "Capitan"}</p>
-                      {team.captain_phone && <p className="text-gray-500 text-sm">{team.captain_phone}</p>}
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-amber-700">Capitan</p>
+                      <p className="font-semibold text-slate-900">{team.captain_name || "Capitan"}</p>
+                      {team.captain_phone && (
+                        <p className="flex items-center gap-1 text-sm text-slate-500">
+                          <Phone className="h-3.5 w-3.5" /> {team.captain_phone}
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}
 
                 {team.is_institutional && team.coordinator_name && (
-                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                    <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center border-2 border-gray-300">
-                      <Users className="w-6 h-6 text-gray-400" />
+                  <div className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 ring-2 ring-slate-300">
+                      <Users className="h-6 w-6 text-slate-400" />
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Coordinador</p>
-                      <p className="font-semibold text-gray-900">{team.coordinator_name}</p>
-                      {team.coordinator_phone && <p className="text-gray-500 text-sm">{team.coordinator_phone}</p>}
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Coordinador</p>
+                      <p className="font-semibold text-slate-900">{team.coordinator_name}</p>
+                      {team.coordinator_phone && (
+                        <p className="flex items-center gap-1 text-sm text-slate-500">
+                          <Phone className="h-3.5 w-3.5" /> {team.coordinator_phone}
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}
               </div>
-            </CardContent>
-          </Card>
+            </Reveal>
 
-          {/* Campeonatos */}
-          {championships.length > 0 && (
-            <Card className="bg-white border-gray-200">
-              <CardHeader>
-                <CardTitle className="text-gray-900 flex items-center">
-                  <Trophy className="w-5 h-5 mr-2 text-yellow-500" />
-                  Historial de Campeonatos ({championships.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
+            {championships.length > 0 && (
+              <Reveal className="overflow-hidden rounded-3xl bg-white ring-1 ring-slate-200">
+                <div className="bg-gradient-to-r from-amber-400 to-orange-500 px-6 py-4">
+                  <h2 className="flex items-center gap-2 text-lg font-bold text-white">
+                    <Trophy className="h-5 w-5" />
+                    Historial de Campeonatos ({championships.length})
+                  </h2>
+                </div>
+                <Stagger className="space-y-3 p-6">
                   {championships.map((ch) => (
-                    <div key={ch.id} className="flex items-start gap-3 p-3 bg-yellow-50/50 rounded-lg border border-yellow-100">
-                      <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0">
-                        <Medal className="w-5 h-5 text-yellow-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-gray-900">{ch.title}</h4>
-                        <div className="flex flex-wrap items-center gap-2 mt-1">
-                          {ch.position && (
-                            <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300 text-xs">
-                              {ch.position}
-                            </Badge>
-                          )}
-                          <span className="text-sm text-gray-500 flex items-center gap-1">
-                            <Calendar className="w-3 h-3" /> {ch.year}
-                          </span>
-                        </div>
-                        {ch.tournament && <p className="text-sm text-gray-600 mt-1">{ch.tournament}</p>}
-                        {ch.description && <p className="text-sm text-gray-400 mt-1">{ch.description}</p>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Jugadores */}
-          <Card className="bg-white border-gray-200">
-            <CardHeader>
-              <CardTitle className="text-gray-900 flex items-center">
-                <Users className="w-5 h-5 mr-2" />
-                Roster ({players.length} jugadores)
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {players.length === 0 ? (
-                <div className="text-center py-8">
-                  <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">No hay jugadores registrados</p>
-                </div>
-              ) : (
-                <div className="grid gap-3 max-h-96 overflow-y-auto">
-                  {players.map((player) => (
-                    <div key={player.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                      <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-gray-200 flex-shrink-0">
-                        {player.photo_url ? (
-                          <img
-                            src={player.photo_url}
-                            alt={`Foto de ${player.name}`}
-                            className="w-full h-full object-cover"
-                            crossOrigin="anonymous"
-                            referrerPolicy="no-referrer"
-                            loading="lazy"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement
-                              target.style.display = "none"
-                              const fallback = target.parentElement?.querySelector('[data-fallback]') as HTMLElement
-                              if (fallback) fallback.style.display = "flex"
-                            }}
-                          />
-                        ) : null}
-                        <div
-                          data-fallback
-                          className="w-full h-full items-center justify-center text-white font-bold"
-                          style={{
-                            display: player.photo_url ? "none" : "flex",
-                            background: `linear-gradient(135deg, ${team.color1}, ${team.color2})`,
-                          }}
+                    <StaggerItem key={ch.id}>
+                      <div className="flex items-start gap-3 rounded-2xl bg-amber-50/60 p-3 ring-1 ring-amber-100">
+                        <motion.div
+                          whileHover={{ rotate: [0, -10, 10, 0], scale: 1.1 }}
+                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 to-amber-500 text-white shadow"
                         >
-                          #{player.jersey_number}
-                        </div>
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="text-gray-900 font-semibold">{player.name}</h4>
-                        <div className="flex items-center gap-2 text-gray-600 text-sm">
-                          <span>#{player.jersey_number}</span>
-                          {player.position && (
-                            <>
-                              <span>{'•'}</span>
-                              <span>{player.position}</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      {/* Attendance */}
-                      {attendanceMap[player.id] && attendanceMap[player.id].total > 0 && (
-                        <div className="text-center flex-shrink-0">
-                          <div className="flex items-center gap-1">
-                            <CheckCircle className="w-4 h-4 text-green-500" />
-                            <span className="text-sm font-semibold text-gray-900">
-                              {attendanceMap[player.id].attended}/{attendanceMap[player.id].total}
+                          <Medal className="h-5 w-5" />
+                        </motion.div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-bold text-slate-900">{ch.title}</h4>
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            {ch.position && (
+                              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-300">
+                                {ch.position}
+                              </span>
+                            )}
+                            <span className="flex items-center gap-1 text-sm text-slate-500">
+                              <Calendar className="h-3 w-3" /> {ch.year}
                             </span>
                           </div>
-                          <p className="text-xs text-gray-500">Asistencia</p>
+                          {ch.tournament && <p className="mt-1 text-sm text-slate-600">{ch.tournament}</p>}
+                          {ch.description && <p className="mt-1 text-sm text-slate-400">{ch.description}</p>}
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    </StaggerItem>
                   ))}
+                </Stagger>
+              </Reveal>
+            )}
+          </div>
+
+          <Reveal className="rounded-3xl bg-white p-6 ring-1 ring-slate-200 lg:col-span-2">
+            <h2 className="mb-5 flex items-center gap-2 text-lg font-bold text-slate-900">
+              <Users className="h-5 w-5 text-brand-pink" />
+              Roster ({players.length} jugadores)
+            </h2>
+            {players.length === 0 ? (
+              <div className="py-12 text-center">
+                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                  <Users className="h-10 w-10" />
                 </div>
-              )}
-            </CardContent>
-          </Card>
+                <p className="text-slate-600">No hay jugadores registrados</p>
+              </div>
+            ) : (
+              <Stagger className="grid max-h-[640px] gap-3 overflow-y-auto pr-1 sm:grid-cols-2" stagger={0.03}>
+                {players.map((player) => {
+                  const att = attendanceMap[player.id]
+                  const pct = att && att.total > 0 ? Math.round((att.attended / att.total) * 100) : null
+                  return (
+                    <StaggerItem key={player.id}>
+                      <div className="group flex items-center gap-3 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100 transition-all hover:bg-white hover:shadow-md">
+                        <div className="relative">
+                          <PersonPhoto
+                            src={player.photo_url}
+                            alt={`Foto de ${player.name}`}
+                            className="h-12 w-12 ring-white"
+                            style={{ background: `linear-gradient(135deg, ${c1}, ${c2})` }}
+                            fallback={<span className="text-sm font-bold text-white">#{player.jersey_number}</span>}
+                          />
+                          <span
+                            className="absolute -bottom-1 -right-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-slate-900 px-1 font-display text-xs font-extrabold italic text-white ring-2 ring-white"
+                          >
+                            {player.jersey_number}
+                          </span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="truncate font-semibold text-slate-900">{player.name}</h4>
+                          <div className="flex items-center gap-2 text-sm text-slate-500">
+                            <span>#{player.jersey_number}</span>
+                            {player.position && (
+                              <>
+                                <span>{"•"}</span>
+                                <span>{player.position}</span>
+                              </>
+                            )}
+                          </div>
+                          {pct != null && (
+                            <div className="mt-1.5 flex items-center gap-2">
+                              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200">
+                                <motion.div
+                                  className="h-full rounded-full bg-emerald-500"
+                                  initial={{ width: 0 }}
+                                  whileInView={{ width: `${pct}%` }}
+                                  viewport={{ once: true }}
+                                  transition={{ duration: 0.8, ease: "easeOut" }}
+                                />
+                              </div>
+                              <span className="flex items-center gap-0.5 text-xs font-semibold text-slate-700">
+                                <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
+                                {att!.attended}/{att!.total}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </StaggerItem>
+                  )
+                })}
+              </Stagger>
+            )}
+            {players.some((p) => attendanceMap[p.id]?.total > 0) && (
+              <p className="mt-3 text-right text-xs text-slate-400">Asistencia: partidos asistidos / partidos jugados</p>
+            )}
+          </Reveal>
         </div>
 
-        {/* Próximos partidos */}
         {upcomingGames.length > 0 && (
-          <Card className="bg-white border-gray-200 mt-8">
-            <CardHeader>
-              <CardTitle className="text-gray-900 flex items-center">
-                <Calendar className="w-5 h-5 mr-2" />
-                Próximos Partidos
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid md:grid-cols-2 gap-4">
-                {upcomingGames.map((game) => (
-                  <div key={game.id} className="p-4 bg-gray-50 rounded-lg">
-                    <div className="text-gray-900 font-semibold mb-2">
-                      {game.home_team} vs {game.away_team}
-                    </div>
-                    <div className="text-gray-600 text-sm space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4" />
-                        {new Date(game.game_date).toLocaleDateString("es-ES")}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4" />
-                        {game.game_time}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4" />
-                        {game.venue} - {game.field}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <section className="mt-14">
+            <SectionHeading align="left" icon={<Calendar className="h-6 w-6" />} title="Próximos partidos" />
+            <Stagger className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {upcomingGames.map((game) => (
+                <StaggerItem key={game.id} className="h-full">
+                  <MatchCard game={game} variant="upcoming" getTeam={getTeam} showReferees={false} />
+                </StaggerItem>
+              ))}
+            </Stagger>
+          </section>
         )}
 
-        {/* Resultados recientes */}
         {recentGames.length > 0 && (
-          <Card className="bg-white border-gray-200 mt-8">
-            <CardHeader>
-              <CardTitle className="text-gray-900 flex items-center">
-                <Trophy className="w-5 h-5 mr-2" />
-                Resultados Recientes
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid md:grid-cols-2 gap-4">
-                {recentGames.map((game) => (
-                  <div key={game.id} className="p-4 bg-gray-50 rounded-lg">
-                    <div className="text-gray-900 font-semibold mb-2">
-                      {game.home_team} vs {game.away_team}
-                    </div>
-                    <div className="flex items-center justify-center text-2xl font-bold text-gray-900 mb-2">
-                      <span
-                        className={
-                          game.home_team === team.name && (game.home_score || 0) > (game.away_score || 0)
-                            ? "text-green-600"
-                            : game.away_team === team.name && (game.away_score || 0) > (game.home_score || 0)
-                              ? "text-green-600"
-                              : ""
-                        }
-                      >
-                        {game.home_score || 0}
-                      </span>
-                      <span className="mx-2">-</span>
-                      <span
-                        className={
-                          game.away_team === team.name && (game.away_score || 0) > (game.home_score || 0)
-                            ? "text-green-600"
-                            : game.home_team === team.name && (game.home_score || 0) > (game.away_score || 0)
-                              ? "text-green-600"
-                              : ""
-                        }
-                      >
-                        {game.away_score || 0}
-                      </span>
-                    </div>
-                    <div className="text-gray-600 text-sm">
-                      {new Date(game.game_date).toLocaleDateString("es-ES")}
-                      {game.mvp && (
-                        <div className="flex items-center gap-1 mt-1 text-yellow-600">
-                          <Star className="w-4 h-4" />
-                          MVP: {game.mvp}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <section className="mt-14">
+            <SectionHeading align="left" icon={<Trophy className="h-6 w-6" />} title="Resultados recientes" />
+            <Stagger className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {recentGames.map((game) => (
+                <StaggerItem key={game.id} className="h-full">
+                  <MatchCard game={game} variant="final" getTeam={getTeam} showReferees={false} />
+                </StaggerItem>
+              ))}
+            </Stagger>
+          </section>
         )}
       </div>
     </div>
   )
 }
+
+function PersonPhoto({
+  src,
+  alt,
+  fallback,
+  className,
+  style,
+}: {
+  src?: string
+  alt: string
+  fallback: ReactNode
+  className?: string
+  style?: CSSProperties
+}) {
+  const [broken, setBroken] = useState(false)
+  return (
+    <div
+      className={cn("flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full ring-2", className)}
+      style={src && !broken ? undefined : style}
+    >
+      {src && !broken ? (
+        <img
+          src={src}
+          alt={alt}
+          className="h-full w-full object-cover"
+          referrerPolicy="no-referrer"
+          loading="lazy"
+          onError={() => setBroken(true)}
+        />
+      ) : (
+        fallback
+      )}
+    </div>
+  )
+}
+

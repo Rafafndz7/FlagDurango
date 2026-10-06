@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { LogOut, Menu, X } from "lucide-react"
+import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "framer-motion"
+import { LayoutDashboard, LogOut, Menu, Shield, UserRound, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 
@@ -20,8 +20,12 @@ export function Navigation() {
   const [user, setUser] = useState<User | null>(null)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [wildbrowlEnabled, setWildbrowlEnabled] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
+  const { scrollY } = useScroll()
+
+  useMotionValueEvent(scrollY, "change", (y) => setScrolled(y > 12))
 
   useEffect(() => {
     // Si alguna página inyectó otra nav, deja solo 1.
@@ -67,6 +71,10 @@ export function Navigation() {
     loadConfig()
   }, [])
 
+  useEffect(() => {
+    setIsMenuOpen(false)
+  }, [pathname])
+
   const handleLogout = () => {
     localStorage.removeItem("user")
     document.cookie = "user=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
@@ -81,144 +89,227 @@ export function Navigation() {
     { href: "/equipos", label: "Equipos" },
     ...(wildbrowlEnabled ? [{ href: "/wildbrowl", label: "WildBrowl 1v1" } as const] : []),
     { href: "/estadisticas", label: "Estadísticas" },
-    { href: "/reglamento", label: "Reglamento" }, // <-- ¡Aquí está el nuevo enlace!
+    { href: "/reglamento", label: "Reglamento" },
   ]
+
+  const isActive = (href: string) => pathname === href || (href !== "/" && pathname.startsWith(href))
 
   return (
     <header
       id="main-nav"
-      className="w-full border-b bg-white sticky top-0 z-50"
+      className={cn(
+        "ui-v2 sticky top-0 z-50 w-full transition-all duration-300",
+        scrolled ? "glass shadow-[0_8px_30px_-12px_rgba(15,23,42,0.25)]" : "bg-white",
+      )}
       role="banner"
       aria-label="Navegación principal"
     >
       <div className="container mx-auto px-4">
-        <div className="flex justify-between items-center py-4">
-          <Link href="/" className="text-center">
-            <div className="flex flex-col items-center">
+        <div className={cn("flex items-center justify-between transition-all duration-300", scrolled ? "py-2" : "py-3.5")}>
+          <Link href="/" className="group flex items-center gap-3">
+            <motion.div whileHover={{ rotate: -2, scale: 1.03 }} transition={{ type: "spring", stiffness: 300 }}>
               <Image
                 src="/images/logo-flag-durango.png"
                 alt="Liga Flag Durango"
                 width={200}
                 height={80}
-                className="h-12 md:h-16 w-auto"
+                priority
+                className={cn("w-auto transition-all duration-300", scrolled ? "h-10 md:h-11" : "h-11 md:h-14")}
               />
-              <p className="text-neutral-500 text-sm mt-1">Torneo Flag Durango</p>
-            </div>
+            </motion.div>
+            <span className="hidden border-l border-slate-200 pl-3 text-xs font-semibold uppercase leading-tight tracking-wider text-slate-500 lg:block">
+              Torneo
+              <br />
+              Flag Durango
+            </span>
           </Link>
 
-          <nav aria-label="Principal" className="hidden md:flex items-center gap-6">
-            {links.map((l) => {
-              const active = pathname === l.href || (l.href !== "/" && pathname.startsWith(l.href))
-              return (
-                <Link
-                  key={l.href}
-                  href={l.href}
-                  className={cn("text-sm font-medium text-neutral-900 hover:underline", active && "text-yellow-500")}
-                >
-                  {l.label}
-                </Link>
-              )
-            })}
-
-            {user ? (
-              <div className="flex items-center space-x-4">
-                {user.role === "admin" && (
-                  <Link href="/admin" className="text-yellow-500 hover:text-yellow-600 font-medium">
-                    Admin
-                  </Link>
-                )}
-                {user.role === "coach" && (
-                  <Link href="/coach-dashboard" className="text-blue-500 hover:text-blue-600 font-medium">
-                    Dashboard
-                  </Link>
-                )}
-                <div className="flex items-center space-x-2">
-                  <span className="text-neutral-800 text-sm">Hola, {user.username}</span>
-                  <Button
-                    onClick={handleLogout}
-                    variant="ghost"
-                    size="sm"
-                    className="text-neutral-900 hover:text-red-500"
-                  >
-                    <LogOut className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <Link href="/login" className="text-sm font-semibold text-neutral-900 hover:underline">
-                Cuenta
-              </Link>
-            )}
-          </nav>
-
-          <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden text-neutral-900" aria-label="Menú">
-            {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
-        </div>
-
-        {isMenuOpen && (
-          <div className="md:hidden py-4 border-t border-neutral-100">
-            <div className="flex flex-col space-y-4">
+          <nav aria-label="Principal" className="hidden items-center gap-1 md:flex">
+            <div className="flex items-center gap-1 rounded-full bg-slate-100/80 p-1">
               {links.map((l) => {
-                const active = pathname === l.href || (l.href !== "/" && pathname.startsWith(l.href))
+                const active = isActive(l.href)
                 return (
                   <Link
                     key={l.href}
                     href={l.href}
                     className={cn(
-                      "rounded-md px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100",
-                      active && "bg-neutral-900 text-white hover:bg-neutral-900",
+                      "relative rounded-full px-4 py-2 text-sm font-semibold transition-colors",
+                      active ? "text-white" : "text-slate-700 hover:text-slate-950",
                     )}
-                    onClick={() => setIsMenuOpen(false)}
                   >
-                    {l.label}
+                    {active && (
+                      <motion.span
+                        layoutId="nav-active-pill"
+                        className="absolute inset-0 rounded-full bg-brand-gradient shadow-brand"
+                        transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                      />
+                    )}
+                    <span className="relative z-10">{l.label}</span>
                   </Link>
                 )
               })}
+            </div>
 
+            <div className="ml-3 flex items-center gap-2">
               {user ? (
-                <div className="flex items-center justify-between border-top pt-3">
+                <>
                   {user.role === "admin" && (
-                    <Link href="/admin" className="text-yellow-600 font-medium" onClick={() => setIsMenuOpen(false)}>
+                    <Link
+                      href="/admin"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700 transition-colors hover:bg-amber-100"
+                    >
+                      <Shield className="h-4 w-4" />
                       Admin
                     </Link>
                   )}
                   {user.role === "coach" && (
                     <Link
                       href="/coach-dashboard"
-                      className="text-blue-600 font-medium"
-                      onClick={() => setIsMenuOpen(false)}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-brand-blue transition-colors hover:bg-blue-100"
                     >
+                      <LayoutDashboard className="h-4 w-4" />
                       Dashboard
                     </Link>
                   )}
-                  <Button
-                    onClick={() => {
-                      handleLogout()
-                      setIsMenuOpen(false)
-                    }}
-                    variant="ghost"
-                    size="sm"
-                    className="text-neutral-900 hover:text-red-500"
+                  <span className="hidden text-sm text-slate-600 lg:inline">
+                    Hola, <span className="font-semibold text-slate-900">{user.username}</span>
+                  </span>
+                  <button
+                    onClick={handleLogout}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600"
+                    aria-label="Cerrar sesión"
                   >
-                    <LogOut className="w-4 h-4" />
-                    <span className="sr-only">Cerrar sesión</span>
-                  </Button>
-                </div>
+                    <LogOut className="h-4 w-4" />
+                  </button>
+                </>
               ) : (
                 <Link
                   href="/login"
-                  className="text-sm font-semibold text-neutral-900 hover:underline"
-                  onClick={() => setIsMenuOpen(false)}
+                  className="inline-flex items-center gap-2 rounded-full bg-brand-ink px-5 py-2.5 text-sm font-bold text-white transition-transform hover:scale-[1.04]"
                 >
+                  <UserRound className="h-4 w-4" />
                   Cuenta
                 </Link>
               )}
             </div>
-          </div>
-        )}
+          </nav>
+
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-900 md:hidden"
+            aria-label="Menú"
+            aria-expanded={isMenuOpen}
+          >
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.span
+                key={isMenuOpen ? "x" : "menu"}
+                initial={{ rotate: -90, opacity: 0 }}
+                animate={{ rotate: 0, opacity: 1 }}
+                exit={{ rotate: 90, opacity: 0 }}
+                transition={{ duration: 0.18 }}
+              >
+                {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </motion.span>
+            </AnimatePresence>
+          </button>
+        </div>
       </div>
-      <div className="h-1 w-full bg-gradient-to-r from-purple-600 via-indigo-600 to-amber-600" />
+
+      <AnimatePresence>
+        {isMenuOpen && (
+          <motion.div
+            key="mobile-menu"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+            className="overflow-hidden border-t border-slate-100 bg-white md:hidden"
+          >
+            <motion.div
+              className="container mx-auto flex flex-col gap-1.5 px-4 py-4"
+              initial="hidden"
+              animate="show"
+              variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05, delayChildren: 0.05 } } }}
+            >
+              {links.map((l) => {
+                const active = isActive(l.href)
+                return (
+                  <motion.div
+                    key={l.href}
+                    variants={{ hidden: { opacity: 0, x: -16 }, show: { opacity: 1, x: 0 } }}
+                  >
+                    <Link
+                      href={l.href}
+                      className={cn(
+                        "flex items-center justify-between rounded-2xl px-4 py-3 text-base font-semibold transition-colors",
+                        active ? "bg-brand-gradient text-white shadow-brand" : "text-slate-800 hover:bg-slate-100",
+                      )}
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      {l.label}
+                      {active && <span className="h-2 w-2 rounded-full bg-white" />}
+                    </Link>
+                  </motion.div>
+                )
+              })}
+
+              <motion.div
+                variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}
+                className="mt-2 flex items-center justify-between gap-2 border-t border-slate-100 pt-4"
+              >
+                {user ? (
+                  <>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {user.role === "admin" && (
+                        <Link
+                          href="/admin"
+                          className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          <Shield className="h-4 w-4" />
+                          Admin
+                        </Link>
+                      )}
+                      {user.role === "coach" && (
+                        <Link
+                          href="/coach-dashboard"
+                          className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-2 text-sm font-semibold text-brand-blue"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          <LayoutDashboard className="h-4 w-4" />
+                          Dashboard
+                        </Link>
+                      )}
+                      <span className="text-sm text-slate-600">Hola, {user.username}</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        handleLogout()
+                        setIsMenuOpen(false)
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Salir
+                    </button>
+                  </>
+                ) : (
+                  <Link
+                    href="/login"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-ink px-5 py-3 text-sm font-bold text-white"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <UserRound className="h-4 w-4" />
+                    Cuenta
+                  </Link>
+                )}
+              </motion.div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="brand-stripes h-1 w-full" />
     </header>
   )
 }

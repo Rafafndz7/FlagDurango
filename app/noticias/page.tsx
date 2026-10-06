@@ -1,9 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardTitle } from "@/components/ui/card"
-import { Navigation } from "@/components/navigation"
 import { Calendar, User } from "lucide-react"
+import { BrandLoader, PageHero } from "@/components/ui-v2/brand"
+import { HoverLift, Stagger, StaggerItem } from "@/components/ui-v2/motion"
 
 interface NewsArticle {
   id: number
@@ -85,65 +85,65 @@ export default function NewsPage() {
   }, [])
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p>Cargando noticias...</p>
-      </div>
-    )
+    return <BrandLoader label="Cargando noticias…" />
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-red-500">{error}</p>
+      <div className="ui-v2 flex min-h-[70vh] items-center justify-center px-4">
+        <div className="rounded-3xl bg-red-50 px-8 py-6 text-center text-lg font-semibold text-red-700 ring-1 ring-red-200">
+          {error}
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navigation />
+    <div className="ui-v2 min-h-screen bg-slate-50">
+      <PageHero
+        compact
+        eyebrow="Liga Flag Durango"
+        title="Últimas"
+        highlight="Noticias"
+        description="Mantente al día con todo lo que sucede en la Liga Flag Durango."
+      />
 
-      {/* Header */}
-      <div className="pt-16 bg-gradient-to-r from-blue-600 via-purple-600 to-orange-500 text-white p-6">
-        <div className="container mx-auto">
-          <h1 className="text-3xl font-bold mb-2">Últimas Noticias</h1>
-          <p className="text-white/80">Mantente al día con todo lo que sucede en la Liga Flag Durango.</p>
-        </div>
-      </div>
-
-      <div className="container mx-auto p-4 lg:p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="container mx-auto px-4 py-14">
+        <Stagger className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {news.map((article) => (
-            <Card key={article.id} className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
-              {article.image_url && (
-                <div className="relative h-48 w-full">
-                  <img
-                    src={article.image_url || "/placeholder.svg"}
-                    alt={article.title}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-              )}
-              <CardContent className="p-4 space-y-3">
-                <CardTitle className="text-xl font-semibold text-gray-800 line-clamp-2">{article.title}</CardTitle>
-                <p className="text-sm text-gray-600 line-clamp-3">{article.content}</p>
-                <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t border-gray-200 mt-auto">
-                  <div className="flex items-center">
-                    <User className="w-3 h-3 mr-1" />
-                    <span>{article.author}</span>
+            <StaggerItem key={article.id} className="h-full">
+              <HoverLift className="group flex h-full flex-col overflow-hidden rounded-3xl bg-white ring-1 ring-slate-200 transition-shadow hover:shadow-2xl">
+                {article.image_url && (
+                  <div className="relative h-52 w-full overflow-hidden">
+                    <img
+                      src={article.image_url || "/placeholder.svg"}
+                      alt={article.title}
+                      className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" aria-hidden />
+                    <div className="brand-stripes absolute inset-x-0 bottom-0 h-1" aria-hidden />
                   </div>
-                  <div className="flex items-center">
-                    <Calendar className="w-3 h-3 mr-1" />
-                    <span>{new Date(article.published_at).toLocaleDateString("es-ES")}</span>
+                )}
+                <div className="flex flex-1 flex-col gap-3 p-6">
+                  <h2 className="line-clamp-2 text-xl font-bold leading-snug text-slate-900">{article.title}</h2>
+                  <p className="line-clamp-3 text-sm leading-relaxed text-slate-600">{article.content}</p>
+                  <div className="mt-auto flex items-center justify-between border-t border-slate-100 pt-4 text-xs text-slate-500">
+                    <span className="inline-flex items-center gap-1.5">
+                      <User className="h-3.5 w-3.5 text-brand-pink" />
+                      {article.author}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Calendar className="h-3.5 w-3.5 text-brand-blue" />
+                      {new Date(article.published_at).toLocaleDateString("es-ES")}
+                    </span>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </HoverLift>
+            </StaggerItem>
           ))}
-        </div>
+        </Stagger>
         {news.length === 0 && (
-          <p className="text-center text-gray-600 text-lg mt-8">No hay noticias disponibles en este momento.</p>
+          <p className="mt-8 text-center text-lg text-slate-600">No hay noticias disponibles en este momento.</p>
         )}
       </div>
     </div>

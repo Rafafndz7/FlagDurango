@@ -18,10 +18,10 @@ export function SeasonSelector({ className = "" }: { className?: string }) {
   if (!seasons.length) return null
 
   return (
-    <label className={`flex items-center gap-2 text-sm font-medium ${className}`}>
+    <label className={`flex items-center gap-2 text-sm font-semibold text-slate-600 ${className}`}>
       <span>Temporada</span>
       <select
-        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
+        className="h-11 rounded-full border-0 bg-slate-100 px-4 text-sm font-semibold text-slate-800 ring-1 ring-slate-200 transition focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0857b5]"
         value={selected}
         onChange={(event) => {
           const next = new URLSearchParams(params.toString())

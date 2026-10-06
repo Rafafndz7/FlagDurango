@@ -5,10 +5,9 @@ import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { AnimatePresence, motion } from "framer-motion"
+import { BrandBlobs, brandButtonClass } from "@/components/ui-v2/brand"
+import { EASE_OUT } from "@/components/ui-v2/motion"
 
 const POSITIONS = [
   "QB", "WR", "RB", "OL", "DL", "LB", "DB", "K", "TE", "S", "CB", "C", "DE", "DT"
@@ -113,75 +112,107 @@ export default function RegisterPage() {
     })
   }
 
+
+  const inputClass =
+    "h-12 w-full rounded-2xl border-0 bg-slate-100 px-4 text-slate-900 ring-1 ring-slate-200 transition placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue"
+  const labelClass = "mb-1.5 block text-sm font-semibold text-slate-700"
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-400 via-red-500 to-pink-500 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Crear Cuenta</CardTitle>
-          <CardDescription className="text-center">Unete a Liga Flag Durango</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {/* Account Type Selector */}
-          <div className="mb-6">
-            <Label className="text-sm font-medium mb-2 block">Tipo de cuenta</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setAccountType("player")}
-                className={`px-4 py-3 rounded-lg border-2 text-sm font-semibold transition-all ${
-                  accountType === "player"
-                    ? "border-orange-500 bg-orange-50 text-orange-700"
-                    : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
-                }`}
-              >
-                Jugador
-              </button>
-              <button
-                type="button"
-                onClick={() => setAccountType("coach")}
-                className={`px-4 py-3 rounded-lg border-2 text-sm font-semibold transition-all ${
-                  accountType === "coach"
-                    ? "border-orange-500 bg-orange-50 text-orange-700"
-                    : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
-                }`}
-              >
-                Coach
-              </button>
-            </div>
+    <div className="ui-v2 relative flex min-h-[calc(100vh-4rem)] items-center justify-center overflow-hidden bg-brand-ink px-4 py-12">
+      <BrandBlobs intensity={0.8} />
+      <div className="absolute inset-0 bg-grid-white mask-fade-b" aria-hidden />
+
+      <motion.div
+        initial={{ opacity: 0, y: 24, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.6, ease: EASE_OUT }}
+        className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white p-8 shadow-2xl md:p-10"
+      >
+        <div className="brand-stripes absolute inset-x-0 top-0 h-1" aria-hidden />
+        <img src="/images/logo-flag-durango.png" alt="Flag Durango" className="mx-auto mb-5 h-12 w-auto" />
+        <h1 className="text-center font-display text-4xl font-extrabold uppercase italic tracking-tight text-slate-900">
+          Crear Cuenta
+        </h1>
+        <p className="mt-1 text-center text-sm text-slate-500">Unete a Liga Flag Durango</p>
+
+        <div className="mb-6 mt-8">
+          <span className={labelClass}>Tipo de cuenta</span>
+          <div className="grid grid-cols-2 rounded-full bg-slate-100 p-1 ring-1 ring-slate-200">
+            {[
+              { value: "player" as const, label: "Jugador" },
+              { value: "coach" as const, label: "Coach" },
+            ].map((opt) => {
+              const active = accountType === opt.value
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setAccountType(opt.value)}
+                  className={`relative rounded-full px-4 py-2.5 text-sm font-bold transition-colors ${
+                    active ? "text-white" : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="register-account-type"
+                      className="absolute inset-0 rounded-full bg-brand-gradient shadow-brand"
+                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                    />
+                  )}
+                  <span className="relative">{opt.label}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="username" className={labelClass}>
+              Usuario
+            </label>
+            <input
+              id="username"
+              name="username"
+              type="text"
+              placeholder="Tu nombre de usuario"
+              value={formData.username}
+              onChange={handleChange}
+              required
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label htmlFor="email" className={labelClass}>
+              Email
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="tu@email.com"
+              value={formData.email}
+              onChange={handleChange}
+              required
+              className={inputClass}
+            />
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="username">Usuario</Label>
-              <Input
-                id="username"
-                name="username"
-                type="text"
-                placeholder="Tu nombre de usuario"
-                value={formData.username}
-                onChange={handleChange}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="tu@email.com"
-                value={formData.email}
-                onChange={handleChange}
-                required
-              />
-            </div>
-
-            {/* Player-specific fields */}
+          <AnimatePresence initial={false}>
             {accountType === "player" && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="playerName">Nombre completo</Label>
-                  <Input
+              <motion.div
+                key="player-fields"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3, ease: EASE_OUT }}
+                className="space-y-4 overflow-hidden"
+              >
+                <div>
+                  <label htmlFor="playerName" className={labelClass}>
+                    Nombre completo
+                  </label>
+                  <input
                     id="playerName"
                     name="playerName"
                     type="text"
@@ -189,17 +220,20 @@ export default function RegisterPage() {
                     value={formData.playerName}
                     onChange={handleChange}
                     required
+                    className={inputClass}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="position">Posicion</Label>
+                  <div>
+                    <label htmlFor="position" className={labelClass}>
+                      Posicion
+                    </label>
                     <select
                       id="position"
                       name="position"
                       value={formData.position}
                       onChange={handleChange}
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className={inputClass}
                     >
                       {POSITIONS.map((pos) => (
                         <option key={pos} value={pos}>
@@ -208,9 +242,11 @@ export default function RegisterPage() {
                       ))}
                     </select>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="jerseyNumber">No. Jersey</Label>
-                    <Input
+                  <div>
+                    <label htmlFor="jerseyNumber" className={labelClass}>
+                      No. Jersey
+                    </label>
+                    <input
                       id="jerseyNumber"
                       name="jerseyNumber"
                       type="number"
@@ -220,64 +256,75 @@ export default function RegisterPage() {
                       value={formData.jerseyNumber}
                       onChange={handleChange}
                       required
+                      className={inputClass}
                     />
                   </div>
                 </div>
-              </>
+              </motion.div>
             )}
+          </AnimatePresence>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Contrasena</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                placeholder="Minimo 6 caracteres"
-                value={formData.password}
-                onChange={handleChange}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirmar Contrasena</Label>
-              <Input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                placeholder="Repite tu contrasena"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                required
-              />
-            </div>
+          <div>
+            <label htmlFor="password" className={labelClass}>
+              Contrasena
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Minimo 6 caracteres"
+              value={formData.password}
+              onChange={handleChange}
+              required
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label htmlFor="confirmPassword" className={labelClass}>
+              Confirmar Contrasena
+            </label>
+            <input
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              placeholder="Repite tu contrasena"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              required
+              className={inputClass}
+            />
+          </div>
 
+          <AnimatePresence>
             {message && (
-              <div
-                className={`text-sm text-center p-2 rounded ${
-                  messageType === "success" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+              <motion.div
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className={`rounded-2xl px-4 py-3 text-center text-sm font-medium ring-1 ${
+                  messageType === "success"
+                    ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                    : "bg-red-50 text-red-700 ring-red-200"
                 }`}
               >
                 {message}
-              </div>
+              </motion.div>
             )}
+          </AnimatePresence>
 
-            <Button
-              type="submit"
-              className="w-full bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700"
-              disabled={loading}
-            >
-              {loading ? "Registrando..." : accountType === "player" ? "Crear Cuenta de Jugador" : "Crear Cuenta de Coach"}
-            </Button>
-          </form>
+          <button type="submit" className={`${brandButtonClass} w-full disabled:opacity-70`} disabled={loading}>
+            {loading ? "Registrando..." : accountType === "player" ? "Crear Cuenta de Jugador" : "Crear Cuenta de Coach"}
+          </button>
+        </form>
 
-          <div className="mt-4 text-center text-sm">
-            {"Ya tienes cuenta? "}
-            <Link href="/login" className="text-orange-600 hover:underline font-medium">
-              Inicia sesion
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
+        <div className="mt-5 text-center text-sm text-slate-600">
+          {"Ya tienes cuenta? "}
+          <Link href="/login" className="font-semibold text-brand-blue underline-offset-4 hover:underline">
+            Inicia sesion
+          </Link>
+        </div>
+      </motion.div>
     </div>
   )
 }
+

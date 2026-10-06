@@ -2,10 +2,9 @@
 
 import { Suspense, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
+import Link from "next/link"
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 import { SeasonSelector } from "@/components/season-selector"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import {
   Calendar,
   MapPin,
@@ -17,12 +16,14 @@ import {
   ArrowRight,
   Target,
   UserPlus,
-  Facebook,
-  Instagram,
-  Phone,
-  Mail,
-  MessageCircle,
+  ChevronDown,
+  Radio,
+  Award,
+  Flag,
 } from "lucide-react"
+import { BrandBlobs, BrandLoader, SectionHeading, brandButtonClass, ghostButtonClass } from "@/components/ui-v2/brand"
+import { CountUp, EASE_OUT, HoverLift, Reveal, Stagger, StaggerItem } from "@/components/ui-v2/motion"
+import { MatchCard } from "@/components/ui-v2/match-card"
 
 interface Game {
   id: number
@@ -64,6 +65,71 @@ interface SystemConfig {
   config_value: string
 }
 
+const FEATURES = [
+  {
+    img: "/images/live.png",
+    title: "Transmisiones en Vivo",
+    text: "Todos los partidos del Campo A se transmiten en vivo para que no te pierdas ni una jugada, estés donde estés. ¡Siente la emoción desde cualquier dispositivo!",
+  },
+  {
+    img: "/images/estadisticas.png",
+    title: "Estadísticas en Tiempo Real",
+    text: "Consulta resultados, posiciones, rendimiento de jugadores y mucho más, todo actualizado jugada por jugada.",
+  },
+  {
+    img: "/images/media.png",
+    title: "Contenido Multimedia",
+    text: "Nuestro equipo media captura cada momento clave: fotos, videos, reels y contenido exclusivo para que revivas cada jornada desde otro ángulo.",
+  },
+  {
+    img: "/images/hidratacion.png",
+    title: "Puntos de Hidratación",
+    text: "En cada jornada encontrarás estaciones de hidratación gratuita para todos los jugadores. Rendimiento, salud y seguridad siempre van primero.",
+  },
+  {
+    img: "/images/serviciosmedicos.png",
+    title: "Atención Médica",
+    text: "Contamos con paramédicos profesionales durante cada jornada, listos para atender cualquier eventualidad. Porque tu seguridad es prioridad.",
+  },
+  {
+    img: "/images/arbitro.png",
+    title: "Seguridad y arbitraje profesional",
+    text: "Nos tomamos en serio la seguridad y la imparcialidad. Árbitros expertos, protocolos confiables y un entorno donde lo más importante es disfrutar del juego con respeto y equidad.",
+  },
+]
+
+const CONVOCATORIA = [
+  { Icon: Calendar, title: "Cierre de registro", value: "14 sep", sub: "2026" },
+  { Icon: Play, title: "Kickoff", value: "20 sep", sub: "Jornada 1" },
+  { Icon: Trophy, title: "Inscripción", value: "$1,900", sub: "Por equipo" },
+  { Icon: MapPin, title: "Sede", value: "Deportivo", sub: "Tapias" },
+  { Icon: Users, title: "Formato", value: "8 jornadas", sub: "Regular + playoffs" },
+  { Icon: Target, title: "Arbitraje", value: "$350", sub: "Por equipo / partido" },
+  { Icon: Clock, title: "Junta previa", value: "10 sep", sub: "Capitanes y coaches" },
+  { Icon: Star, title: "Premiación", value: "Campeón", sub: "Subcampeón y MVPs" },
+]
+
+const CATEGORIES = [
+  { name: "Femenil Copper", img: "/images/femenilcopper.png" },
+  { name: "Femenil Silver", img: "/images/femenilsilver.png" },
+  { name: "Femenil Gold", img: "/images/femenilgold.png" },
+  { name: "Mixto Silver", img: "/images/mixtosilver.png" },
+  { name: "Mixto Gold", img: "/images/mixtogold.png" },
+  { name: "Varonil Silver", img: "/images/varonilsilver.png" },
+  { name: "Varonil Gold", img: "/images/varonilgold.png" },
+]
+
+const SPONSORS = [
+  { src: "/images/Wildsports.png", alt: "Wild Sports" },
+  { src: "/images/WildStudio.png", alt: "Wild Studio" },
+  { src: "/images/Axis.png", alt: "Axis Flag Football" },
+  { src: "/images/doctor-click.png", alt: "Dr. Click" },
+  { src: "/images/rnb.png", alt: "RNB" },
+  { src: "/images/AguaRoca.png", alt: "Agua Roca" },
+]
+
+const ICON_TINTS = ["from-brand-blue to-sky-400", "from-brand-pink to-fuchsia-400", "from-brand-orange to-amber-400"]
+
 function HomePageContent() {
   const searchParams = useSearchParams()
   const selectedSeason = searchParams.get("season")
@@ -73,6 +139,7 @@ function HomePageContent() {
   const [loading, setLoading] = useState(true)
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 })
   const [systemConfig, setSystemConfig] = useState<{ [key: string]: string }>({})
+  const reduce = useReducedMotion()
 
   const loadData = async () => {
     try {
@@ -169,720 +236,456 @@ function HomePageContent() {
 
   const isSeasonStarted = systemConfig.season_started === "true"
   const isWildBrowlEnabled = systemConfig.wildbrowl_enabled === "true"
+  const getTeam = (name: string) => teams.find((t) => t.name === name)
 
   if (loading) {
-    return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{ background: "linear-gradient(to right, #0857b5, #e266be, #ff6d06)" }}
-      >
-        <div className="text-white text-xl">Cargando...</div>
-      </div>
-    )
+    return <BrandLoader label="Cargando Flag Durango…" />
   }
 
+  const heroFade = (delay: number) => ({
+    initial: reduce ? false : { opacity: 0, y: 28 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: 0.8, ease: EASE_OUT, delay },
+  })
+
   return (
-    <div className="min-h-screen bg-white">
-      {/* Hero Section (NAV removida para evitar doble barra) */}
-      {!isSeasonStarted ? (
-        <>
-          {/* Pre-temporada */}
-          <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-            {/* Video de fondo */}
-            <video autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover">
-              <source src="images/video.mp4" type="video/mp4" />
-              Tu navegador no soporta videos.
-            </video>
-            {/* Overlay oscuro para legibilidad */}
-            <div className="absolute inset-0 bg-black/50" />
+    <div className="ui-v2 min-h-screen bg-white">
+      {/* HERO */}
+      <section className="relative isolate flex min-h-[92vh] items-center overflow-hidden bg-brand-ink">
+        <video autoPlay loop muted playsInline className="absolute inset-0 h-full w-full object-cover">
+          <source src="images/video.mp4" type="video/mp4" />
+          Tu navegador no soporta videos.
+        </video>
+        <div className="absolute inset-0 bg-gradient-to-b from-brand-ink/75 via-brand-ink/55 to-brand-ink/95" />
+        <BrandBlobs intensity={0.55} className="mix-blend-screen" />
+        <div className="absolute inset-0 bg-grid-white opacity-50 mask-fade-b" aria-hidden />
 
-            <div className="container mx-auto px-4 relative z-10 text-center">
-              <div className="inline-block bg-white/95 backdrop-blur-sm text-gray-900 px-8 py-3 rounded-2xl font-bold mb-8 border border-black/10 shadow-sm">
-                Temporada Otoño 2026 · Inscripciones abiertas
-              </div>
-              <h1 className="text-5xl md:text-7xl font-black text-white mb-6 leading-tight">
-                <span className="block">Flag Durango</span>
-                <span className="block text-white/90 text-3xl md:text-5xl font-bold mt-2">Temporada Otoño 2026</span>
-              </h1>
-              <p className="text-white/90 text-lg md:text-xl max-w-2xl mx-auto mb-10">
-                21 años de historia. Por primera vez, parte del sistema federado de la FMFA.
+        <div className="container relative z-10 mx-auto px-4 py-24 text-center">
+          <motion.div
+            {...heroFade(0)}
+            className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-5 py-2 text-sm font-semibold text-white backdrop-blur-md"
+          >
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-orange opacity-75" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-brand-orange" />
+            </span>
+            {isSeasonStarted ? "Temporada Otoño 2026 · En curso" : "Temporada Otoño 2026 · Inscripciones abiertas"}
+          </motion.div>
+
+          <motion.h1
+            {...heroFade(0.1)}
+            className="font-display text-6xl font-black uppercase italic leading-[0.9] tracking-tight text-white sm:text-7xl md:text-8xl lg:text-9xl"
+          >
+            {isSeasonStarted ? "Liga Flag" : "Flag Durango"}
+            <span className="mt-2 block text-brand-gradient pb-2">
+              {isSeasonStarted ? "Durango" : "Otoño 2026"}
+            </span>
+          </motion.h1>
+
+          <motion.p {...heroFade(0.2)} className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-white/85 md:text-xl">
+            {isSeasonStarted ? (
+              <>
+                Temporada Otoño 2026 — 21 años promoviendo el flag football en Durango.
+                <span className="mt-2 block font-semibold text-amber-300">¡La temporada activa está en marcha!</span>
+              </>
+            ) : (
+              "21 años de historia. Por primera vez, parte del sistema federado de la FMFA."
+            )}
+          </motion.p>
+
+          {!isSeasonStarted && (
+            <motion.div {...heroFade(0.3)} className="mt-12">
+              <p className="mb-5 flex items-center justify-center gap-2 text-sm font-bold uppercase tracking-[0.25em] text-white/70">
+                <Clock className="h-4 w-4" /> Cierre de inscripciones en
               </p>
-
-              {/* Countdown */}
-              <div className="mb-12">
-                <h3 className="text-xl md:text-2xl font-bold text-white mb-6 flex items-center justify-center">
-                  <Clock className="w-6 h-6 mr-2" /> Cierre de inscripciones en:
-                </h3>
-                <div className="grid grid-cols-4 gap-4 max-w-lg mx-auto">
-                  <div className="bg-white/95 backdrop-blur-sm border border-black/10 rounded-2xl p-4 text-center shadow-lg">
-                    <div className="text-2xl md:text-3xl font-black text-gray-900">{countdown.days}</div>
-                    <div className="text-sm text-gray-600 capitalize">Días</div>
-                  </div>
-                  <div className="bg-white/95 backdrop-blur-sm border border-black/10 rounded-2xl p-4 text-center shadow-lg">
-                    <div className="text-2xl md:text-3xl font-black text-gray-900">{countdown.hours}</div>
-                    <div className="text-sm text-gray-600 capitalize">Horas</div>
-                  </div>
-                  <div className="bg-white/95 backdrop-blur-sm border border-black/10 rounded-2xl p-4 text-center shadow-lg">
-                    <div className="text-2xl md:text-3xl font-black text-gray-900">{countdown.minutes}</div>
-                    <div className="text-sm text-gray-600 capitalize">Min</div>
-                  </div>
-                  <div className="bg-white/95 backdrop-blur-sm border border-black/10 rounded-2xl p-4 text-center shadow-lg">
-                    <div className="text-2xl md:text-3xl font-black text-gray-900">{countdown.seconds}</div>
-                    <div className="text-sm text-gray-600 capitalize">Seg</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Botones de Registro */}
-              <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-                <Button
-                  size="lg"
-                  className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold text-lg px-8 py-4"
-                  onClick={() => (window.location.href = "/register")}
-                >
-                  <UserPlus className="w-6 h-6 mr-2" /> Registrar Jugador
-                </Button>
-                <Button
-                  size="lg"
-                  className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold text-lg px-8 py-4"
-                  onClick={() => (window.location.href = "/register-coach")}
-                >
-                  <Trophy className="w-6 h-6 mr-2" /> Registrar Coach
-                </Button>
-              </div>
-
-              <p className="text-white/90 text-lg mb-4">
-                ¿Ya tienes cuenta?
-                <a href="/login" className="text-yellow-300 hover:text-yellow-200 font-semibold ml-2 underline">
-                  Inicia sesión aquí
-                </a>
-              </p>
-            </div>
-          </section>
-        </>
-      ) : (
-        <>
-          {/* Temporada iniciada */}
-          <section className="relative py-20 overflow-hidden min-h-screen flex items-center">
-            {/* Video de fondo */}
-            <video autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover">
-              <source src="images/video.mp4" type="video/mp4" />
-            </video>
-            {/* Overlay */}
-            <div className="absolute inset-0 bg-black/60" />
-
-            <div className="container mx-auto px-4 relative z-10">
-              <div className="text-center max-w-4xl mx-auto">
-                <div className="inline-block bg-white/95 backdrop-blur-sm text-gray-900 px-6 py-2 rounded-2xl font-bold mb-6 shadow-sm">
-                  Temporada Otoño 2026 · En curso
-                </div>
-                <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
-                  Liga Flag
-                  <span className="block text-white/90">Durango</span>
-                </h1>
-                <p className="text-xl md:text-2xl text-white/90 mb-8 leading-relaxed">
-                  Temporada Otoño 2026 — 21 años promoviendo el flag football en Durango.
-                  <span className="block mt-2 text-yellow-300 font-semibold">¡La temporada activa está en marcha!</span>
-                </p>
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Button
-                    size="lg"
-                    className="bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-black font-bold"
-                    onClick={() => (window.location.href = "/partidos")}
-                  >
-                    <Play className="w-5 h-5 mr-2" /> Ver Partidos
-                  </Button>
-                  {isWildBrowlEnabled && (
-                    <Button
-                      size="lg"
-                      className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white font-bold"
-                      onClick={() => (window.location.href = "/wildbrowl")}
-                    >
-                      <Target className="w-5 h-5 mr-2" /> WildBrowl 1v1
-                    </Button>
-                  )}
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="border-white text-white hover:bg-white hover:text-gray-900 bg-transparent"
-                    onClick={() => (window.location.href = "/estadisticas")}
-                  >
-                    Ver Estadísticas <ArrowRight className="w-5 h-5 ml-2" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </section>
-        </>
-      )}
-
-      {/* 21 Años + FMFA */}
-      <section className="py-20 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="max-w-3xl mx-auto text-center mb-12">
-            <img
-              src="/images/20.png"
-              alt="21 Años de Flag Durango"
-              className="max-w-xs w-full h-auto mx-auto mb-10"
-            />
-            <p className="text-sm font-semibold tracking-widest text-gray-500 uppercase mb-3">Anuncio histórico</p>
-            <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-4">
-              Incorporación oficial a la FMFA
-            </h2>
-            <p className="text-gray-600 text-lg leading-relaxed">
-              Después de más de 20 años de trayectoria, Liga Flag Durango se incorpora por primera vez al
-              sistema de la Federación Mexicana de Fútbol Americano. A partir de Otoño 2026, equipos, coaches,
-              jugadores y árbitros forman parte del sistema federado con proyección nacional.
-            </p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center">
-              <p className="text-sm text-gray-500 mb-1">Preselecciones</p>
-              <p className="font-semibold text-gray-900">Procesos nacionales</p>
-            </div>
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center">
-              <p className="text-sm text-gray-500 mb-1">Competencias</p>
-              <p className="font-semibold text-gray-900">Alcance federado</p>
-            </div>
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center">
-              <p className="text-sm text-gray-500 mb-1">Desarrollo</p>
-              <p className="font-semibold text-gray-900">Identificación de talento</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Secciones solo si no inicia la temporada */}
-      {!isSeasonStarted ? (
-        <>
-          {/* Una Liga Hecha Para Ti */}
-          <section className="py-20 bg-white">
-            <div className="container mx-auto px-4">
-              <h2 className="text-4xl md:text-5xl font-black text-center text-gray-900 mb-16">
-                UNA LIGA HECHA PARA TI
-              </h2>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                <Card className="bg-white border border-gray-200 hover:shadow-xl transition-all duration-300 transform hover:scale-105 h-full">
-                  <CardContent className="p-8 text-center h-full flex flex-col">
-                    <img src="/images/live.png" alt="Transmisiones en Vivo" className="w-16 h-16 mx-auto mb-6" />
-                    <h3 className="text-xl font-bold text-gray-900 mb-4">Transmisiones en Vivo</h3>
-                    <p className="text-gray-600 leading-relaxed flex-grow">
-                      Todos los partidos del Campo A se transmiten en vivo para que no te pierdas ni una jugada, estés
-                      donde estés. ¡Siente la emoción desde cualquier dispositivo!
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-white border border-gray-200 hover:shadow-xl transition-all duration-300 transform hover:scale-105 h-full">
-                  <CardContent className="p-8 text-center h-full flex flex-col">
-                    <img
-                      src="/images/estadisticas.png"
-                      alt="Estadísticas en Tiempo Real"
-                      className="w-16 h-16 mx-auto mb-6"
-                    />
-                    <h3 className="text-xl font-bold text-gray-900 mb-4">Estadísticas en Tiempo Real</h3>
-                    <p className="text-gray-600 leading-relaxed flex-grow">
-                      Consulta resultados, posiciones, rendimiento de jugadores y mucho más, todo actualizado jugada por
-                      jugada.
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-white border border-gray-200 hover:shadow-xl transition-all duration-300 transform hover:scale-105 h-full">
-                  <CardContent className="p-8 text-center h-full flex flex-col">
-                    <img src="/images/media.png" alt="Contenido Multimedia" className="w-16 h-16 mx-auto mb-6" />
-                    <h3 className="text-xl font-bold text-gray-900 mb-4">Contenido Multimedia</h3>
-                    <p className="text-gray-600 leading-relaxed flex-grow">
-                      Nuestro equipo media captura cada momento clave: fotos, videos, reels y contenido exclusivo para
-                      que revivas cada jornada desde otro ángulo.
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-white border border-gray-200 hover:shadow-xl transition-all duration-300 transform hover:scale-105 h-full">
-                  <CardContent className="p-8 text-center h-full flex flex-col">
-                    <img src="/images/hidratacion.png" alt="Puntos de Hidratación" className="w-16 h-16 mx-auto mb-6" />
-                    <h3 className="text-xl font-bold text-gray-900 mb-4">Puntos de Hidratación</h3>
-                    <p className="text-gray-600 leading-relaxed flex-grow">
-                      En cada jornada encontrarás estaciones de hidratación gratuita para todos los jugadores.
-                      Rendimiento, salud y seguridad siempre van primero.
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-white border border-gray-200 hover:shadow-xl transition-all duration-300 transform hover:scale-105 h-full">
-                  <CardContent className="p-8 text-center h-full flex flex-col">
-                    <img src="/images/serviciosmedicos.png" alt="Atención Médica" className="w-16 h-16 mx-auto mb-6" />
-                    <h3 className="text-xl font-bold text-gray-900 mb-4">Atención Médica</h3>
-                    <p className="text-gray-600 leading-relaxed flex-grow">
-                      Contamos con paramédicos profesionales durante cada jornada, listos para atender cualquier
-                      eventualidad. Porque tu seguridad es prioridad.
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-white border border-gray-200 hover:shadow-xl transition-all duration-300 transform hover:scale-105 h-full">
-                  <CardContent className="p-8 text-center h-full flex flex-col">
-                    <img
-                      src="/images/arbitro.png"
-                      alt="Seguridad y arbitraje profesional"
-                      className="w-16 h-16 mx-auto mb-6"
-                    />
-                    <h3 className="text-xl font-bold text-gray-900 mb-4">Seguridad y arbitraje profesional</h3>
-                    <p className="text-gray-600 leading-relaxed flex-grow">
-                      Nos tomamos en serio la seguridad y la imparcialidad. Árbitros expertos, protocolos confiables y
-                      un entorno donde lo más importante es disfrutar del juego con respeto y equidad.
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          </section>
-
-          {/* Convocatoria Otoño 2026 */}
-          <section className="py-24 bg-gray-50">
-            <div className="container mx-auto px-4">
-              <div className="text-center max-w-2xl mx-auto mb-16">
-                <p className="text-sm font-semibold tracking-widest text-gray-500 uppercase mb-3">Convocatoria</p>
-                <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4">
-                  Temporada Otoño 2026
-                </h2>
-                <p className="text-lg text-gray-600">
-                  Fechas, costos y sede oficial · Deportivo Tapias
-                </p>
-              </div>
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
-                  <Calendar className="w-8 h-8 mx-auto mb-4 text-gray-400" />
-                  <h3 className="font-semibold text-gray-900 mb-2">Cierre de registro</h3>
-                  <div className="text-3xl font-black text-gray-900">14 sep</div>
-                  <div className="text-gray-500 mt-1">2026</div>
-                </div>
-
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
-                  <Play className="w-8 h-8 mx-auto mb-4 text-gray-400" />
-                  <h3 className="font-semibold text-gray-900 mb-2">Kickoff</h3>
-                  <div className="text-3xl font-black text-gray-900">20 sep</div>
-                  <div className="text-gray-500 mt-1">Jornada 1</div>
-                </div>
-
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
-                  <Trophy className="w-8 h-8 mx-auto mb-4 text-gray-400" />
-                  <h3 className="font-semibold text-gray-900 mb-2">Inscripción</h3>
-                  <div className="text-3xl font-black text-gray-900">$1,900</div>
-                  <div className="text-gray-500 mt-1">Por equipo</div>
-                </div>
-
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
-                  <MapPin className="w-8 h-8 mx-auto mb-4 text-gray-400" />
-                  <h3 className="font-semibold text-gray-900 mb-2">Sede</h3>
-                  <div className="text-2xl font-black text-gray-900">Deportivo</div>
-                  <div className="text-gray-500 mt-1">Tapias</div>
-                </div>
-
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
-                  <Users className="w-8 h-8 mx-auto mb-4 text-gray-400" />
-                  <h3 className="font-semibold text-gray-900 mb-2">Formato</h3>
-                  <div className="text-xl font-black text-gray-900">8 jornadas</div>
-                  <div className="text-gray-500 mt-1">Regular + playoffs</div>
-                </div>
-
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
-                  <Target className="w-8 h-8 mx-auto mb-4 text-gray-400" />
-                  <h3 className="font-semibold text-gray-900 mb-2">Arbitraje</h3>
-                  <div className="text-3xl font-black text-gray-900">$350</div>
-                  <div className="text-gray-500 mt-1">Por equipo / partido</div>
-                </div>
-
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
-                  <Clock className="w-8 h-8 mx-auto mb-4 text-gray-400" />
-                  <h3 className="font-semibold text-gray-900 mb-2">Junta previa</h3>
-                  <div className="text-2xl font-black text-gray-900">10 sep</div>
-                  <div className="text-gray-500 mt-1">Capitanes y coaches</div>
-                </div>
-
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
-                  <Star className="w-8 h-8 mx-auto mb-4 text-gray-400" />
-                  <h3 className="font-semibold text-gray-900 mb-2">Premiación</h3>
-                  <div className="text-xl font-black text-gray-900">Campeón</div>
-                  <div className="text-gray-500 mt-1">Subcampeón y MVPs</div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Categorías */}
-          <section className="py-24 bg-white">
-            <div className="container mx-auto px-4">
-              <div className="text-center max-w-2xl mx-auto mb-14">
-                <h3 className="text-3xl md:text-4xl font-black text-gray-900 mb-3">
-                  Categorías
-                </h3>
-                <p className="text-gray-600">Temporada Otoño 2026 · Todas con 8 jornadas regulares</p>
-              </div>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto">
+              <div className="mx-auto grid max-w-xl grid-cols-4 gap-3 md:gap-4">
                 {[
-                  { name: "Femenil Copper", img: "/images/femenilcopper.png" },
-                  { name: "Femenil Silver", img: "/images/femenilsilver.png" },
-                  { name: "Femenil Gold", img: "/images/femenilgold.png" },
-                  { name: "Mixto Silver", img: "/images/mixtosilver.png" },
-                  { name: "Mixto Gold", img: "/images/mixtogold.png" },
-                  { name: "Varonil Silver", img: "/images/varonilsilver.png" },
-                  { name: "Varonil Gold", img: "/images/varonilgold.png" },
-                ].map((cat) => (
+                  { v: countdown.days, l: "Días" },
+                  { v: countdown.hours, l: "Horas" },
+                  { v: countdown.minutes, l: "Min" },
+                  { v: countdown.seconds, l: "Seg" },
+                ].map((c) => (
                   <div
-                    key={cat.name}
-                    className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center"
+                    key={c.l}
+                    className="relative overflow-hidden rounded-2xl border border-white/15 bg-white/10 px-2 py-4 backdrop-blur-md"
                   >
-                    <img src={cat.img} alt={cat.name} className="w-14 h-14 mx-auto mb-4" />
-                    <h4 className="font-semibold text-gray-900">{cat.name}</h4>
+                    <div className="relative h-10 overflow-hidden md:h-12">
+                      <AnimatePresence mode="popLayout" initial={false}>
+                        <motion.div
+                          key={c.v}
+                          initial={reduce ? false : { y: "100%", opacity: 0 }}
+                          animate={{ y: 0, opacity: 1 }}
+                          exit={{ y: "-100%", opacity: 0 }}
+                          transition={{ duration: 0.35, ease: EASE_OUT }}
+                          className="font-display text-4xl font-extrabold italic tabular-nums text-white md:text-5xl"
+                        >
+                          {String(c.v).padStart(2, "0")}
+                        </motion.div>
+                      </AnimatePresence>
+                    </div>
+                    <div className="mt-1 text-xs font-semibold uppercase tracking-wider text-white/60">{c.l}</div>
                   </div>
                 ))}
               </div>
+            </motion.div>
+          )}
+
+          <motion.div {...heroFade(0.4)} className="mt-12 flex flex-col justify-center gap-4 sm:flex-row">
+            {isSeasonStarted ? (
+              <>
+                <button className={brandButtonClass} onClick={() => (window.location.href = "/partidos")}>
+                  <Play className="h-5 w-5" /> Ver Partidos
+                </button>
+                {isWildBrowlEnabled && (
+                  <button
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-orange to-brand-pink px-7 py-3.5 font-bold text-white shadow-brand transition-transform hover:scale-[1.03]"
+                    onClick={() => (window.location.href = "/wildbrowl")}
+                  >
+                    <Target className="h-5 w-5" /> WildBrowl 1v1
+                  </button>
+                )}
+                <button className={ghostButtonClass} onClick={() => (window.location.href = "/estadisticas")}>
+                  Ver Estadísticas <ArrowRight className="h-5 w-5" />
+                </button>
+              </>
+            ) : (
+              <>
+                <button className={brandButtonClass} onClick={() => (window.location.href = "/register")}>
+                  <UserPlus className="h-5 w-5" /> Registrar Jugador
+                </button>
+                <button className={ghostButtonClass} onClick={() => (window.location.href = "/register-coach")}>
+                  <Trophy className="h-5 w-5" /> Registrar Coach
+                </button>
+              </>
+            )}
+          </motion.div>
+
+          {!isSeasonStarted && (
+            <motion.p {...heroFade(0.5)} className="mt-8 text-white/80">
+              ¿Ya tienes cuenta?
+              <a href="/login" className="ml-2 font-semibold text-amber-300 underline-offset-4 hover:underline">
+                Inicia sesión aquí
+              </a>
+            </motion.p>
+          )}
+        </div>
+
+        <motion.div
+          aria-hidden
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 text-white/60"
+          animate={reduce ? undefined : { y: [0, 8, 0] }}
+          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+        >
+          <ChevronDown className="h-7 w-7" />
+        </motion.div>
+        <div className="brand-stripes absolute bottom-0 left-0 h-1.5 w-full" />
+      </section>
+
+      {/* 21 AÑOS + FMFA */}
+      <section className="relative overflow-hidden py-24">
+        <div className="absolute inset-0 bg-grid opacity-60 mask-fade-b" aria-hidden />
+        <div className="container relative mx-auto px-4">
+          <div className="mx-auto grid max-w-6xl items-center gap-14 md:grid-cols-2">
+            <Reveal x={-30} y={0} className="relative mx-auto w-full max-w-sm">
+              <div className="absolute -inset-6 rounded-[2.5rem] bg-brand-gradient opacity-20 blur-2xl" aria-hidden />
+              <motion.div
+                className="relative rounded-[2rem] bg-white p-10 ring-brand"
+                animate={reduce ? undefined : { y: [0, -10, 0] }}
+                transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <img src="/images/20.png" alt="21 Años de Flag Durango" className="mx-auto h-auto w-full max-w-xs" />
+              </motion.div>
+            </Reveal>
+
+            <Reveal x={30} y={0}>
+              <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-brand-blue/10 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.2em] text-brand-blue">
+                <Award className="h-4 w-4" /> Anuncio histórico
+              </p>
+              <h2 className="font-display text-5xl font-extrabold uppercase italic leading-[0.95] tracking-tight text-slate-900 md:text-6xl">
+                Incorporación oficial
+                <span className="block text-brand-gradient pb-1">a la FMFA</span>
+              </h2>
+              <p className="mt-6 text-lg leading-relaxed text-slate-600">
+                Después de más de 20 años de trayectoria, Liga Flag Durango se incorpora por primera vez al sistema de la
+                Federación Mexicana de Fútbol Americano. A partir de Otoño 2026, equipos, coaches, jugadores y árbitros
+                forman parte del sistema federado con proyección nacional.
+              </p>
+            </Reveal>
+          </div>
+
+          <Stagger className="mx-auto mt-16 grid max-w-5xl gap-5 md:grid-cols-3">
+            {[
+              { k: "Preselecciones", v: "Procesos nacionales", Icon: Flag },
+              { k: "Competencias", v: "Alcance federado", Icon: Trophy },
+              { k: "Desarrollo", v: "Identificación de talento", Icon: Star },
+            ].map(({ k, v, Icon }, i) => (
+              <StaggerItem key={k}>
+                <HoverLift className="h-full rounded-3xl bg-white p-7 ring-brand">
+                  <span
+                    className={`mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${ICON_TINTS[i % 3]} text-white shadow-lg`}
+                  >
+                    <Icon className="h-6 w-6" />
+                  </span>
+                  <p className="text-sm font-semibold uppercase tracking-wider text-slate-500">{k}</p>
+                  <p className="mt-1 text-xl font-bold text-slate-900">{v}</p>
+                </HoverLift>
+              </StaggerItem>
+            ))}
+          </Stagger>
+        </div>
+      </section>
+
+      {!isSeasonStarted ? (
+        <>
+          {/* UNA LIGA HECHA PARA TI */}
+          <section className="bg-slate-50 py-24">
+            <div className="container mx-auto px-4">
+              <SectionHeading title="Una liga hecha para ti" />
+              <Stagger className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {FEATURES.map((f) => (
+                  <StaggerItem key={f.title} className="h-full">
+                    <HoverLift className="group relative h-full overflow-hidden rounded-3xl bg-white p-8 ring-brand">
+                      <div
+                        className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-brand-gradient opacity-0 blur-2xl transition-opacity duration-500 group-hover:opacity-25"
+                        aria-hidden
+                      />
+                      <div className="mb-6 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50 ring-1 ring-slate-100 transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3">
+                        <img src={f.img} alt={f.title} className="h-10 w-10" />
+                      </div>
+                      <h3 className="mb-3 text-xl font-bold text-slate-900">{f.title}</h3>
+                      <p className="leading-relaxed text-slate-600">{f.text}</p>
+                    </HoverLift>
+                  </StaggerItem>
+                ))}
+              </Stagger>
+            </div>
+          </section>
+
+          {/* CONVOCATORIA */}
+          <section className="relative overflow-hidden bg-brand-ink py-24 text-white">
+            <BrandBlobs intensity={0.35} />
+            <div className="container relative mx-auto px-4">
+              <Reveal className="mx-auto mb-14 max-w-2xl text-center">
+                <p className="mb-3 text-sm font-bold uppercase tracking-[0.25em] text-white/60">Convocatoria</p>
+                <h2 className="font-display text-5xl font-extrabold uppercase italic tracking-tight text-white md:text-6xl">
+                  Temporada <span className="text-brand-gradient">Otoño 2026</span>
+                </h2>
+                <p className="mt-4 text-lg text-white/70">Fechas, costos y sede oficial · Deportivo Tapias</p>
+              </Reveal>
+              <Stagger className="mx-auto grid max-w-6xl gap-4 sm:grid-cols-2 lg:grid-cols-4" stagger={0.05}>
+                {CONVOCATORIA.map(({ Icon, title, value, sub }, i) => (
+                  <StaggerItem key={title}>
+                    <HoverLift className="h-full rounded-3xl border border-white/10 bg-white/[0.06] p-7 backdrop-blur-sm transition-colors hover:bg-white/[0.1]">
+                      <span
+                        className={`mb-5 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br ${ICON_TINTS[i % 3]} text-white`}
+                      >
+                        <Icon className="h-5 w-5" />
+                      </span>
+                      <h3 className="text-sm font-semibold uppercase tracking-wider text-white/60">{title}</h3>
+                      <div className="mt-2 font-display text-4xl font-extrabold italic leading-none text-white">{value}</div>
+                      <div className="mt-2 text-sm text-white/60">{sub}</div>
+                    </HoverLift>
+                  </StaggerItem>
+                ))}
+              </Stagger>
+            </div>
+          </section>
+
+          {/* CATEGORÍAS */}
+          <section className="py-24">
+            <div className="container mx-auto px-4">
+              <SectionHeading title="Categorías" subtitle="Temporada Otoño 2026 · Todas con 8 jornadas regulares" />
+              <Stagger className="mx-auto grid max-w-5xl grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4" stagger={0.05}>
+                {CATEGORIES.map((cat) => (
+                  <StaggerItem key={cat.name}>
+                    <HoverLift className="group flex h-full flex-col items-center rounded-3xl bg-white p-7 text-center ring-brand">
+                      <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-slate-50 to-slate-100 transition-transform duration-300 group-hover:scale-110">
+                        <img src={cat.img} alt={cat.name} className="h-12 w-12" />
+                      </div>
+                      <h4 className="font-display text-xl font-bold uppercase italic text-slate-900">{cat.name}</h4>
+                    </HoverLift>
+                  </StaggerItem>
+                ))}
+              </Stagger>
             </div>
           </section>
 
           {/* MVPs */}
-          <section className="py-24 bg-gray-50">
+          <section className="bg-slate-50 py-24">
             <div className="container mx-auto px-4">
-              <h3 className="text-3xl md:text-4xl font-black text-center text-gray-900 mb-12">Premiación MVPs</h3>
-              <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+              <SectionHeading icon={<Award className="h-6 w-6" />} title="Premiación MVPs" />
+              <Stagger className="mx-auto grid max-w-4xl gap-6 md:grid-cols-3">
                 {["MVP Temporada Regular", "MVP de la Final", "Reconocimientos individuales"].map((label) => (
-                  <div key={label} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
-                    <img src="/images/MVPs.png" alt={label} className="w-14 h-14 mx-auto mb-4" />
-                    <h4 className="font-semibold text-gray-900">{label}</h4>
-                  </div>
+                  <StaggerItem key={label}>
+                    <HoverLift className="relative h-full overflow-hidden rounded-3xl bg-white p-8 text-center ring-brand">
+                      <div className="brand-stripes absolute inset-x-0 top-0 h-1" aria-hidden />
+                      <motion.img
+                        src="/images/MVPs.png"
+                        alt={label}
+                        className="mx-auto mb-5 h-16 w-16"
+                        whileHover={{ rotate: [0, -8, 8, 0], scale: 1.1 }}
+                        transition={{ duration: 0.5 }}
+                      />
+                      <h4 className="text-lg font-bold text-slate-900">{label}</h4>
+                    </HoverLift>
+                  </StaggerItem>
                 ))}
-              </div>
+              </Stagger>
             </div>
           </section>
         </>
       ) : null}
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-6 flex justify-end"><SeasonSelector /></div>
-        {/* EN VIVO */}
+      {/* PARTIDOS */}
+      <div className="container mx-auto px-4 py-16">
+        <div className="mb-10 flex justify-end">
+          <SeasonSelector />
+        </div>
+
         {liveGames.length > 0 && (
-          <section className="mb-16">
-            <div className="text-center mb-8">
-              <h2 className="text-4xl font-bold text-gray-900 mb-4 flex items-center justify-center">
-                <div className="w-3 h-3 bg-red-500 rounded-full mr-3 animate-pulse"></div>
-                EN VIVO
-              </h2>
-              <p className="text-gray-600 text-lg">Partidos que se están jugando ahora mismo</p>
-            </div>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <section className="mb-20">
+            <SectionHeading
+              icon={<Radio className="h-6 w-6" />}
+              title={
+                <span className="inline-flex items-center gap-3">
+                  En vivo
+                  <span className="relative flex h-3 w-3">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
+                    <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
+                  </span>
+                </span>
+              }
+              subtitle="Partidos que se están jugando ahora mismo"
+            />
+            <Stagger className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {liveGames.map((game) => (
-                <Card
-                  key={game.id}
-                  className="bg-red-50 border-red-200 hover:bg-red-100 transition-all transform hover:scale-105"
-                >
-                  <CardContent className="p-6">
-                    <div className="text-center">
-                      <Badge className="mb-4 bg-red-500 text-white animate-pulse"> EN VIVO</Badge>
-                      <h3 className="text-gray-900 font-bold text-xl mb-4">
-                        {game.home_team} vs {game.away_team}
-                      </h3>
-                      <div className="text-4xl font-bold text-gray-900 mb-4">
-                        {game.home_score || 0} - {game.away_score || 0}
-                      </div>
-                      <div className="space-y-2 text-gray-600 text-sm">
-                        <div className="flex items-center justify-center">
-                          <MapPin className="w-4 h-4 mr-1" />
-                          {game.venue} - {game.field}
-                        </div>
-                        <div className="flex items-center justify-center">
-                          <Clock className="w-4 h-4 mr-1" />
-                          {game.game_time}
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                <StaggerItem key={game.id} className="h-full">
+                  <MatchCard
+                    game={game}
+                    variant="live"
+                    categoryLabel={getCategoryLabel(game.category)}
+                    getTeam={getTeam}
+                    showReferees={false}
+                  />
+                </StaggerItem>
               ))}
-            </div>
+            </Stagger>
           </section>
         )}
 
-        {/* Próximos */}
-        <section className="mb-16">
-          <div className="text-center mb-8">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4 flex items-center justify-center">
-              <Calendar className="w-10 h-10 mr-3 text-blue-600" />
-              Próximos Partidos
-            </h2>
-            <p className="text-gray-600 text-lg">No te pierdas los emocionantes encuentros que vienen</p>
-          </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <section className="mb-20">
+          <SectionHeading
+            icon={<Calendar className="h-6 w-6" />}
+            title="Próximos partidos"
+            subtitle="No te pierdas los emocionantes encuentros que vienen"
+          />
+          <Stagger className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {upcomingGames.map((game) => (
-              <Card
-                key={game.id}
-                className="bg-white border-gray-200 hover:shadow-lg transition-all transform hover:scale-105"
-              >
-                <CardContent className="p-6">
-                  <div className="text-center">
-                    <Badge className="mb-4 bg-blue-600">{getCategoryLabel(game.category)}</Badge>
-                    <h3 className="text-gray-900 font-bold text-xl mb-4">
-                      {game.home_team} vs {game.away_team}
-                    </h3>
-                    <div className="space-y-3 text-gray-600 text-sm">
-                      <div className="flex items-center justify-center">
-                        <Calendar className="w-4 h-4 mr-2" />
-                        {new Date(game.game_date).toLocaleDateString("es-ES", {
-                          weekday: "long",
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                        })}
-                      </div>
-                      <div className="flex items-center justify-center">
-                        <Clock className="w-4 h-4 mr-2" />
-                        {game.game_time}
-                      </div>
-                      <div className="flex items-center justify-center">
-                        <MapPin className="w-4 h-4 mr-2" />
-                        {game.venue} - {game.field}
-                      </div>
-                      {(game.referee1 || game.referee2) && (
-                        <div className="text-xs">
-                          Árbitros: {[game.referee1, game.referee2].filter(Boolean).join(", ")}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <StaggerItem key={game.id} className="h-full">
+                <MatchCard
+                  game={game}
+                  variant="upcoming"
+                  categoryLabel={getCategoryLabel(game.category)}
+                  getTeam={getTeam}
+                />
+              </StaggerItem>
             ))}
-          </div>
+          </Stagger>
+          {upcomingGames.length > 0 && (
+            <div className="mt-10 text-center">
+              <Link
+                href="/partidos"
+                className="group inline-flex items-center gap-2 rounded-full bg-slate-900 px-6 py-3 font-semibold text-white transition-transform hover:scale-[1.03]"
+              >
+                Ver todos los partidos
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+            </div>
+          )}
         </section>
 
-        {/* Resultados */}
         {recentGames.length > 0 && (
-          <section className="mb-16">
-            <div className="text-center mb-8">
-              <h2 className="text-4xl font-bold text-gray-900 mb-4 flex items-center justify-center">
-                <Trophy className="w-10 h-10 mr-3 text-green-600" />
-                Resultados Recientes
-              </h2>
-              <p className="text-gray-600 text-lg">Los últimos partidos finalizados con sus marcadores</p>
-            </div>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <section className="mb-20">
+            <SectionHeading
+              icon={<Trophy className="h-6 w-6" />}
+              title="Resultados recientes"
+              subtitle="Los últimos partidos finalizados con sus marcadores"
+            />
+            <Stagger className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {recentGames.map((game) => (
-                <Card
-                  key={game.id}
-                  className="bg-white border-gray-200 hover:shadow-lg transition-all transform hover:scale-105"
-                >
-                  <CardContent className="p-6">
-                    <div className="text-center">
-                      <Badge className="mb-4 bg-green-600">{getCategoryLabel(game.category)}</Badge>
-                      <h3 className="text-gray-900 font-bold text-xl mb-2">
-                        {game.home_team} vs {game.away_team}
-                      </h3>
-                      <div className="text-4xl font-bold text-gray-900 mb-4">
-                        {game.home_score} - {game.away_score}
-                      </div>
-                      <div className="space-y-2 text-gray-600 text-sm">
-                        <div className="flex items-center justify-center">
-                          <Calendar className="w-4 h-4 mr-1" />
-                          {new Date(game.game_date).toLocaleDateString("es-ES")}
-                        </div>
-                        <div className="flex items-center justify-center">
-                          <MapPin className="w-4 h-4 mr-1" />
-                          {game.venue} - {game.field}
-                        </div>
-                        {game.mvp && (
-                          <div className="flex items-center justify-center text-yellow-600">
-                            <Star className="w-4 h-4 mr-1" />
-                            MVP: {game.mvp}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                <StaggerItem key={game.id} className="h-full">
+                  <MatchCard
+                    game={game}
+                    variant="final"
+                    categoryLabel={getCategoryLabel(game.category)}
+                    getTeam={getTeam}
+                    showReferees={false}
+                  />
+                </StaggerItem>
               ))}
-            </div>
+            </Stagger>
           </section>
         )}
-
-        {/* Liga en números */}
-        <section className="mb-16">
-          <div className="text-center mb-8">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Liga en Números</h2>
-            <p className="text-gray-600 text-lg">Estadísticas generales de la temporada actual</p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            <Card className="bg-white border-gray-200 hover:shadow-lg transition-all">
-              <CardContent className="p-6 text-center">
-                <Trophy className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-                <h3 className="text-3xl font-bold text-gray-900">{teams.length}</h3>
-                <p className="text-gray-600">Equipos Registrados</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-white border-gray-200 hover:shadow-lg transition-all">
-              <CardContent className="p-6 text-center">
-                <Calendar className="w-12 h-12 text-blue-500 mx-auto mb-4" />
-                <h3 className="text-3xl font-bold text-gray-900">{games.length}</h3>
-                <p className="text-gray-600">Partidos Programados</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-white border border-gray-200 hover:shadow-lg transition-all">
-              <CardContent className="p-6 text-center">
-                <Users className="w-12 h-12 text-green-500 mx-auto mb-4" />
-                <h3 className="text-3xl font-bold text-gray-900">{recentGames.length}</h3>
-                <p className="text-gray-600">Partidos Finalizados</p>
-              </CardContent>
-            </Card>
-          </div>
-        </section>
       </div>
-      {/* Sponsors */}
-      <section className="py-16 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center text-gray-600 mb-12 tracking-wider">NUESTROS SPONSORS</h2>
-          <div className="flex justify-center items-center gap-8 flex-wrap">
-            <img
-              src="/images/Wildsports.png"
-              alt="Wild Sports"
-              className="h-14 w-auto filter grayscale-20 hover:grayscale-0 transition-all"
-            />
-            <img
-              src="/images/WildStudio.png"
-              alt="Wild Studio"
-              className="h-14 w-auto filter grayscale-20 hover:grayscale-0 transition-all"
-            />
-            <img
-              src="/images/Axis.png"
-              alt="Axis Flag Football"
-              className="h-14 w-auto filter grayscale-20 hover:grayscale-0 transition-all"
-            />
-            <img
-              src="/images/doctor-click.png"
-              alt="Dr. Click"
-              className="h-14 w-auto filter grayscale-20 hover:grayscale-0 transition-all"
-            />
-            <img
-              src="/images/rnb.png"
-              alt="RNB"
-              className="h-14 w-auto filter grayscale-20 hover:grayscale-0 transition-all"
-            />
-            <img
-              src="/images/AguaRoca.png"
-              alt="Agua Roca"
-              className="h-14 w-auto filter grayscale-20 hover:grayscale-0 transition-all"
-            />
-          </div>
+
+      {/* LIGA EN NÚMEROS */}
+      <section className="relative overflow-hidden bg-brand-gradient-animated py-20 text-white">
+        <div className="absolute inset-0 bg-grid-white opacity-40" aria-hidden />
+        <div className="container relative mx-auto px-4">
+          <Reveal className="mb-12 text-center">
+            <h2 className="font-display text-5xl font-extrabold uppercase italic tracking-tight text-white md:text-6xl">
+              Liga en números
+            </h2>
+            <p className="mt-3 text-lg text-white/85">Estadísticas generales de la temporada actual</p>
+          </Reveal>
+          <Stagger className="mx-auto grid max-w-5xl gap-5 md:grid-cols-3">
+            {[
+              { Icon: Trophy, value: teams.length, label: "Equipos Registrados" },
+              { Icon: Calendar, value: games.length, label: "Partidos Programados" },
+              { Icon: Users, value: recentGames.length, label: "Partidos Finalizados" },
+            ].map(({ Icon, value, label }) => (
+              <StaggerItem key={label}>
+                <div className="rounded-3xl border border-white/25 bg-white/15 p-8 text-center backdrop-blur-md">
+                  <Icon className="mx-auto mb-4 h-10 w-10 text-white" />
+                  <CountUp
+                    value={value}
+                    className="block font-display text-6xl font-black italic leading-none text-white"
+                  />
+                  <p className="mt-3 font-semibold text-white/85">{label}</p>
+                </div>
+              </StaggerItem>
+            ))}
+          </Stagger>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-gray-800 text-gray-300">
-        <div className="container mx-auto px-6 py-12">
-          <div className="grid md:grid-cols-4 gap-12">
-            {/* Logo */}
-            <div className="flex flex-col items-start">
-              <img src="/images/20.png" alt="20 Años de Flag" className="w-40 h-auto mb-4" />
-              <p className="text-sm text-gray-400">21 años promoviendo el flag football en Durango.</p>
-            </div>
-
-            {/* Contacto */}
-            <div>
-              <h3 className="text-lg font-bold text-white mb-4">CONTACTO</h3>
-              <ul className="space-y-2">
-                <li className="flex items-center gap-2">
-                  <Phone className="w-4 h-4" /> (618) 328 8280
-                </li>
-                <li className="flex items-center gap-2">
-                  <Mail className="w-4 h-4" /> flagdurango@gmail.com
-                </li>
-                <li className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4" /> C. Guadalupe 749, Zona Centro, 34000. Durango, Dgo
-                </li>
-              </ul>
-            </div>
-
-            {/* Links */}
-            <div>
-              <h3 className="text-lg font-bold text-white mb-4">LINKS</h3>
-              <ul className="space-y-2">
-                <li>
-                  <a href="https://wild-studio.mx/" target="_blank" className="hover:text-white" rel="noreferrer">
-                    • WildStudio
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="https://www.facebook.com/profile.php?id=61576406477003"
-                    target="_blank"
-                    className="hover:text-white"
-                    rel="noreferrer"
-                  >
-                    • WildSports
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="https://www.facebook.com/axisflagfootball"
-                    target="_blank"
-                    className="hover:text-white"
-                    rel="noreferrer"
-                  >
-                    • Axis Flag Football
-                  </a>
-                </li>
-              </ul>
-            </div>
-
-            {/* Redes */}
-            <div>
-              <h3 className="text-lg font-bold text-white mb-4">SÍGUENOS</h3>
-              <div className="flex gap-3">
-                <a
-                  href="https://wa.me/526183288280"
-                  target="_blank"
-                  className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center hover:bg-green-500 transition-colors"
-                  rel="noreferrer"
-                >
-                  <MessageCircle className="w-5 h-5" />
-                </a>
-                <a
-                  href="https://www.facebook.com/share/1AfHDmwRku/?mibextid=wwXIfr"
-                  target="_blank"
-                  className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center hover:bg-blue-600 transition-colors"
-                  rel="noreferrer"
-                >
-                  <Facebook className="w-5 h-5" />
-                </a>
-                <a
-                  href="https://www.instagram.com/flag.durango?igsh=aW5jNzVlZTU1YXFy"
-                  target="_blank"
-                  className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center hover:bg-pink-500 transition-colors"
-                  rel="noreferrer"
-                >
-                  <Instagram className="w-5 h-5" />
-                </a>
-              </div>
-            </div>
-          </div>
-
-          {/* Copyright */}
-          <div className="mt-10">
-            <div
-              className="text-white text-center py-4 rounded-lg text-sm"
-              style={{ background: "linear-gradient(to right, #0857b5, #e266be, #ff6d06)" }}
-            >
-              <p className="font-semibold">FLAGDURANGO.COM.MX / CREADO POR RafaFndz</p>
-            </div>
+      {/* SPONSORS */}
+      <section className="overflow-hidden bg-white py-16">
+        <Reveal className="mb-10 text-center">
+          <p className="text-sm font-bold uppercase tracking-[0.3em] text-slate-400">Nuestros sponsors</p>
+        </Reveal>
+        <div className="relative">
+          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-white to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-white to-transparent" />
+          <div className="flex w-max animate-marquee items-center gap-16 hover:[animation-play-state:paused]">
+            {[...SPONSORS, ...SPONSORS].map((s, i) => (
+              <img
+                key={`${s.alt}-${i}`}
+                src={s.src}
+                alt={s.alt}
+                className="h-14 w-auto opacity-70 grayscale transition-all duration-300 hover:scale-110 hover:opacity-100 hover:grayscale-0"
+              />
+            ))}
           </div>
         </div>
-      </footer>
+      </section>
     </div>
   )
 }
 
 export default function HomePage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-white p-8 text-center">Cargando temporada…</div>}>
+    <Suspense fallback={<BrandLoader label="Cargando temporada…" />}>
       <HomePageContent />
     </Suspense>
   )

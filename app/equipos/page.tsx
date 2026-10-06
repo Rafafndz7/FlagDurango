@@ -1,11 +1,12 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Users, Trophy, Phone, Mail, ExternalLink, ArrowRight, Clock, Search, Filter } from "lucide-react"
+import { useEffect, useState, type ReactNode } from "react"
+import { AnimatePresence, motion } from "framer-motion"
+import { Users, Trophy, ArrowRight, Clock, Search, Filter, ExternalLink } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { BrandLoader, PageHero, brandButtonClass, ghostButtonClass } from "@/components/ui-v2/brand"
+import { Reveal } from "@/components/ui-v2/motion"
+import { TeamAvatar } from "@/components/ui-v2/team-avatar"
 
 interface Team {
   id: number
@@ -133,371 +134,340 @@ export default function TeamsPage() {
   const categories = Array.from(new Set(teams.map((team) => team.category)))
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-gray-900 text-xl">Cargando equipos...</div>
-      </div>
-    )
+    return <BrandLoader label="Cargando equipos…" />
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-red-600 text-xl">{error}</div>
+      <div className="ui-v2 flex min-h-[70vh] items-center justify-center px-4">
+        <div className="rounded-3xl bg-red-50 px-8 py-6 text-center text-lg font-semibold text-red-700 ring-1 ring-red-200">
+          {error}
+        </div>
       </div>
     )
   }
 
+  const chips = [
+    { value: "all", label: "Todas", count: teams.length },
+    ...categories.map((c) => ({ value: c, label: getCategoryLabel(c), count: teams.filter((t) => t.category === c).length })),
+  ]
+
   return (
-    <div className="min-h-screen bg-white">
-      {/* Hero Section */}
-      <section
-        className="relative py-20 overflow-hidden"
-        style={{ background: "linear-gradient(to right, #0857b5, #e266be, #ff6d06)" }}
+    <div className="ui-v2 min-h-screen bg-slate-50">
+      <PageHero
+        eyebrow="Equipos - Liga Flag Durango"
+        title="Equipos"
+        highlight="2026"
+        description={
+          <>
+            Conoce a todos los equipos participantes en la temporada actual.
+            <span className="mt-2 block font-semibold text-amber-300">¡{teams.length} equipos registrados!</span>
+          </>
+        }
       >
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="text-center max-w-4xl mx-auto">
-            <div className="inline-block bg-green-400/95 backdrop-blur-sm text-gray-900 px-6 py-2 rounded-full font-bold mb-6">
-              {"🏈 Equipos - Liga Flag Durango"}
-            </div>
-            <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
-              Equipos
-              <span className="block bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
-                2026
-              </span>
-            </h1>
-            <p className="text-xl md:text-2xl text-white/90 mb-8 leading-relaxed">
-              Conoce a todos los equipos participantes en la temporada actual.
-              <span className="block mt-2 text-yellow-300 font-semibold">¡{teams.length} equipos registrados!</span>
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button
-                size="lg"
-                className="bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-black font-bold"
-                onClick={() => (window.location.href = "/partidos")}
-              >
-                <Trophy className="w-5 h-5 mr-2" />
-                Ver Partidos
-              </Button>
-              <Button
-                size="lg"
-                className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white font-bold"
-                onClick={() => (window.location.href = "/estadisticas")}
-              >
-                <Users className="w-5 h-5 mr-2" />
-                Estadísticas
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="border-white text-white hover:bg-white hover:text-gray-900 bg-transparent"
-                onClick={() => (window.location.href = "/")}
-              >
-                Inicio
-                <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </section>
+        <button className={brandButtonClass} onClick={() => (window.location.href = "/partidos")}>
+          <Trophy className="h-5 w-5" />
+          Ver Partidos
+        </button>
+        <button
+          className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-orange to-brand-pink px-7 py-3.5 font-bold text-white shadow-brand transition-transform hover:scale-[1.03]"
+          onClick={() => (window.location.href = "/estadisticas")}
+        >
+          <Users className="h-5 w-5" />
+          Estadísticas
+        </button>
+        <button className={ghostButtonClass} onClick={() => (window.location.href = "/")}>
+          Inicio
+          <ArrowRight className="h-5 w-5" />
+        </button>
+      </PageHero>
 
-      <div className="container mx-auto px-4 py-8">
-        {/* Filtros */}
-        <div className="mb-8 flex flex-col md:flex-row gap-4 items-center justify-between">
-          <div className="flex items-center gap-4 w-full md:w-auto">
-            <div className="relative flex-1 md:w-80">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Buscar equipos..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 bg-white border-gray-300 text-gray-900 placeholder-gray-500"
-              />
+      <div className="container relative z-10 mx-auto -mt-10 px-4">
+        <Reveal className="rounded-3xl bg-white/90 p-4 shadow-xl ring-1 ring-slate-200 backdrop-blur-xl md:p-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex w-full flex-col gap-3 sm:flex-row md:w-auto">
+              <div className="relative flex-1 md:w-80">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  placeholder="Buscar equipos..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="h-11 w-full rounded-full border-0 bg-slate-100 pl-11 pr-4 text-sm text-slate-900 ring-1 ring-slate-200 transition placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-slate-400" />
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  className="h-11 rounded-full border-0 bg-slate-100 px-4 text-sm font-semibold text-slate-800 ring-1 ring-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue"
+                >
+                  <option value="all">Todas las categorías</option>
+                  {categories.map((category) => (
+                    <option key={category} value={category}>
+                      {getCategoryLabel(category)}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-gray-600" />
-              <select
-                value={selectedCategory}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">Todas las categorías</option>
-                {categories.map((category) => (
-                  <option key={category} value={category}>
-                    {getCategoryLabel(category)}
-                  </option>
-                ))}
-              </select>
+            <div className="text-sm font-semibold text-slate-500">
+              <span className="font-display text-2xl font-extrabold italic text-slate-900">{filteredTeams.length}</span> de{" "}
+              {teams.length} equipos
             </div>
           </div>
-          <div className="text-gray-600">
-            {filteredTeams.length} de {teams.length} equipos
+
+          <div className="mt-4 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] md:flex-wrap">
+            {chips.map((chip) => {
+              const active = selectedCategory === chip.value
+              return (
+                <button
+                  key={chip.value}
+                  onClick={() => setCategoryFilter(chip.value)}
+                  className={cn(
+                    "relative shrink-0 rounded-full px-4 py-2 text-sm font-bold transition-colors",
+                    active ? "text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200",
+                  )}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="team-category-chip"
+                      className="absolute inset-0 rounded-full bg-brand-gradient shadow-brand"
+                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                    />
+                  )}
+                  <span className="relative">
+                    {chip.label} ({chip.count})
+                  </span>
+                </button>
+              )
+            })}
           </div>
-        </div>
+        </Reveal>
+      </div>
 
-        {/* Filtros por categoría */}
-        <div className="flex flex-wrap justify-center gap-2 mb-8">
-          <Button
-            onClick={() => setCategoryFilter("all")}
-            variant={selectedCategory === "all" ? "default" : "outline"}
-            className={
-              selectedCategory === "all" ? "bg-blue-600 text-white" : "border-gray-300 text-gray-700 hover:bg-gray-50"
-            }
-          >
-            Todas ({teams.length})
-          </Button>
-          {categories.map((category) => {
-            const count = teams.filter((t) => t.category === category).length
-            return (
-              <Button
-                key={category}
-                onClick={() => setCategoryFilter(category)}
-                variant={selectedCategory === category ? "default" : "outline"}
-                className={
-                  selectedCategory === category
-                    ? "bg-blue-600 text-white"
-                    : "border-gray-300 text-gray-700 hover:bg-gray-50"
-                }
-              >
-                {getCategoryLabel(category)} ({count})
-              </Button>
-            )
-          })}
-        </div>
+      <div className="container mx-auto px-4 py-14">
+        <motion.div layout className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <AnimatePresence mode="popLayout">
+            {filteredTeams.map((team, index) => {
+              const teamRecentGames = getTeamRecentGames(team.name)
+              const c1 = team.color1 || "#0857b5"
+              const c2 = team.color2 || "#e266be"
 
-        {/* Grid de equipos */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredTeams.map((team) => {
-            const teamRecentGames = getTeamRecentGames(team.name)
-
-            return (
-              <Card
-                key={team.id}
-                className="bg-white border-gray-200 hover:shadow-lg transition-all transform hover:scale-105"
-              >
-                <CardHeader className="text-center pb-4">
-                  {/* Logo del equipo */}
-                  <div className="w-20 h-20 mx-auto mb-4 rounded-full overflow-hidden border-4 border-gray-200">
-                    {team.logo_url ? (
-                      <img
-                        src={team.logo_url}
-                        alt={`Logo de ${team.name}`}
-                        className="w-full h-full object-cover"
-                        crossOrigin="anonymous"
-                        referrerPolicy="no-referrer"
-                        loading="lazy"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement
-                          target.style.display = "none"
-                          const parent = target.parentElement
-                          if (parent) {
-                            const fallback = parent.querySelector('[data-fallback]') as HTMLElement
-                            if (fallback) fallback.style.display = "flex"
-                          }
-                        }}
-                      />
-                    ) : null}
-                    <div
-                      data-fallback
-                      className="w-full h-full items-center justify-center text-white font-bold text-2xl"
-                      style={{
-                        display: team.logo_url ? "none" : "flex",
-                        background: `linear-gradient(to right, ${team.color1}, ${team.color2})`,
-                      }}
-                    >
-                      {team.name.split(" ")[0].charAt(0)}
+              return (
+                <motion.div
+                  key={team.id}
+                  layout
+                  initial={{ opacity: 0, y: 24, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.35, delay: Math.min(index, 12) * 0.03 }}
+                  whileHover={{ y: -6 }}
+                  className="group flex flex-col overflow-hidden rounded-3xl bg-white ring-1 ring-slate-200 transition-shadow hover:shadow-2xl"
+                >
+                  <div className="relative h-24" style={{ background: `linear-gradient(135deg, ${c1}, ${c2})` }}>
+                    <div className="absolute inset-0 bg-grid-white opacity-40" aria-hidden />
+                    <div className="absolute right-3 top-3 flex gap-1.5">
+                      <span
+                        className={cn(
+                          "rounded-full px-2.5 py-1 text-[11px] font-bold uppercase text-white shadow",
+                          getCategoryColor(team.category),
+                        )}
+                      >
+                        {getCategoryLabel(team.category)}
+                      </span>
                     </div>
                   </div>
 
-                  <CardTitle className="text-gray-900 text-lg mb-2">{team.name}</CardTitle>
-                  <Badge className={`mx-auto text-white ${getCategoryColor(team.category)}`}>
-                    {getCategoryLabel(team.category)}
-                  </Badge>
+                  <div className="-mt-10 flex flex-1 flex-col px-5 pb-5">
+                    <TeamAvatar
+                      name={team.name}
+                      logoUrl={team.logo_url}
+                      color1={team.color1}
+                      color2={team.color2}
+                      size="xl"
+                      className="ring-4 transition-transform duration-300 group-hover:scale-105"
+                    />
+                    <h3 className="mt-3 text-lg font-bold leading-tight text-slate-900">{team.name}</h3>
+                    {team.is_institutional && (
+                      <span className="mt-1.5 w-fit rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
+                        Institucional
+                      </span>
+                    )}
 
-                  {team.is_institutional && (
-                    <Badge variant="secondary" className="mx-auto mt-2">
-                      Institucional
-                    </Badge>
-                  )}
-                </CardHeader>
-
-                <CardContent className="space-y-4">
-                  {/* Estadísticas */}
-                  {team.stats && (
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <h4 className="text-gray-900 font-semibold mb-2 flex items-center">
-                        <Trophy className="w-4 h-4 mr-2" />
-                        Estadísticas
-                      </h4>
-                      <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
-                        <div>Partidos: {team.stats.games_played}</div>
-                        <div>Puntos: {team.stats.points}</div>
-                        <div>Ganados: {team.stats.wins}</div>
-                        <div>Perdidos: {team.stats.losses}</div>
-                        <div>Empates: {team.stats.draws}</div>
-                        <div>PF: {team.stats.points_for}</div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Últimos Resultados */}
-                  {teamRecentGames.length > 0 && (
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <h4 className="text-gray-900 font-semibold mb-2 flex items-center">
-                        <Clock className="w-4 h-4 mr-2" />
-                        Últimos Resultados
-                      </h4>
-                      <div className="space-y-2">
-                        {teamRecentGames.map((game) => {
-                          const isHome = game.home_team === team.name
-                          const opponent = isHome ? game.away_team : game.home_team
-                          const teamScore = isHome ? game.home_score : game.away_score
-                          const opponentScore = isHome ? game.away_score : game.home_score
-                          const won = teamScore! > opponentScore!
-
-                          return (
-                            <div key={game.id} className="text-xs text-gray-600 flex justify-between items-center">
-                              <span className="truncate flex-1">vs {opponent}</span>
-                              <span className={`font-bold ${won ? "text-green-600" : "text-red-600"}`}>
-                                {teamScore}-{opponentScore}
-                              </span>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Staff del equipo */}
-                  {(team.coach_name || team.coach_photo_url || team.captain_name || team.captain_photo_url) && (
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <h4 className="text-gray-900 font-semibold mb-3 flex items-center">
-                        <Users className="w-4 h-4 mr-2" />
-                        Staff
-                      </h4>
-                      <div className="space-y-3">
-                        {(team.coach_name || team.coach_photo_url) && (
-                          <div className="flex items-center gap-2">
-                            <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-blue-300 flex-shrink-0">
-                              {team.coach_photo_url ? (
-                                <img
-                                  src={team.coach_photo_url}
-                                  alt={`Coach ${team.coach_name || "del equipo"}`}
-                                  className="w-full h-full object-cover"
-                                  crossOrigin="anonymous"
-                                  referrerPolicy="no-referrer"
-                                  loading="lazy"
-                                  onError={(e) => {
-                                    const target = e.target as HTMLImageElement
-                                    target.style.display = "none"
-                                    const fallback = target.parentElement?.querySelector('[data-fallback]') as HTMLElement
-                                    if (fallback) fallback.style.display = "flex"
-                                  }}
-                                />
-                              ) : null}
-                              <div
-                                data-fallback
-                                className="w-full h-full bg-blue-100 items-center justify-center"
-                                style={{ display: team.coach_photo_url ? "none" : "flex" }}
-                              >
-                                <Trophy className="w-4 h-4 text-blue-400" />
-                              </div>
-                            </div>
-                            <div className="text-sm">
-                              <p className="text-xs text-blue-600 font-medium">Coach</p>
-                              <p className="text-gray-900 font-medium">{team.coach_name || "Coach"}</p>
-                            </div>
+                    {team.stats && (
+                      <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                        {[
+                          { l: "PJ", v: team.stats.games_played },
+                          { l: "G", v: team.stats.wins },
+                          { l: "P", v: team.stats.losses },
+                          { l: "E", v: team.stats.draws },
+                          { l: "PF", v: team.stats.points_for },
+                          { l: "Pts", v: team.stats.points },
+                        ].map((s) => (
+                          <div key={s.l} className="rounded-xl bg-slate-50 py-2 ring-1 ring-slate-100">
+                            <div className="font-display text-xl font-extrabold italic leading-none text-slate-900">{s.v}</div>
+                            <div className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">{s.l}</div>
                           </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {teamRecentGames.length > 0 && (
+                      <div className="mt-4">
+                        <h4 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-400">
+                          <Clock className="h-3.5 w-3.5" />
+                          Últimos Resultados
+                        </h4>
+                        <div className="space-y-1.5">
+                          {teamRecentGames.map((game) => {
+                            const isHome = game.home_team === team.name
+                            const opponent = isHome ? game.away_team : game.home_team
+                            const teamScore = isHome ? game.home_score : game.away_score
+                            const opponentScore = isHome ? game.away_score : game.home_score
+                            const won = teamScore! > opponentScore!
+
+                            return (
+                              <div key={game.id} className="flex items-center gap-2 text-xs text-slate-600">
+                                <span
+                                  className={cn(
+                                    "flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-black text-white",
+                                    won ? "bg-emerald-500" : "bg-red-500",
+                                  )}
+                                >
+                                  {won ? "G" : "P"}
+                                </span>
+                                <span className="flex-1 truncate">vs {opponent}</span>
+                                <span className={cn("font-bold tabular-nums", won ? "text-emerald-600" : "text-red-600")}>
+                                  {teamScore}-{opponentScore}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {(team.coach_name || team.coach_photo_url || team.captain_name || team.captain_photo_url) && (
+                      <div className="mt-4 flex flex-col gap-2 border-t border-dashed border-slate-200 pt-4">
+                        {(team.coach_name || team.coach_photo_url) && (
+                          <StaffRow
+                            photo={team.coach_photo_url}
+                            role="Coach"
+                            name={team.coach_name || "Coach"}
+                            alt={`Coach ${team.coach_name || "del equipo"}`}
+                            tone="blue"
+                            icon={<Trophy className="h-4 w-4" />}
+                          />
                         )}
                         {(team.captain_name || team.captain_photo_url) && (
-                          <div className="flex items-center gap-2">
-                            <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-yellow-400 flex-shrink-0">
-                              {team.captain_photo_url ? (
-                                <img
-                                  src={team.captain_photo_url}
-                                  alt={`Cap ${team.captain_name || "del equipo"}`}
-                                  className="w-full h-full object-cover"
-                                  crossOrigin="anonymous"
-                                  referrerPolicy="no-referrer"
-                                  loading="lazy"
-                                  onError={(e) => {
-                                    const target = e.target as HTMLImageElement
-                                    target.style.display = "none"
-                                    const fallback = target.parentElement?.querySelector('[data-fallback]') as HTMLElement
-                                    if (fallback) fallback.style.display = "flex"
-                                  }}
-                                />
-                              ) : null}
-                              <div
-                                data-fallback
-                                className="w-full h-full bg-yellow-100 items-center justify-center"
-                                style={{ display: team.captain_photo_url ? "none" : "flex" }}
-                              >
-                                <Users className="w-4 h-4 text-yellow-500" />
-                              </div>
-                            </div>
-                            <div className="text-sm">
-                              <p className="text-xs text-yellow-700 font-medium">Capitan</p>
-                              <p className="text-gray-900 font-medium">{team.captain_name || "Capitan"}</p>
-                            </div>
-                          </div>
+                          <StaffRow
+                            photo={team.captain_photo_url}
+                            role="Capitan"
+                            name={team.captain_name || "Capitan"}
+                            alt={`Cap ${team.captain_name || "del equipo"}`}
+                            tone="amber"
+                            icon={<Users className="h-4 w-4" />}
+                          />
                         )}
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Botón para ver más detalles */}
-                  <Button
-                    onClick={() => (window.location.href = `/equipos/${team.id}`)}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    Ver Detalles
-                  </Button>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
+                    <div className="mt-auto pt-5">
+                      <button
+                        onClick={() => (window.location.href = `/equipos/${team.id}`)}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-slate-900 py-2.5 text-sm font-semibold text-white transition-all hover:bg-brand-blue"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        Ver Detalles
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              )
+            })}
+          </AnimatePresence>
+        </motion.div>
 
         {filteredTeams.length === 0 && (
-          <div className="text-center py-16">
-            <Users className="w-24 h-24 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">No hay equipos</h3>
-            <p className="text-gray-600">
+          <Reveal className="rounded-3xl border-2 border-dashed border-slate-200 bg-white py-16 text-center">
+            <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+              <Users className="h-10 w-10" />
+            </div>
+            <h3 className="mb-2 text-2xl font-bold text-slate-900">No hay equipos</h3>
+            <p className="text-slate-600">
               {searchTerm || selectedCategory !== "all"
                 ? "Intenta ajustar tus filtros de búsqueda"
                 : "Aún no hay equipos registrados en la liga."}
             </p>
-          </div>
+          </Reveal>
         )}
       </div>
 
-      {/* Footer CTA */}
-      <section className="py-16" style={{ background: "linear-gradient(to right, #0857b5, #e266be, #ff6d06)" }}>
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold text-white mb-4">¿Quieres unirte?</h2>
-          <p className="text-white/90 text-lg mb-8">Registra tu equipo y forma parte de la Liga Flag Durango</p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button
-              size="lg"
-              className="bg-white text-gray-900 hover:bg-gray-100 font-bold"
+      <section className="relative overflow-hidden bg-brand-gradient-animated py-20">
+        <div className="absolute inset-0 bg-grid-white opacity-40" aria-hidden />
+        <Reveal className="container relative mx-auto px-4 text-center">
+          <h2 className="font-display text-5xl font-extrabold uppercase italic tracking-tight text-white md:text-6xl">
+            ¿Quieres unirte?
+          </h2>
+          <p className="mx-auto mt-3 max-w-xl text-lg text-white/90">Registra tu equipo y forma parte de la Liga Flag Durango</p>
+          <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
+            <button
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-7 py-3.5 font-bold text-slate-900 shadow-xl transition-transform hover:scale-[1.03]"
               onClick={() => (window.location.href = "/register-team")}
             >
-              <Users className="w-5 h-5 mr-2" />
+              <Users className="h-5 w-5" />
               Registrar Equipo
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="border-white text-white hover:bg-white hover:text-gray-900 bg-transparent"
-              onClick={() => (window.location.href = "/register-coach")}
-            >
+            </button>
+            <button className={ghostButtonClass} onClick={() => (window.location.href = "/register-coach")}>
               Registrar Coach
-            </Button>
+            </button>
           </div>
-        </div>
+        </Reveal>
       </section>
+    </div>
+  )
+}
+
+function StaffRow({
+  photo,
+  role,
+  name,
+  alt,
+  tone,
+  icon,
+}: {
+  photo?: string
+  role: string
+  name: string
+  alt: string
+  tone: "blue" | "amber"
+  icon: ReactNode
+}) {
+  const [broken, setBroken] = useState(false)
+  const toneRing = tone === "blue" ? "ring-brand-blue/40 bg-blue-50 text-brand-blue" : "ring-amber-400/60 bg-amber-50 text-amber-600"
+  return (
+    <div className="flex items-center gap-2.5">
+      <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full ring-2", toneRing)}>
+        {photo && !broken ? (
+          <img
+            src={photo}
+            alt={alt}
+            className="h-full w-full object-cover"
+            referrerPolicy="no-referrer"
+            loading="lazy"
+            onError={() => setBroken(true)}
+          />
+        ) : (
+          icon
+        )}
+      </div>
+      <div className="min-w-0 text-sm">
+        <p className={cn("text-[11px] font-bold uppercase tracking-wide", tone === "blue" ? "text-brand-blue" : "text-amber-700")}>
+          {role}
+        </p>
+        <p className="truncate font-semibold text-slate-900">{name}</p>
+      </div>
     </div>
   )
 }

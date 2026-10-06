@@ -1,26 +1,14 @@
 "use client"
 
-import { Suspense, useState, useEffect, useMemo, useRef } from "react"
+import { Suspense, useState, useEffect, useMemo, useRef, type ReactNode } from "react"
 import { useSearchParams } from "next/navigation"
 import { SeasonSelector } from "@/components/season-selector"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import {
-  Calendar,
-  Clock,
-  MapPin,
-  Users,
-  Trophy,
-  ArrowRight,
-  Castle as Whistle,
-  Search,
-  Filter,
-  Share2,
-  Download,
-  Info,
-} from "lucide-react"
+import { motion } from "framer-motion"
+import { Calendar, Users, Trophy, ArrowRight, Search, Filter, Share2, Download, Info, Radio } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { BrandLoader, PageHero, SectionHeading, brandButtonClass, ghostButtonClass } from "@/components/ui-v2/brand"
+import { Reveal, Stagger, StaggerItem } from "@/components/ui-v2/motion"
+import { MatchCard } from "@/components/ui-v2/match-card"
 
 interface Game {
   id: number
@@ -112,7 +100,7 @@ function useLiveTimer(game: Game) {
 function LiveTimerDisplay({ game }: { game: Game }) {
   const timeString = useLiveTimer(game);
   return (
-    <div className="text-sm font-bold text-red-600 mt-1 bg-red-100 px-3 py-1 rounded-full border border-red-200">
+    <div className="mt-2 rounded-full bg-red-50 px-3 py-1 font-mono text-xs font-bold tabular-nums text-red-600 ring-1 ring-red-200">
       {timeString}
     </div>
   );
@@ -280,22 +268,14 @@ function GamesPageContent() {
   }
 
   if (loading) {
-    return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{ background: "linear-gradient(to right, #0857b5, #e266be, #ff6d06)" }}
-      >
-        <div className="text-white text-xl">Cargando partidos...</div>
-      </div>
-    )
+    return <BrandLoader label="Cargando partidos…" />
   }
   if (error) {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{ background: "linear-gradient(to right, #0857b5, #e266be, #ff6d06)" }}
-      >
-        <div className="text-red-400 text-xl">{error}</div>
+      <div className="ui-v2 flex min-h-[70vh] items-center justify-center px-4">
+        <div className="rounded-3xl bg-red-50 px-8 py-6 text-center text-lg font-semibold text-red-700 ring-1 ring-red-200">
+          {error}
+        </div>
       </div>
     )
   }
@@ -322,38 +302,25 @@ function GamesPageContent() {
       ),
   )
 
-  const renderTeam = (name: string, isHome = true) => {
-    const logo = getTeamLogo(name)
-    const colors = getTeamColors(name)
+  const getTeam = (name: string) => teamMap.get(name)
 
-    return (
-      <div className="flex flex-col items-center text-center flex-1">
-        <div
-          className="h-16 w-16 rounded-full flex items-center justify-center text-white text-xl font-bold mb-2 overflow-hidden border-2 border-white/20 shadow-lg"
-          style={{ background: `linear-gradient(135deg, ${colors.color1}, ${colors.color2})` }}
-        >
-          {logo ? (
-            <img
-              src={logo || "/placeholder.svg"}
-              alt={`Logo de ${name}`}
-              className="h-full w-full object-cover rounded-full"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement
-                const parent = target.parentElement
-                if (parent) {
-                  target.style.display = "none"
-                  parent.innerHTML = `<span class="text-xl font-bold">${name.charAt(0)}</span>`
-                }
-              }}
-            />
-          ) : (
-            name.charAt(0)
-          )}
-        </div>
-        <span className="font-semibold text-sm text-white text-center leading-tight max-w-[80px]">{name}</span>
-      </div>
-    )
-  }
+  const stageBadge = (game: Game) =>
+    game.stage && game.stage !== "regular" ? (
+      <span className="rounded-full bg-violet-100 px-2.5 py-1 text-[11px] font-bold uppercase text-violet-700">
+        {getStageLabel(game.stage)}
+      </span>
+    ) : null
+
+  const amistosoBadge = (
+    <span className="rounded-full bg-orange-100 px-2.5 py-1 text-[11px] font-bold uppercase text-orange-700">🤝 Amistoso</span>
+  )
+
+  const amistosoNotice = (text: string) => (
+    <div className="mb-4 flex items-center gap-2 rounded-2xl bg-orange-50 px-3 py-2 text-xs font-semibold text-orange-800 ring-1 ring-orange-200">
+      <Info className="h-4 w-4 shrink-0" />
+      {text}
+    </div>
+  )
 
   const shareGame = async (game: Game) => {
     try {
@@ -501,85 +468,54 @@ function GamesPageContent() {
     }
   }
 
-  return (
-    <div className="min-h-screen bg-white">
-      <section
-        className="relative py-20 overflow-hidden"
-        style={{ background: "linear-gradient(to right, #0857b5, #e266be, #ff6d06)" }}
-      >
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="text-center max-w-4xl mx-auto">
-            <div className="inline-block bg-green-400/95 backdrop-blur-sm text-gray-900 px-6 py-2 rounded-full font-bold mb-6">
-              {"🏈 Calendario de Partidos - Liga Flag Durango"}
-            </div>
-            <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
-              Partidos
-              <span className="block bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
-                por temporada
-              </span>
-            </h1>
-            <p className="text-xl md:text-2xl text-white/90 mb-8 leading-relaxed">
-              Sigue todos los partidos de la temporada actual.
-              <span className="block mt-2 text-yellow-300 font-semibold">¡No te pierdas ningún juego!</span>
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button
-                size="lg"
-                className="bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-black font-bold"
-                onClick={() => (window.location.href = "/equipos")}
-              >
-                <Users className="w-5 h-5 mr-2" />
-                Ver Equipos
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="border-white text-white hover:bg-white hover:text-gray-900 bg-transparent"
-                onClick={() => (window.location.href = "/")}
-              >
-                Inicio
-                <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      <div className="container mx-auto px-4 py-6">
-        <div className="mb-4 flex justify-end"><SeasonSelector /></div>
-        <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-8">
-          <div className="flex items-center gap-4 w-full md:w-auto">
-            <div className="relative flex-1 md:w-80">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
+  const selectClass =
+    "h-11 rounded-full border-0 bg-slate-100 px-4 text-sm font-semibold text-slate-800 ring-1 ring-slate-200 transition focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue"
+
+  const jornadaChips: { value: string; label: string }[] = [
+    { value: "current", label: currentJornada != null ? `Actual · J${currentJornada}` : "Actual" },
+    { value: "all", label: "Todas" },
+    ...jornadas.map((j) => ({ value: String(j), label: `J${j}` })),
+  ]
+
+  return (
+    <div className="ui-v2 min-h-screen bg-slate-50">
+      <PageHero
+        eyebrow="Calendario de Partidos - Liga Flag Durango"
+        title="Partidos"
+        highlight="por temporada"
+        description={
+          <>
+            Sigue todos los partidos de la temporada actual.
+            <span className="mt-2 block font-semibold text-amber-300">¡No te pierdas ningún juego!</span>
+          </>
+        }
+      >
+        <button className={brandButtonClass} onClick={() => (window.location.href = "/equipos")}>
+          <Users className="h-5 w-5" />
+          Ver Equipos
+        </button>
+        <button className={ghostButtonClass} onClick={() => (window.location.href = "/")}>
+          Inicio
+          <ArrowRight className="h-5 w-5" />
+        </button>
+      </PageHero>
+
+      <div className="container relative z-10 mx-auto -mt-10 px-4">
+        <Reveal className="rounded-3xl bg-white/90 p-4 shadow-xl ring-1 ring-slate-200 backdrop-blur-xl md:p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="relative w-full lg:max-w-sm">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
                 placeholder="Buscar equipos, venue..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 bg-white border-gray-300 text-gray-900 placeholder-gray-500"
+                className="h-11 w-full rounded-full border-0 bg-slate-100 pl-11 pr-4 text-sm text-slate-900 ring-1 ring-slate-200 transition placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue"
               />
             </div>
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-gray-600" />
-              <select
-                value={jornadaFilter}
-                onChange={(e) => setJornadaFilter(e.target.value)}
-                className="px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="current">
-                  {currentJornada != null ? `Jornada actual (J${currentJornada})` : "Jornada actual"}
-                </option>
-                <option value="all">Todas las jornadas</option>
-                {jornadas.map((j) => (
-                  <option key={j} value={String(j)}>
-                    Jornada {j}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
+            <div className="flex flex-wrap items-center gap-2">
+              <Filter className="hidden h-4 w-4 text-slate-400 sm:block" />
+              <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className={selectClass}>
                 <option value="">Todas las categorías</option>
                 <option value="varonil-libre">Varonil Libre</option>
                 <option value="varonil-gold">Varonil Gold</option>
@@ -591,372 +527,265 @@ function GamesPageContent() {
                 <option value="mixto-gold">Mixto Gold</option>
                 <option value="mixto-silver">Mixto Silver</option>
               </select>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectClass}>
                 <option value="">Todos los estados</option>
                 <option value="programado">Programados</option>
                 <option value="en_vivo">En Vivo</option>
                 <option value="finalizado">Finalizados</option>
               </select>
-              <select
-                value={matchTypeFilter}
-                onChange={(e) => setMatchTypeFilter(e.target.value)}
-                className="px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
+              <select value={matchTypeFilter} onChange={(e) => setMatchTypeFilter(e.target.value)} className={selectClass}>
                 <option value="">Todos los tipos</option>
                 <option value="jornada">Jornada</option>
                 <option value="amistoso">Amistoso</option>
                 <option value="playoff">Playoff</option>
               </select>
+              <SeasonSelector />
             </div>
           </div>
-        </div>
+
+          <div className="mt-4 flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
+            <span className="shrink-0 text-xs font-bold uppercase tracking-wider text-slate-400">Jornada</span>
+            {jornadaChips.map((chip) => {
+              const active = jornadaFilter === chip.value
+              return (
+                <button
+                  key={chip.value}
+                  onClick={() => setJornadaFilter(chip.value)}
+                  className={cn(
+                    "relative shrink-0 rounded-full px-4 py-2 text-sm font-bold transition-colors",
+                    active ? "text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200",
+                  )}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="jornada-chip"
+                      className="absolute inset-0 rounded-full bg-brand-gradient shadow-brand"
+                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                    />
+                  )}
+                  <span className="relative">{chip.label}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4 text-xs font-semibold">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1 text-red-700">
+              <span className="h-2 w-2 rounded-full bg-red-500" /> {liveGames.length} en vivo
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-blue/10 px-3 py-1 text-brand-blue">
+              <span className="h-2 w-2 rounded-full bg-brand-blue" /> {upcomingGames.length} programados
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" /> {finishedGames.length} finalizados
+            </span>
+          </div>
+        </Reveal>
       </div>
 
-      <div className="container mx-auto p-4 lg:p-6">
+      <div className="container mx-auto px-4 py-14">
         {liveGames.length > 0 && (
-          <section className="mb-16">
-            <div className="text-center mb-8">
-              <h2 className="text-4xl font-bold text-gray-900 mb-4 flex items-center justify-center">
-                <div className="w-3 h-3 bg-red-500 rounded-full mr-3 animate-pulse"></div>🔴 PARTIDOS EN VIVO
-              </h2>
-              <p className="text-gray-600 text-lg">Partidos que se están jugando ahora mismo</p>
-            </div>
-            <div className="grid grid-cols-1 gap-6">
+          <section className="mb-20">
+            <SectionHeading
+              icon={<Radio className="h-6 w-6" />}
+              title="Partidos en vivo"
+              subtitle="Partidos que se están jugando ahora mismo"
+            />
+            <Stagger className="grid gap-6 md:grid-cols-2">
               {liveGames.map((game) => {
                 const isAmistoso = game.match_type === "amistoso"
                 return (
-                  <Card
-                    key={game.id}
-                    ref={(el) => (gameCardRefs.current[game.id] = el)}
-                    className="border-2 border-red-500 shadow-2xl bg-red-500/10 backdrop-blur-sm hover:bg-red-500/20 transition-all duration-300"
-                  >
-                    <CardContent className="p-6 lg:p-8">
-                      {isAmistoso && (
-                        <div className="mb-4 p-3 bg-orange-50 border-l-4 border-orange-500 rounded">
-                          <div className="flex items-center gap-2 text-orange-800">
-                            <Info className="w-5 h-5" />
-                            <span className="font-semibold text-sm">
-                              🤝 Partido Amistoso - No cuenta para estadísticas oficiales
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                        <div className="flex items-center gap-8 flex-1">
-                          <div className="text-center min-w-[80px]">
-                            <p className="text-sm text-gray-600">
-                              {formatGameDate(game.game_date)}
-                            </p>
-                            <p className="font-semibold text-gray-900">{game.game_time}</p>
-                          </div>
-
-                          <div className="flex items-center justify-center gap-4 flex-1 max-w-2xl mx-auto">
-                            {renderTeam(game.home_team, true)}
-
-                            <div className="flex flex-col items-center justify-center min-w-[120px]">
-                              <div className="text-4xl font-bold text-red-500 animate-pulse text-center">
-                                {game.home_score ?? 0} - {game.away_score ?? 0}
-                              </div>
-                              {/* AQUÍ REEMPLAZAMOS EL TEXTO ESTÁTICO POR EL RELOJ EN VIVO */}
-                              <LiveTimerDisplay game={game} />
-                            </div>
-
-                            {renderTeam(game.away_team, false)}
-                          </div>
-
-                          <div className="text-sm text-gray-600 min-w-[150px]">
-                            <p className="font-medium flex items-center">
-                              <MapPin className="w-4 h-4 mr-1" />
-                              {game.venue}
-                            </p>
-                            <p className="text-gray-500">{game.field}</p>
-                            <p className="text-gray-500 flex items-center mt-1">
-                              <Whistle className="w-4 h-4 mr-1" />
-                              {getReferees(game)}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex flex-col gap-2">
-                          <div className="flex flex-wrap gap-2 justify-end">
-                            <Badge className={`${getCategoryColor(game.category)} text-white`}>
-                              {getCategoryLabel(game.category)}
-                            </Badge>
-                            <Badge className="bg-red-500 text-white animate-pulse">🔴 EN VIVO</Badge>
-                            {isAmistoso && <Badge className="bg-orange-500 text-white">🤝 Amistoso</Badge>}
-                            {game.stage && game.stage !== "regular" && (
-                              <Badge variant="secondary">{getStageLabel(game.stage)}</Badge>
-                            )}
-                            {game.jornada && <Badge className="bg-blue-600">J{game.jornada}</Badge>}
-                          </div>
-                          <Button
-                            onClick={() => shareGame(game)}
-                            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold"
-                            size="sm"
-                          >
-                            <Share2 className="w-4 h-4 mr-2" />
-                            Compartir
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <StaggerItem key={game.id} className="h-full">
+                    <MatchCard
+                      ref={(el) => {
+                        gameCardRefs.current[game.id] = el
+                      }}
+                      game={game}
+                      variant="live"
+                      categoryLabel={getCategoryLabel(game.category)}
+                      getTeam={getTeam}
+                      refereesText={getReferees(game)}
+                      liveSlot={<LiveTimerDisplay game={game} />}
+                      badges={
+                        <>
+                          {isAmistoso && amistosoBadge}
+                          {stageBadge(game)}
+                        </>
+                      }
+                      notice={isAmistoso ? amistosoNotice("🤝 Partido Amistoso - No cuenta para estadísticas oficiales") : null}
+                      footer={
+                        <button onClick={() => shareGame(game)} className={cn(brandButtonClass, "w-full py-2.5 text-sm")}>
+                          <Share2 className="h-4 w-4" />
+                          Compartir
+                        </button>
+                      }
+                    />
+                  </StaggerItem>
                 )
               })}
-            </div>
+            </Stagger>
           </section>
         )}
 
-        <section className="mb-16">
-          <div className="text-center mb-8">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4 flex items-center justify-center">
-              <Calendar className="w-8 h-8 mr-3 text-blue-400" />
-              Próximos Partidos
-              {activeJornada != null && <Badge className="ml-3 bg-blue-600 text-lg">J{activeJornada}</Badge>}
-            </h2>
-            <p className="text-gray-600 text-lg">
-              {activeJornada != null
+        <section className="mb-20">
+          <SectionHeading
+            icon={<Calendar className="h-6 w-6" />}
+            title="Próximos partidos"
+            badge={
+              activeJornada != null ? (
+                <span className="rounded-full bg-brand-blue px-3 py-1 text-xl not-italic text-white">J{activeJornada}</span>
+              ) : null
+            }
+            subtitle={
+              activeJornada != null
                 ? `Partidos programados de la jornada ${activeJornada}`
-                : "Partidos programados para los próximos días"}
-            </p>
-          </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {upcomingGames.length > 0 ? (
-              upcomingGames.map((game) => {
+                : "Partidos programados para los próximos días"
+            }
+          />
+          {upcomingGames.length > 0 ? (
+            <Stagger className="grid gap-6 md:grid-cols-2 lg:grid-cols-3" stagger={0.05}>
+              {upcomingGames.map((game) => {
                 const isAmistoso = game.match_type === "amistoso"
                 return (
-                  <Card
-                    key={game.id}
-                    ref={(el) => (gameCardRefs.current[game.id] = el)}
-                    className="shadow-xl hover:shadow-2xl transition-all duration-300 bg-white border-gray-200 hover:bg-gray-50 transform hover:scale-105"
-                  >
-                    <CardHeader className="p-0">
-                      <div
-                        className={`relative h-40 flex items-center justify-center rounded-t-lg ${isAmistoso ? "bg-gradient-to-br from-gray-400/20 to-gray-500/20" : "bg-gradient-to-br from-blue-500/20 to-purple-500/20"}`}
-                      >
-                        <div className="absolute inset-0 flex items-center justify-center gap-6 p-4">
-                          {renderTeam(game.home_team)}
-                          <div className="text-2xl font-bold text-gray-900">VS</div>
-                          {renderTeam(game.away_team)}
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="p-6 space-y-4">
-                      {isAmistoso && (
-                        <div className="p-2 bg-orange-50 border border-orange-200 rounded-lg">
-                          <div className="flex items-center gap-1 text-orange-800 text-xs">
-                            <Info className="w-3 h-3" />
-                            <span className="font-medium">🤝 Amistoso - No cuenta para estadísticas</span>
-                          </div>
-                        </div>
-                      )}
-                      <div className="flex flex-wrap gap-2 justify-center">
-                        <Badge className={`${getCategoryColor(game.category)} text-white`}>
-                          {getCategoryLabel(game.category)}
-                        </Badge>
-                        <Badge className={isAmistoso ? "bg-orange-500" : "bg-blue-600"}>
-                          {isAmistoso ? "🤝 Amistoso" : "Programado"}
-                        </Badge>
-                        {game.stage && game.stage !== "regular" && (
-                          <Badge variant="outline">{getStageLabel(game.stage)}</Badge>
-                        )}
-                      </div>
-                      <div className="text-center text-gray-600 space-y-2">
-                        <p className="flex items-center justify-center text-sm">
-                          <Calendar className="w-4 h-4 mr-2 text-gray-500" />
-                          {formatGameDate(game.game_date, {
-                            weekday: "long",
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          })}
-                        </p>
-                        <p className="flex items-center justify-center text-sm">
-                          <Clock className="w-4 h-4 mr-2 text-gray-500" />
-                          {game.game_time}
-                        </p>
-                        <p className="flex items-center justify-center text-sm">
-                          <MapPin className="w-4 h-4 mr-2 text-gray-500" />
-                          {game.venue} - {game.field}
-                        </p>
-                        <p className="flex items-center justify-center text-sm">
-                          <Whistle className="w-4 h-4 mr-2 text-gray-500" />
-                          Árbitros: {getReferees(game)}
-                        </p>
-                      </div>
-                      <div className="pt-2">
-                        <Button
+                  <StaggerItem key={game.id} className="h-full">
+                    <MatchCard
+                      ref={(el) => {
+                        gameCardRefs.current[game.id] = el
+                      }}
+                      game={game}
+                      variant="upcoming"
+                      categoryLabel={getCategoryLabel(game.category)}
+                      getTeam={getTeam}
+                      refereesText={getReferees(game)}
+                      badges={
+                        <>
+                          {isAmistoso && amistosoBadge}
+                          {stageBadge(game)}
+                        </>
+                      }
+                      notice={isAmistoso ? amistosoNotice("🤝 Amistoso - No cuenta para estadísticas") : null}
+                      footer={
+                        <button
                           onClick={() => shareGame(game)}
-                          className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold"
-                          size="sm"
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-slate-900 py-2.5 text-sm font-semibold text-white transition-transform hover:scale-[1.02] active:scale-[0.98]"
                         >
-                          <Share2 className="w-4 h-4 mr-2" />
+                          <Share2 className="h-4 w-4" />
                           Compartir Partido
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
+                        </button>
+                      }
+                    />
+                  </StaggerItem>
                 )
-              })
-            ) : (
-              <div className="col-span-full">
-                <Card className="bg-white border-gray-200">
-                  <CardContent className="p-12 text-center">
-                    <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">No hay partidos programados</h3>
-                    <p className="text-gray-600">Los próximos partidos aparecerán aquí una vez que sean programados.</p>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-          </div>
+              })}
+            </Stagger>
+          ) : (
+            <EmptyState
+              icon={<Calendar className="h-10 w-10" />}
+              title="No hay partidos programados"
+              text="Los próximos partidos aparecerán aquí una vez que sean programados."
+            />
+          )}
         </section>
 
-        <section className="mb-16">
-          <div className="text-center mb-8">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4 flex items-center justify-center">
-              <Trophy className="w-8 h-8 mr-3 text-green-400" />
-              Partidos Finalizados
-              {activeJornada != null && <Badge className="ml-3 bg-green-600 text-lg">J{activeJornada}</Badge>}
-            </h2>
-            <p className="text-gray-600 text-lg">
-              {activeJornada != null
-                ? `Resultados de la jornada ${activeJornada}`
-                : "Resultados de los partidos más recientes"}
-            </p>
-          </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {finishedGames.length > 0 ? (
-              finishedGames.map((game) => {
+        <section className="mb-8">
+          <SectionHeading
+            icon={<Trophy className="h-6 w-6" />}
+            title="Partidos finalizados"
+            badge={
+              activeJornada != null ? (
+                <span className="rounded-full bg-emerald-600 px-3 py-1 text-xl not-italic text-white">J{activeJornada}</span>
+              ) : null
+            }
+            subtitle={
+              activeJornada != null ? `Resultados de la jornada ${activeJornada}` : "Resultados de los partidos más recientes"
+            }
+          />
+          {finishedGames.length > 0 ? (
+            <Stagger className="grid gap-6 md:grid-cols-2 lg:grid-cols-3" stagger={0.05}>
+              {finishedGames.map((game) => {
                 const isAmistoso = game.match_type === "amistoso"
                 return (
-                  <Card
-                    key={game.id}
-                    ref={(el) => (gameCardRefs.current[game.id] = el)}
-                    className="shadow-xl hover:shadow-2xl transition-all duration-300 bg-white border-gray-200 hover:bg-gray-50 transform hover:scale-105"
-                  >
-                    <CardHeader className="p-0">
-                      <div
-                        className={`relative h-40 flex items-center justify-center rounded-t-lg ${isAmistoso ? "bg-gradient-to-br from-gray-400/20 to-gray-500/20" : "bg-gradient-to-br from-green-500/20 to-blue-500/20"}`}
-                      >
-                        <div className="absolute inset-0 flex items-center justify-center gap-6 p-4">
-                          {renderTeam(game.home_team)}
-                          <div className="text-3xl font-bold text-gray-900">
-                            {game.home_score ?? 0} - {game.away_score ?? 0}
-                          </div>
-                          {renderTeam(game.away_team)}
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="p-6 space-y-4">
-                      {isAmistoso && (
-                        <div className="p-2 bg-orange-50 border border-orange-200 rounded-lg">
-                          <div className="flex items-center gap-1 text-orange-800 text-xs">
-                            <Info className="w-3 h-3" />
-                            <span className="font-medium">🤝 Amistoso - No contó para estadísticas</span>
-                          </div>
-                        </div>
-                      )}
-                      <div className="flex flex-wrap gap-2 justify-center">
-                        <Badge className={`${getCategoryColor(game.category)} text-white`}>
-                          {getCategoryLabel(game.category)}
-                        </Badge>
-                        <Badge className={isAmistoso ? "bg-orange-500" : "bg-green-600"}>
-                          {isAmistoso ? "🤝 Amistoso" : "Finalizado"}
-                        </Badge>
-                        {game.stage && game.stage !== "regular" && (
-                          <Badge variant="outline">{getStageLabel(game.stage)}</Badge>
-                        )}
-                      </div>
-                      <div className="text-center text-gray-600 space-y-2">
-                        <p className="flex items-center justify-center text-sm">
-                          <Calendar className="w-4 h-4 mr-2 text-gray-500" />
-                          {formatGameDate(game.game_date, {
-                            weekday: "long",
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          })}
-                        </p>
-                        <p className="flex items-center justify-center text-sm">
-                          <MapPin className="w-4 h-4 mr-2 text-gray-500" />
-                          {game.venue} - {game.field}
-                        </p>
-                        <p className="flex items-center justify-center text-sm">
-                          <Whistle className="w-4 h-4 mr-2 text-gray-500" />
-                          Árbitros: {getReferees(game)}
-                        </p>
-                        {game.mvp && !isAmistoso && (
-                          <p className="flex items-center justify-center text-sm text-yellow-600">
-                            <Trophy className="w-4 h-4 mr-2" /> MVP: {game.mvp}
-                          </p>
-                        )}
-                      </div>
-                      <div className="pt-2">
-                        <Button
+                  <StaggerItem key={game.id} className="h-full">
+                    <MatchCard
+                      ref={(el) => {
+                        gameCardRefs.current[game.id] = el
+                      }}
+                      game={isAmistoso ? { ...game, mvp: null } : game}
+                      variant="final"
+                      categoryLabel={getCategoryLabel(game.category)}
+                      getTeam={getTeam}
+                      refereesText={getReferees(game)}
+                      badges={
+                        <>
+                          {isAmistoso && amistosoBadge}
+                          {stageBadge(game)}
+                        </>
+                      }
+                      notice={isAmistoso ? amistosoNotice("🤝 Amistoso - No contó para estadísticas") : null}
+                      footer={
+                        <button
                           onClick={() => shareGame(game)}
-                          className="w-full bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white font-semibold"
-                          size="sm"
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-emerald-600 py-2.5 text-sm font-semibold text-white transition-transform hover:scale-[1.02] active:scale-[0.98]"
                         >
-                          <Download className="w-4 h-4 mr-2" />
+                          <Download className="h-4 w-4" />
                           Descargar Resultado
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
+                        </button>
+                      }
+                    />
+                  </StaggerItem>
                 )
-              })
-            ) : (
-              <div className="col-span-full">
-                <Card className="bg-white border-gray-200">
-                  <CardContent className="p-12 text-center">
-                    <Trophy className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">No hay partidos finalizados</h3>
-                    <p className="text-gray-600">
-                      Los resultados de los partidos aparecerán aquí una vez que finalicen.
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-          </div>
+              })}
+            </Stagger>
+          ) : (
+            <EmptyState
+              icon={<Trophy className="h-10 w-10" />}
+              title="No hay partidos finalizados"
+              text="Los resultados de los partidos aparecerán aquí una vez que finalicen."
+            />
+          )}
         </section>
       </div>
 
-      <section className="py-16" style={{ background: "linear-gradient(to right, #0857b5, #e266be, #ff6d06)" }}>
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold text-white mb-4">¿Quieres participar?</h2>
-          <p className="text-white/90 text-lg mb-8">Únete a la Liga Flag Durango y forma parte de la acción</p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button
-              size="lg"
-              className="bg-white text-gray-900 hover:bg-gray-100 font-bold"
+      <section className="relative overflow-hidden bg-brand-gradient-animated py-20">
+        <div className="absolute inset-0 bg-grid-white opacity-40" aria-hidden />
+        <Reveal className="container relative mx-auto px-4 text-center">
+          <h2 className="font-display text-5xl font-extrabold uppercase italic tracking-tight text-white md:text-6xl">
+            ¿Quieres participar?
+          </h2>
+          <p className="mx-auto mt-3 max-w-xl text-lg text-white/90">Únete a la Liga Flag Durango y forma parte de la acción</p>
+          <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
+            <button
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-7 py-3.5 font-bold text-slate-900 shadow-xl transition-transform hover:scale-[1.03]"
               onClick={() => (window.location.href = "/register-team")}
             >
-              <Users className="w-5 h-5 mr-2" />
+              <Users className="h-5 w-5" />
               Registrar Equipo
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="border-white text-white hover:bg-white hover:text-gray-900 bg-transparent"
-              onClick={() => (window.location.href = "/register-coach")}
-            >
+            </button>
+            <button className={ghostButtonClass} onClick={() => (window.location.href = "/register-coach")}>
               Registrar Coach
-            </Button>
+            </button>
           </div>
-        </div>
+        </Reveal>
       </section>
     </div>
   )
 }
 
+function EmptyState({ icon, title, text }: { icon: ReactNode; title: string; text: string }) {
+  return (
+    <Reveal className="rounded-3xl border-2 border-dashed border-slate-200 bg-white p-12 text-center">
+      <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+        {icon}
+      </div>
+      <h3 className="mb-2 text-xl font-bold text-slate-900">{title}</h3>
+      <p className="text-slate-600">{text}</p>
+    </Reveal>
+  )
+}
+
 export default function GamesPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-white p-8 text-center">Cargando partidos…</div>}>
+    <Suspense fallback={<BrandLoader label="Cargando partidos…" />}>
       <GamesPageContent />
     </Suspense>
   )
