@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import {
   Trash2,
@@ -33,7 +33,19 @@ import {
   Check,
   QrCode,
   FileText,
+  LayoutDashboard,
+  Wand2,
+  Eraser,
+  Wallet,
+  Receipt,
+  Gavel,
+  CalendarDays,
+  BarChart3,
+  Zap,
 } from "lucide-react"
+import { AdminShell, type AdminNavGroup } from "@/components/admin-v2/admin-shell"
+import { AdminOverview } from "@/components/admin-v2/admin-overview"
+import { BrandLoader } from "@/components/ui-v2/brand"
 import AttendanceSection from "@/components/attendance-section"
 import PlayerStatsAdmin from "@/components/player-stats-admin"
 import QRScanner from "@/components/qr-scanner"
@@ -275,7 +287,7 @@ export default function AdminPage() {
   const [requestsSeasonFilter, setRequestsSeasonFilter] = useState<string>("all")
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
-  const [activeTab, setActiveTab] = useState("teams")
+  const [activeTab, setActiveTab] = useState("overview")
   const [wildbrowlEnabled, setWildbrowlEnabled] = useState<boolean>(false)
   const [gamesCategoryFilter, setGamesCategoryFilter] = useState<string>("")
   const [gamesDraftFilter, setGamesDraftFilter] = useState<"all" | "draft" | "published">("all")
@@ -1482,240 +1494,103 @@ const [gameForm, setGameForm] = useState({
     }
   }
 
+  const pendingRequestsCount = joinRequests.filter(
+    (req) => req.status === "pending" || req.status === "pending_coordinator",
+  ).length
+  const pendingCoachesCount = coachPermissions.filter((perm) => !perm.approved_by_admin).length
+
+  const navGroups: AdminNavGroup[] = [
+    {
+      label: "Principal",
+      items: [
+        { id: "overview", label: "Resumen", icon: LayoutDashboard, description: "Todo lo que pasa en la liga, en un solo lugar." },
+        { id: "requests", label: "Solicitudes", icon: UserPlus, badge: pendingRequestsCount, description: "Jugadores que quieren unirse a un equipo." },
+      ],
+    },
+    {
+      label: "Liga",
+      items: [
+        { id: "teams", label: "Equipos", icon: Users, description: "Crea, edita y administra los equipos de cada temporada." },
+        { id: "players", label: "Jugadores", icon: User, description: "Rosters, verificación y cuentas de jugadores." },
+        { id: "games", label: "Partidos", icon: Trophy, description: "Programa partidos, captura marcadores y publica jornadas." },
+        { id: "schedule-generator", label: "Generador de rol", icon: Wand2, description: "Genera el rol de juegos de la temporada." },
+        { id: "calendar", label: "Calendario", icon: CalendarDays, description: "Vista de calendario de partidos." },
+        { id: "stats", label: "Estadísticas", icon: BarChart3, description: "Estadísticas individuales por partido." },
+        { id: "mvps", label: "MVPs", icon: Star, description: "MVPs semanales y de partido." },
+        { id: "quick-manager", label: "Gestión rápida", icon: Zap, description: "Atajos para equipos, jugadores y partidos." },
+        { id: "qr", label: "Códigos QR", icon: QrCode, description: "Escáner de asistencia y hojas QR para imprimir." },
+      ],
+    },
+    {
+      label: "Arbitraje y dinero",
+      items: [
+        { id: "arbitraje", label: "Arbitraje diario", icon: Receipt, description: "Pagos de arbitraje por día de juego." },
+        { id: "asignacion-arbitros", label: "Árbitros", icon: Gavel, description: "Portal de asignación de árbitros." },
+        { id: "finanzas", label: "Finanzas", icon: Wallet, description: "Ingresos, egresos y balance de la liga." },
+        { id: "payments", label: "Pagos generales", icon: DollarSign, description: "Registro de pagos de equipos y árbitros." },
+        { id: "debts", label: "Deudas", icon: FileText, description: "Adeudos de equipos: arbitraje, fianzas y multas." },
+      ],
+    },
+    {
+      label: "Personas",
+      items: [
+        { id: "coaches", label: "Entrenadores", icon: UserCheck, badge: pendingCoachesCount, description: "Aprobación de permisos de entrenadores." },
+        { id: "usuarios", label: "Usuarios", icon: Key, description: "Cuentas de acceso a la plataforma." },
+      ],
+    },
+    {
+      label: "Sistema",
+      items: [
+        { id: "wildbrowl", label: "WildBrowl", icon: Target, description: "Torneo 1v1." },
+        { id: "config", label: "Configuración", icon: Settings, description: "Ajustes generales de la liga." },
+        { id: "team-cleaner", label: "Limpiar tablas", icon: Eraser, description: "Herramienta de limpieza de equipos y partidos." },
+      ],
+    },
+  ]
+  const activeNavItem = navGroups.flatMap((group) => group.items).find((item) => item.id === activeTab)
+
   if (loading || !user) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-100 via-white to-gray-50 flex items-center justify-center">
-        <div className="text-gray-900 text-xl">Cargando dashboard...</div>
-      </div>
-    )
+    return <BrandLoader label="Cargando dashboard…" />
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-100 via-white to-gray-50">
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-4xl font-bold text-gray-900">Dashboard Admin</h1>
-            <p className="text-gray-600">Bienvenido, {user.username}</p>
-          </div>
-          <div className="flex gap-4">
-            <Button onClick={loadData} className="bg-blue-600 hover:bg-blue-700 text-white">
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Recargar
-            </Button>
-            <Button onClick={updateStats} disabled={updating} className="bg-green-600 hover:bg-green-700 text-white">
-              <RefreshCw className={`w-4 h-4 mr-2 ${updating ? "animate-spin" : ""}`} />
-              {updating ? "Actualizando..." : "Actualizar Estadísticas"}
-            </Button>
-            <Button
-              onClick={() => (window.location.href = "/")}
-              variant="outline"
-              className="text-gray-900 border-gray-300 hover:bg-gray-100"
-            >
-              Ver Sitio
-            </Button>
-            <Button onClick={logout} variant="destructive" className="bg-red-600 hover:bg-red-700 text-white">
-              Cerrar Sesión
-            </Button>
-          </div>
-        </div>
-
-        <Card className="mb-6 border-orange-200 bg-orange-50">
-          <CardHeader>
-            <CardTitle className="text-orange-800 flex items-center">
-              <RefreshCw className="w-5 h-5 mr-2" />
-              Fusionar Categorías Varoniles
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-orange-700 mb-2">
-                  Fusiona las categorías Varonil Gold y Varonil Silver en una sola categoría "Varonil Libre"
-                </p>
-                <p className="text-sm text-orange-600">
-                  ⚠️ Esta acción no se puede deshacer. Afectará equipos, juegos y estadísticas.
-                </p>
-              </div>
-              <Button
-                onClick={async () => {
-                  if (!confirm("¿Estás seguro de fusionar las categorías varoniles? Esta acción no se puede deshacer."))
-                    return
-
-                  try {
-                    const response = await fetch("/api/admin/merge-varonil", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                    })
-
-                    const data = await response.json()
-
-                    if (data.success) {
-                      alert(
-                        `Fusión exitosa: ${data.data.equipos_actualizados} equipos y ${data.data.juegos_actualizados} juegos actualizados`,
-                      )
-                      loadData()
-                    } else {
-                      alert("Error: " + data.message)
-                    }
-                  } catch (error) {
-                    alert("Error de conexión")
-                  }
-                }}
-                className="bg-orange-600 hover:bg-orange-700 text-white"
-              >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Fusionar Categorías
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Tabs defaultValue="teams" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-12 bg-white border border-gray-200 h-auto flex-wrap">
-            <TabsTrigger
-              value="teams"
-              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
-            >
-              <Users className="w-4 h-4 mr-2" />
-              Equipos
-            </TabsTrigger>
-            <TabsTrigger
-              value="players"
-              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
-            >
-              <User className="w-4 h-4 mr-2" />
-              Jugadores
-            </TabsTrigger>
-            {/* Pestaña agregada de Solicitudes */}
-            <TabsTrigger
-              value="requests"
-              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
-            >
-              <UserPlus className="w-4 h-4 mr-2" />
-              Solicitudes
-            </TabsTrigger>
-            <TabsTrigger
-              value="games"
-              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
-            >
-              <Trophy className="w-4 h-4 mr-2" />
-              Partidos
-            </TabsTrigger>
-            <TabsTrigger
-              value="schedule-generator"
-              className="data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-900 text-gray-700 py-2"
-            >
-              <Calendar className="w-4 h-4 mr-2" />
-              Generador
-            </TabsTrigger>
-            <TabsTrigger
-              value="team-cleaner"
-              className="data-[state=active]:bg-red-50 data-[state=active]:text-red-900 text-gray-700 py-2"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Limpiar tablas
-            </TabsTrigger>
-            <TabsTrigger
-              value="arbitraje"
-              className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-900 text-gray-700 py-2 border-b-2 border-transparent data-[state=active]:border-blue-600"
-            >
-              <DollarSign className="w-4 h-4 mr-2" />
-              Arbitraje Diario
-            </TabsTrigger>
-            <TabsTrigger
-              value="asignacion-arbitros"
-              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
-            >
-              <Shield className="w-4 h-4 mr-2" />
-              Árbitros
-            </TabsTrigger>
-            <TabsTrigger
-              value="finanzas"
-              className="data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-900 text-gray-700 py-2"
-            >
-              <DollarSign className="w-4 h-4 mr-2" />
-              Finanzas
-            </TabsTrigger>
-            <TabsTrigger
-              value="payments"
-              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
-            >
-              <DollarSign className="w-4 h-4 mr-2" />
-              Pagos Grales.
-            </TabsTrigger>
-            <TabsTrigger
-              value="debts"
-              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
-            >
-              <DollarSign className="w-4 h-4 mr-2" />
-              Deudas
-            </TabsTrigger>
-            <TabsTrigger
-              value="stats"
-              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
-            >
-              <Target className="w-4 h-4 mr-2" />
-              Estadisticas
-            </TabsTrigger>
-            <TabsTrigger
-              value="calendar"
-              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
-            >
-              <Calendar className="w-4 h-4 mr-2" />
-              Calendario
-            </TabsTrigger>
-            <TabsTrigger
-              value="coaches"
-              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
-            >
-              <UserCheck className="w-4 h-4 mr-2" />
-              Entrenadores
-            </TabsTrigger>
-            <TabsTrigger
-              value="wildbrowl"
-              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
-            >
-              <Target className="w-4 h-4 mr-2" />
-              WildBrowl
-            </TabsTrigger>
-            <TabsTrigger
-              value="config"
-              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
-            >
-              <Settings className="w-4 h-4 mr-2" />
-              Configuración
-            </TabsTrigger>
-            <TabsTrigger
-              value="usuarios"
-              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
-            >
-              <Key className="w-4 h-4 mr-2" />
-              Usuarios
-            </TabsTrigger>
-            <TabsTrigger
-              value="mvps"
-              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
-            >
-              <Star className="w-4 h-4 mr-2" />
-              MVPs
-            </TabsTrigger>
-            <TabsTrigger
-              value="qr"
-              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
-            >
-              <QrCode className="w-4 h-4 mr-2" />
-              QR
-            </TabsTrigger>
-            {/* NUEVO TAB: Gestión Rápida */}
-            <TabsTrigger
-              value="quick-manager"
-              className="data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 text-gray-700 py-2"
-            >
-              <Target className="w-4 h-4 mr-2" />
-              Gestión Rápida
-            </TabsTrigger>
-          </TabsList>
+    <>
+    <AdminShell
+      groups={navGroups}
+      active={activeTab}
+      onSelect={setActiveTab}
+      user={{ username: user.username, email: user.email }}
+      onReload={loadData}
+      onLogout={logout}
+      notifications={{ count: pendingRequestsCount, target: "requests" }}
+      title={activeTab === "overview" ? `Hola, ${user.username}` : activeNavItem?.label}
+      description={activeNavItem?.description}
+      headerActions={
+        <Button
+          onClick={updateStats}
+          disabled={updating}
+          className="rounded-full bg-brand-ink px-5 text-white hover:bg-brand-ink/90"
+        >
+          <RefreshCw className={`w-4 h-4 mr-2 ${updating ? "animate-spin" : ""}`} />
+          {updating ? "Actualizando..." : "Actualizar Estadísticas"}
+        </Button>
+      }
+    >
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsContent value="overview" className="mt-0">
+            <AdminOverview
+              username={user.username}
+              teams={teams}
+              players={players}
+              games={games}
+              payments={payments}
+              joinRequests={joinRequests}
+              coachPermissions={coachPermissions}
+              activeSeasonId={activeSeasonId}
+              activeSeasonName={seasons.find((s) => s.is_active)?.name}
+              onNavigate={setActiveTab}
+            />
+          </TabsContent>
 
           {/* Solicitudes - Nueva Pestaña */}
           <TabsContent value="requests">
@@ -3716,6 +3591,58 @@ const [gameForm, setGameForm] = useState({
           </TabsContent>
 
           <TabsContent value="config">
+            <div className="grid gap-6">
+            <Card className="border-orange-200 bg-orange-50">
+              <CardHeader>
+                <CardTitle className="text-orange-800 flex items-center">
+                  <RefreshCw className="w-5 h-5 mr-2" />
+                  Fusionar Categorías Varoniles
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-orange-700 mb-2">
+                      Fusiona las categorías Varonil Gold y Varonil Silver en una sola categoría "Varonil Libre"
+                    </p>
+                    <p className="text-sm text-orange-600">
+                      ⚠️ Esta acción no se puede deshacer. Afectará equipos, juegos y estadísticas.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={async () => {
+                      if (!confirm("¿Estás seguro de fusionar las categorías varoniles? Esta acción no se puede deshacer."))
+                        return
+
+                      try {
+                        const response = await fetch("/api/admin/merge-varonil", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                        })
+
+                        const data = await response.json()
+
+                        if (data.success) {
+                          alert(
+                            `Fusión exitosa: ${data.data.equipos_actualizados} equipos y ${data.data.juegos_actualizados} juegos actualizados`,
+                          )
+                          loadData()
+                        } else {
+                          alert("Error: " + data.message)
+                        }
+                      } catch (error) {
+                        alert("Error de conexión")
+                      }
+                    }}
+                    className="bg-orange-600 hover:bg-orange-700 text-white"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Fusionar Categorías
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
             <Card className="bg-white border border-gray-200">
               <CardHeader>
                 <CardTitle className="text-gray-900">Configuraciones de la Liga</CardTitle>
@@ -3872,6 +3799,7 @@ const [gameForm, setGameForm] = useState({
                 </div>
               </CardContent>
             </Card>
+            </div>
           </TabsContent>
           <TabsContent value="mvps">
             <Card className="bg-white border border-gray-200">
@@ -3915,7 +3843,7 @@ const [gameForm, setGameForm] = useState({
             </div>
           </TabsContent>
         </Tabs>
-      </div>
+    </AdminShell>
 
       {/* Modal para crear cuenta de jugador - Admin escribe email y password */}
       {showAccountForm && (
@@ -4092,6 +4020,6 @@ const [gameForm, setGameForm] = useState({
           </Card>
         </div>
       )}
-    </div>
+    </>
   )
 }
