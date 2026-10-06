@@ -32,6 +32,9 @@ type AdminShellProps = {
   headerActions?: ReactNode
   title?: ReactNode
   description?: ReactNode
+  panelLabel?: string
+  roleLabel?: string
+  homeId?: string
   children: ReactNode
 }
 
@@ -144,6 +147,9 @@ export function AdminShell({
   headerActions,
   title,
   description,
+  panelLabel = "Admin",
+  roleLabel = "Administrador",
+  homeId = "overview",
   children,
 }: AdminShellProps) {
   const reduce = useReducedMotion()
@@ -203,12 +209,12 @@ export function AdminShell({
     <div className="min-h-screen bg-[#eef0f4] p-2 sm:p-3">
       <div className="flex gap-3">
         <aside className="ui-v2 sticky top-3 hidden h-[calc(100vh-1.5rem)] w-64 shrink-0 flex-col rounded-3xl bg-white px-4 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] lg:flex">
-          <button type="button" onClick={() => select("overview")} className="mb-6 flex items-center gap-3 px-2 text-left">
+          <button type="button" onClick={() => select(homeId)} className="mb-6 flex items-center gap-3 px-2 text-left">
             <Image src="/images/logo-flag-durango.png" alt="Liga Flag Durango" width={120} height={48} className="h-10 w-auto" priority />
             <span className="border-l border-slate-200 pl-3 text-[10px] font-semibold uppercase leading-tight tracking-wider text-slate-400">
               Panel
               <br />
-              Admin
+              {panelLabel}
             </span>
           </button>
           <div className="-mx-4 flex-1 overflow-y-auto px-4 [scrollbar-width:thin]">
@@ -323,7 +329,7 @@ export function AdminShell({
                 </span>
                 <div className="hidden leading-tight md:block">
                   <p className="text-sm font-semibold text-slate-900">{user.username}</p>
-                  <p className="text-xs text-slate-500">{user.email || "Administrador"}</p>
+                  <p className="text-xs text-slate-500">{user.email || roleLabel}</p>
                 </div>
               </div>
               <button

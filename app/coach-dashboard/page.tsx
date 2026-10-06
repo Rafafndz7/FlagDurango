@@ -12,6 +12,11 @@ import { Badge } from "@/components/ui/badge"
 import { Trophy, Users, Calendar, Plus, Edit, Trash2, DollarSign, Clock, Target, Star, UserPlus, Key, Copy, Check, Upload, Loader2, Medal, UserCheck, UserX, Inbox } from "lucide-react"
 import CoachChampionships from "@/components/coach-championships"
 import type { Season } from "@/lib/seasons"
+import { LayoutDashboard, CalendarDays, PlusCircle } from "lucide-react"
+import { AdminShell, type AdminNavGroup } from "@/components/admin-v2/admin-shell"
+import { CoachOverview } from "@/components/coach-v2/coach-overview"
+import { MatchCard } from "@/components/ui-v2/match-card"
+import { BrandLoader } from "@/components/ui-v2/brand"
 
 interface CoachDashboardUser {
   id: number
@@ -1021,189 +1026,97 @@ export default function CoachDashboard() {
     return players.filter((p) => myTeamIds.includes(p.team_id))
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-pink-900">
-        <div className="flex items-center justify-center h-96">
-          <div className="text-white text-xl">Cargando dashboard...</div>
-        </div>
-      </div>
-    )
+  const [hasLoaded, setHasLoaded] = useState(false)
+  useEffect(() => {
+    if (!loading && user) setHasLoaded(true)
+  }, [loading, user])
+
+  const findTeamByName = (name: string) => allTeams.find((t) => t.name === name) || teams.find((t) => t.name === name)
+
+  const coachNavGroups: AdminNavGroup[] = [
+    {
+      label: "Principal",
+      items: [
+        { id: "overview", label: "Resumen", icon: LayoutDashboard },
+        ...(teams.length > 0
+          ? [{ id: "requests", label: "Solicitudes", icon: Inbox, badge: pendingJoinRequests.length }]
+          : []),
+      ],
+    },
+    {
+      label: "Mi equipo",
+      items: [
+        { id: "teams", label: "Mis equipos", icon: Trophy },
+        { id: "players", label: "Jugadores", icon: Users },
+        { id: "games", label: "Partidos", icon: CalendarDays },
+        { id: "championships", label: "Campeonatos", icon: Medal },
+      ],
+    },
+    {
+      label: "Acciones",
+      items: [{ id: "create", label: "Crear equipo", icon: PlusCircle }],
+    },
+  ]
+
+  const coachSections: Record<string, { title: string; description: string }> = {
+    teams: { title: "Mis equipos", description: "Logo, foto del coach, pago de inscripción y equipos por asignar." },
+    players: { title: "Jugadores", description: "Tu roster de la temporada: cuentas, edición y bajas." },
+    games: { title: "Partidos", description: "Calendario y resultados de tus equipos." },
+    create: { title: "Crear equipo", description: "Registra un nuevo equipo para la temporada." },
+    "add-player": { title: "Agregar jugador", description: "Suma un jugador a tu roster." },
+    "edit-player": { title: "Editar jugador", description: "Actualiza los datos del jugador." },
+    requests: { title: "Solicitudes", description: "Jugadores que quieren unirse a tu equipo." },
+    championships: { title: "Campeonatos", description: "Títulos y campeonatos de tus equipos." },
+  }
+
+  if (loading && !hasLoaded) {
+    return <BrandLoader label="Cargando dashboard…" />
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-pink-900">
-        <div className="flex items-center justify-center h-96">
-          <div className="text-white text-xl">Acceso no autorizado</div>
-        </div>
+      <div className="ui-v2 flex min-h-[70vh] items-center justify-center bg-white">
+        <p className="font-display text-2xl font-bold uppercase italic text-slate-500">Acceso no autorizado</p>
       </div>
     )
   }
 
+  const coachDisplayName = user.name || (user as { username?: string }).username || user.email
+  const coachSection =
+    activeTab === "overview"
+      ? {
+          title: `Hola, ${(user.name || (user as { username?: string }).username || "Coach").split(" ")[0]}`,
+          description: activeSeason
+            ? `Tu equipo, tus partidos y tus jugadores · Temporada ${activeSeason.name}`
+            : "Tu equipo, tus partidos y tus jugadores en un solo lugar.",
+        }
+      : coachSections[activeTab]
+  const coachNavActive = activeTab === "add-player" || activeTab === "edit-player" ? "players" : activeTab
+
   return (
-    <div className="min-h-screen bg-white">
-      {/* Hero Section - Responsive */}
-      <section className="relative py-12 md:py-20 overflow-hidden bg-gradient-to-r from-blue-500 via-purple-600 to-orange-500">
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="text-center max-w-4xl mx-auto">
-            <div className="inline-block bg-green-400/95 backdrop-blur-sm text-gray-900 px-4 md:px-6 py-2 rounded-full font-bold mb-4 md:mb-6 text-sm md:text-base">
-              {"🏈 Dashboard Coach - Liga Flag Durango"}
-            </div>
-            <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-4 md:mb-6">
-              Dashboard
-              <span className="block bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
-                Coach
-              </span>
-            </h1>
-            <p className="text-lg md:text-xl lg:text-2xl text-white/90 mb-6 md:mb-8 leading-relaxed px-4">
-              Bienvenido, <span className="text-yellow-300 font-semibold">{user.name || user.email}</span>
-              <span className="block mt-2">Gestiona tu equipo y jugadores desde aquí.</span>
-            </p>
-
-            {/* Botones de navegación - Responsive */}
-            <div className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center px-4">
-              <Button
-                size="lg"
-                className="bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-black font-bold text-sm md:text-base"
-                onClick={() => (window.location.href = "/coach-dashboard")}
-              >
-                <Trophy className="w-4 h-4 md:w-5 md:h-5 mr-2" />
-                Mi Dashboard
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="border-white text-white hover:bg-white hover:text-gray-900 bg-transparent text-sm md:text-base"
-                onClick={() => (window.location.href = "/")}
-              >
-                Ir al Inicio
-              </Button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Gradient separator */}
-      <div className="h-2 bg-gradient-to-r from-blue-500 via-purple-600 to-orange-500" />
-
-      {/* Main Content - Responsive Grid */}
-      <div className="container mx-auto px-4 py-6 md:py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
-          {/* Sidebar - Responsive */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl p-4 md:p-6 border border-gray-200 shadow-sm">
-              <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-4 md:mb-6">Panel de Control</h2>
-
-              {/* Navigation - Stack on mobile */}
-              <div className="space-y-2 md:space-y-3">
-                <button
-                  onClick={() => setActiveTab("overview")}
-                  className={`w-full text-left px-3 md:px-4 py-2 md:py-3 rounded-lg transition-all text-sm md:text-base ${
-                    activeTab === "overview"
-                      ? "bg-blue-600 text-white font-semibold"
-                      : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                  }`}
-                >
-                  📊 Resumen General
-                </button>
-                <button
-                  onClick={() => setActiveTab("teams")}
-                  className={`w-full text-left px-3 md:px-4 py-2 md:py-3 rounded-lg transition-all text-sm md:text-base ${
-                    activeTab === "teams"
-                      ? "bg-blue-600 text-white font-semibold"
-                      : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                  }`}
-                >
-                  🏈 Mis Equipos ({teams.length})
-                </button>
-                <button
-                  onClick={() => setActiveTab("players")}
-                  className={`w-full text-left px-3 md:px-4 py-2 md:py-3 rounded-lg transition-all text-sm md:text-base ${
-                    activeTab === "players"
-                      ? "bg-blue-600 text-white font-semibold"
-                      : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                  }`}
-                >
-                  👥 Jugadores ({getMyPlayers().length})
-                </button>
-                <button
-                  onClick={() => setActiveTab("games")}
-                  className={`w-full text-left px-3 md:px-4 py-2 md:py-3 rounded-lg transition-all text-sm md:text-base ${
-                    activeTab === "games"
-                      ? "bg-blue-600 text-white font-semibold"
-                      : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                  }`}
-                >
-                  🎯 Partidos ({getMyGames().length})
-                </button>
-                <button
-                  onClick={() => setActiveTab("create")}
-                  className={`w-full text-left px-3 md:px-4 py-2 md:py-3 rounded-lg transition-all text-sm md:text-base ${
-                    activeTab === "create"
-                      ? "bg-blue-600 text-white font-semibold"
-                      : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                  }`}
-                >
-                  ➕ Crear Equipo
-                </button>
-                <button
-                  onClick={() => setActiveTab("championships")}
-                  className={`w-full text-left px-3 md:px-4 py-2 md:py-3 rounded-lg transition-all text-sm md:text-base ${
-                    activeTab === "championships"
-                      ? "bg-blue-600 text-white font-semibold"
-                      : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                  }`}
-                >
-                  🏆 Campeonatos
-                </button>
-                {teams.length > 0 && (
-                  <button
-                    onClick={() => setActiveTab("requests")}
-                    className={`w-full text-left px-3 md:px-4 py-2 md:py-3 rounded-lg transition-all text-sm md:text-base flex items-center justify-between ${
-                      activeTab === "requests"
-                        ? "bg-blue-600 text-white font-semibold"
-                        : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                    }`}
-                  >
-                    <span className="flex items-center gap-2">
-                      <Inbox className="w-4 h-4" />
-                      Solicitudes
-                    </span>
-                    {pendingJoinRequests.length > 0 && (
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                        activeTab === "requests"
-                          ? "bg-white text-blue-600"
-                          : "bg-red-500 text-white"
-                      }`}>
-                        {pendingJoinRequests.length}
-                      </span>
-                    )}
-                  </button>
-                )}
-              </div>
-
-              {/* User Info - Responsive */}
-              <div className="mt-6 md:mt-8 pt-4 md:pt-6 border-t border-gray-200">
-                <div className="text-gray-600 text-xs md:text-sm">
-                  <p className="break-all">👤 {user.email}</p>
-                  <p>🎖️ Coach</p>
-                </div>
-                <Button
-                  onClick={logout}
-                  variant="outline"
-                  size="sm"
-                  className="mt-3 md:mt-4 w-full border-gray-300 text-gray-700 hover:bg-gray-100 hover:text-gray-900 text-xs md:text-sm bg-transparent"
-                >
-                  Cerrar Sesión
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Main Content Area - Responsive */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-xl p-4 md:p-6 border border-gray-200 shadow-sm min-h-[400px] md:min-h-[600px]">
+    <>
+      <AdminShell
+        groups={coachNavGroups}
+        active={coachNavActive}
+        onSelect={setActiveTab}
+        user={{ username: coachDisplayName, email: coachDisplayName !== user.email ? user.email : undefined }}
+        onReload={loadDataOld}
+        onLogout={logout}
+        notifications={teams.length > 0 ? { count: pendingJoinRequests.length, target: "requests" } : undefined}
+        title={coachSection?.title}
+        description={coachSection?.description}
+        panelLabel="Coach"
+        roleLabel="Coach"
+        headerActions={
+          loading ? (
+            <span className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-slate-600 ring-1 ring-slate-200">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Actualizando…
+            </span>
+          ) : undefined
+        }
+      >
+            <div>
               {/* Mensajes de estado */}
               {error && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>
@@ -1251,125 +1164,31 @@ export default function CoachDashboard() {
 
               {/* Overview Tab */}
               {activeTab === "overview" && (
-                <div className="space-y-6">
-                  <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">Resumen General</h2>
-
-                  {/* Stats Cards - Responsive Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <Card className="bg-white border-gray-200">
-                      <CardContent className="p-4 text-center">
-                        <Trophy className="w-8 h-8 text-yellow-500 mx-auto mb-2" />
-                        <h3 className="text-2xl font-bold text-gray-900">{managedTeams.length}</h3>
-                        <p className="text-gray-600 text-sm">Equipos</p>
-                      </CardContent>
-                    </Card>
-
-                    <Card className="bg-white border-gray-200">
-                      <CardContent className="p-4 text-center">
-                        <Users className="w-8 h-8 text-blue-500 mx-auto mb-2" />
-                        <h3 className="text-2xl font-bold text-gray-900">{getMyPlayers().length}</h3>
-                        <p className="text-gray-600 text-sm">Jugadores</p>
-                      </CardContent>
-                    </Card>
-
-                    <Card className="bg-white border-gray-200">
-                      <CardContent className="p-4 text-center">
-                        <Calendar className="w-8 h-8 text-green-500 mx-auto mb-2" />
-                        <h3 className="text-2xl font-bold text-gray-900">{getMyGames().length}</h3>
-                        <p className="text-gray-600 text-sm">Partidos</p>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* Pending Join Requests Alert */}
-                  {pendingJoinRequests.length > 0 && (
-                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-amber-100 rounded-full">
-                          <Inbox className="w-5 h-5 text-amber-600" />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-amber-900">
-                            {pendingJoinRequests.length} solicitud{pendingJoinRequests.length !== 1 ? "es" : ""} pendiente{pendingJoinRequests.length !== 1 ? "s" : ""}
-                          </p>
-                          <p className="text-amber-700 text-sm">Jugadores quieren unirse a tu equipo</p>
-                        </div>
-                      </div>
-                      <Button
-                        onClick={() => setActiveTab("requests")}
-                        size="sm"
-                        className="bg-amber-600 hover:bg-amber-700 text-white"
-                      >
-                        Ver Solicitudes
-                      </Button>
-                    </div>
-                  )}
-
-                  {/* Quick Actions - Responsive */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Card className="bg-white border-gray-200">
-                      <CardHeader>
-                        <CardTitle className="text-gray-900 text-lg">Próximos Partidos</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        {getUpcomingGames().length > 0 ? (
-                          <div className="space-y-2">
-                            {getUpcomingGames()
-                              .slice(0, 3)
-                              .map((game) => (
-                                <div key={game.id} className="text-sm text-gray-700 p-2 bg-gray-50 rounded">
-                                  <div className="font-medium">
-                                    {game.home_team} vs {game.away_team}
-                                  </div>
-                                  <div className="text-gray-600">
-                                    {game.game_date} - {game.game_time}
-                                  </div>
-                                </div>
-                              ))}
-                          </div>
-                        ) : (
-                          <p className="text-gray-500 text-sm">No hay partidos programados</p>
-                        )}
-                      </CardContent>
-                    </Card>
-
-                    <Card className="bg-white border-gray-200">
-                      <CardHeader>
-                        <CardTitle className="text-gray-900 text-lg">Resultados Recientes</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        {getRecentResults().length > 0 ? (
-                          <div className="space-y-2">
-                            {getRecentResults()
-                              .slice(0, 3)
-                              .map((game) => (
-                                <div key={game.id} className="text-sm text-gray-700 p-2 bg-gray-50 rounded">
-                                  <div className="font-medium">
-                                    {game.home_team} vs {game.away_team}
-                                  </div>
-                                  <div className="text-gray-600">
-                                    {game.home_score} - {game.away_score}
-                                  </div>
-                                </div>
-                              ))}
-                          </div>
-                        ) : (
-                          <p className="text-gray-500 text-sm">No hay resultados recientes</p>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </div>
-                </div>
+                <CoachOverview
+                  teams={managedTeams}
+                  playersCount={getMyPlayers().length}
+                  gamesCount={getMyGames().length}
+                  pendingRequests={pendingJoinRequests.length}
+                  showRequests={teams.length > 0}
+                  upcoming={getUpcomingGames()}
+                  recent={getRecentResults()}
+                  getTeam={findTeamByName}
+                  getCategoryLabel={getCategoryLabel}
+                  onNavigate={setActiveTab}
+                  onAddPlayer={() => {
+                    setActiveTab("add-player")
+                    setPlayerForm({ name: "", jersey_number: "", position: "QB", photo_url: "", team_id: "" })
+                  }}
+                />
               )}
 
               {/* Teams Tab */}
               {activeTab === "teams" && (
                 <div className="space-y-6">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <h2 className="text-2xl md:text-3xl font-bold text-gray-900">Mis Equipos</h2>
+                  <div className="flex justify-end">
                     <Button
                       onClick={() => setActiveTab("create")}
-                      className="bg-green-600 hover:bg-green-700 text-white"
+                      className="rounded-full bg-brand-ink hover:bg-brand-ink/90 text-white"
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       Crear Equipo
@@ -1390,7 +1209,7 @@ export default function CoachDashboard() {
                             ? `Reinscribe tu equipo para ${activeSeason?.name || "la temporada activa"} usando el banner de arriba`
                             : "Crea tu primer equipo para comenzar"}
                         </p>
-                        <Button onClick={() => setActiveTab("create")} className="bg-blue-600 hover:bg-blue-700">
+                        <Button onClick={() => setActiveTab("create")} className="rounded-full bg-brand-ink hover:bg-brand-ink/90 text-white">
                           <Plus className="w-4 h-4 mr-2" />
                           Crear Equipo
                         </Button>
@@ -1652,15 +1471,14 @@ export default function CoachDashboard() {
               {/* Players Tab */}
               {activeTab === "players" && (
                 <div className="space-y-6">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <h2 className="text-2xl md:text-3xl font-bold text-gray-900">Mis Jugadores</h2>
+                  <div className="flex justify-end">
                     {managedTeams.length > 0 && (
                       <Button
                         onClick={() => {
                           setActiveTab("add-player")
                           setPlayerForm({ name: "", jersey_number: "", position: "QB", photo_url: "", team_id: "" }) // Reset form when switching to add player
                         }}
-                        className="bg-green-600 hover:bg-green-700 text-white"
+                        className="rounded-full bg-brand-ink hover:bg-brand-ink/90 text-white"
                       >
                         <Plus className="w-4 h-4 mr-2" />
                         Agregar Jugador
@@ -1679,7 +1497,7 @@ export default function CoachDashboard() {
                             : "Agrega jugadores a tu equipo"}
                         </p>
                         {managedTeams.length > 0 && (
-                          <Button onClick={() => setActiveTab("add-player")} className="bg-blue-600 hover:bg-blue-700">
+                          <Button onClick={() => setActiveTab("add-player")} className="rounded-full bg-brand-ink hover:bg-brand-ink/90 text-white">
                             <Plus className="w-4 h-4 mr-2" />
                             Agregar Jugador
                           </Button>
@@ -1698,7 +1516,7 @@ export default function CoachDashboard() {
                                   <img
                                     src={player.photo_url || "/placeholder.svg"}
                                     alt={player.name}
-                                    className="w-48 h-48 rounded-full object-cover border-4 border-gray-300 shadow-lg"
+                                    className="w-32 h-32 rounded-full object-cover ring-4 ring-white shadow-lg"
                                     crossOrigin="anonymous"
                                     referrerPolicy="no-referrer"
                                     onError={(e) => {
@@ -1706,8 +1524,8 @@ export default function CoachDashboard() {
                                     }}
                                   />
                                 ) : (
-                                  <div className="w-48 h-48 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center border-4 border-gray-300 shadow-lg">
-                                    <span className="text-5xl font-bold text-white">{player.name.charAt(0)}</span>
+                                  <div className="w-32 h-32 rounded-full bg-brand-gradient flex items-center justify-center ring-4 ring-white shadow-lg">
+                                    <span className="text-4xl font-bold text-white">{player.name.charAt(0)}</span>
                                   </div>
                                 )}
                               </div>
@@ -1826,8 +1644,6 @@ export default function CoachDashboard() {
               {/* Games Tab */}
               {activeTab === "games" && (
                 <div className="space-y-6">
-                  <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">Mis Partidos</h2>
-
                   {getMyGames().length === 0 ? (
                     <Card className="bg-white border-gray-200">
                       <CardContent className="p-8 text-center">
@@ -1837,53 +1653,15 @@ export default function CoachDashboard() {
                       </CardContent>
                     </Card>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="ui-v2 grid gap-5 md:grid-cols-2">
                       {getMyGames().map((game) => (
-                        <Card key={game.id} className="bg-white border-gray-200">
-                          <CardContent className="p-4">
-                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                              <div>
-                                <h4 className="font-semibold text-gray-900 text-lg">
-                                  {game.home_team} vs {game.away_team}
-                                </h4>
-                                <p className="text-gray-600 text-sm">
-                                  {getCategoryLabel(game.category)} • {game.game_date} • {game.game_time}
-                                </p>
-                                <p className="text-gray-600 text-sm">
-                                  {game.venue} - {game.field}
-                                </p>
-                              </div>
-                              <div className="flex flex-col items-end gap-2">
-                                <Badge
-                                  className={
-                                    game.status === "finalizado"
-                                      ? "bg-gray-600"
-                                      : game.status === "en_vivo"
-                                        ? "bg-red-600"
-                                        : "bg-blue-600"
-                                  }
-                                >
-                                  {game.status === "finalizado"
-                                    ? "Finalizado"
-                                    : game.status === "en_vivo"
-                                      ? "En Vivo"
-                                      : "Programado"}
-                                </Badge>
-                                {game.status === "finalizado" && (
-                                  <div className="text-gray-900 font-bold">
-                                    {game.home_score} - {game.away_score}
-                                  </div>
-                                )}
-                                {game.mvp && (
-                                  <div className="flex items-center text-yellow-500 text-sm">
-                                    <Star className="w-3 h-3 mr-1" />
-                                    MVP: {game.mvp}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
+                        <MatchCard
+                          key={game.id}
+                          game={game}
+                          variant={game.status === "finalizado" ? "final" : game.status === "en_vivo" ? "live" : "upcoming"}
+                          categoryLabel={getCategoryLabel(game.category)}
+                          getTeam={findTeamByName}
+                        />
                       ))}
                     </div>
                   )}
@@ -1893,8 +1671,6 @@ export default function CoachDashboard() {
               {/* Create Team Tab */}
               {activeTab === "create" && (
                 <div className="space-y-6">
-                  <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">Crear Nuevo Equipo</h2>
-
                   <Card className="bg-white border-gray-200">
                     <CardContent className="p-6">
                       <form onSubmit={createTeam} className="space-y-4">
@@ -2115,7 +1891,7 @@ export default function CoachDashboard() {
                         </div>
 
                         <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                          <Button type="submit" className="flex-1 bg-green-600 hover:bg-green-700">
+                          <Button type="submit" className="flex-1 bg-brand-gradient text-white shadow-brand hover:opacity-95">
                             <Plus className="w-4 h-4 mr-2" />
                             Crear Equipo
                           </Button>
@@ -2137,8 +1913,6 @@ export default function CoachDashboard() {
               {/* Add Player Tab */}
               {activeTab === "add-player" && (
                 <div className="space-y-6">
-                  <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">Agregar Jugador</h2>
-
                   <Card className="bg-white border-gray-200">
                     <CardContent className="p-6">
                       <form onSubmit={createPlayer} className="space-y-4">
@@ -2218,7 +1992,7 @@ export default function CoachDashboard() {
                         </div>
 
                         <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                          <Button type="submit" className="flex-1 bg-green-600 hover:bg-green-700">
+                          <Button type="submit" className="flex-1 bg-brand-gradient text-white shadow-brand hover:opacity-95">
                             <Plus className="w-4 h-4 mr-2" />
                             Agregar Jugador
                           </Button>
@@ -2240,8 +2014,6 @@ export default function CoachDashboard() {
               {/* Edit Player Tab */}
               {activeTab === "edit-player" && editingPlayer && (
                 <div className="space-y-6">
-                  <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">Editar Jugador</h2>
-
                   <Card className="bg-white border-gray-200">
                     <CardContent className="p-6">
                       <form onSubmit={createPlayer} className="space-y-4">
@@ -2322,7 +2094,7 @@ export default function CoachDashboard() {
                         </div>
 
                         <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                          <Button type="submit" className="flex-1 bg-green-600 hover:bg-green-700">
+                          <Button type="submit" className="flex-1 bg-brand-gradient text-white shadow-brand hover:opacity-95">
                             <Edit className="w-4 h-4 mr-2" />
                             Guardar Cambios
                           </Button>
@@ -2348,11 +2120,7 @@ export default function CoachDashboard() {
               {/* Requests Tab */}
               {activeTab === "requests" && (
                 <div className="space-y-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <h2 className="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
-                      <Inbox className="w-6 h-6" />
-                      Solicitudes de Ingreso
-                    </h2>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3">
                     <div className="flex items-center gap-3">
                       <select
                         value={requestsSeasonFilter}
@@ -2547,9 +2315,23 @@ export default function CoachDashboard() {
                 <CoachChampionships teams={teams} coachId={user.id} />
               )}
             </div>
+
+        <div className="ui-v2 mt-6 flex flex-col items-start justify-between gap-4 rounded-3xl bg-white p-5 ring-1 ring-slate-200/60 sm:flex-row sm:items-center">
+          <div>
+            <p className="font-semibold text-slate-900">¿Necesitas ayuda?</p>
+            <p className="text-sm text-slate-500">Contacta al administrador si tienes dudas sobre tu equipo o jugadores</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button className="rounded-full bg-brand-ink text-white hover:bg-brand-ink/90" onClick={() => (window.location.href = "/")}>
+              <Trophy className="w-4 h-4 mr-2" />
+              Ir al Inicio
+            </Button>
+            <Button variant="outline" className="rounded-full" onClick={() => (window.location.href = "/partidos")}>
+              Ver Partidos
+            </Button>
           </div>
         </div>
-      </div>
+      </AdminShell>
 
       {/* Modal para crear cuenta - Coach escribe email y password */}
       {showAccountForm && (
@@ -2726,34 +2508,6 @@ export default function CoachDashboard() {
           </Card>
         </div>
       )}
-
-      {/* Footer CTA - Responsive */}
-      <section className="py-12 md:py-16 bg-gradient-to-r from-blue-500 via-purple-600 to-orange-500">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">¿Necesitas ayuda?</h2>
-          <p className="text-white/90 text-base md:text-lg mb-6 md:mb-8 px-4">
-            Contacta al administrador si tienes dudas sobre tu equipo o jugadores
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center px-4">
-            <Button
-              size="lg"
-              className="bg-white text-gray-900 hover:bg-gray-100 font-bold text-sm md:text-base"
-              onClick={() => (window.location.href = "/")}
-            >
-              <Trophy className="w-4 h-4 md:w-5 md:h-5 mr-2" />
-              Ir al Inicio
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="border-white text-white hover:bg-white hover:text-gray-900 bg-transparent text-sm md:text-base"
-              onClick={() => (window.location.href = "/partidos")}
-            >
-              Ver Partidos
-            </Button>
-          </div>
-        </div>
-      </section>
-    </div>
+    </>
   )
 }
