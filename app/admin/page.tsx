@@ -1149,10 +1149,14 @@ const [gameForm, setGameForm] = useState({
     setTeams((current) => current.map((t) => (ids.includes(Number(t.id)) ? { ...t, paid } : t)))
     const results = await Promise.all(
       ids.map((id) =>
-        fetch("/api/teams", {
+        fetch(paid ? "/api/team-finance" : "/api/teams", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id, paid }),
+          body: JSON.stringify(
+            paid
+              ? { team_id: id, mark_paid: true, payment_method: "ajuste", held_by: "Admin", note: "Marcado como pagado desde Equipos" }
+              : { id, paid },
+          ),
         })
           .then((res) => res.json())
           .then((data) => Boolean(data.success))
@@ -1738,6 +1742,9 @@ const [gameForm, setGameForm] = useState({
               activeSeasonId={activeSeasonId}
               editingTeamId={editingTeamId}
               onSetPaid={setTeamsPaid}
+              onLocalPaid={(ids, paid) =>
+                setTeams((current) => current.map((t) => (ids.includes(Number(t.id)) ? { ...t, paid } : t)))
+              }
               onDelete={(id) => deleteTeam(id)}
               onEdit={(team) => {
                 setEditingTeamId(team.id)

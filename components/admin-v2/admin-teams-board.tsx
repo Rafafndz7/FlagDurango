@@ -2,10 +2,18 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
-import { Check, CheckCircle2, Clock, Edit, Loader2, Search, Trash2, Users, X } from "lucide-react"
+import { Check, CheckCircle2, CircleDollarSign, Clock, Edit, Loader2, MessageCircle, Search, Trash2, Users, Wallet, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { TeamAvatar } from "@/components/ui-v2/team-avatar"
 import { EASE_OUT } from "@/components/ui-v2/motion"
+import {
+  TeamPaymentsDialog,
+  WhatsAppReportDialog,
+  money,
+  resolvePayInfo,
+  useTeamFinance,
+  type PayStatus,
+} from "@/components/admin-v2/team-payments"
 
 export type BoardTeam = {
   id?: any
@@ -36,11 +44,12 @@ type Props = {
   onEdit: (team: BoardTeam) => void
   onDelete: (id: number) => void
   onSetPaid: (ids: number[], paid: boolean) => Promise<void>
+  onLocalPaid: (ids: number[], paid: boolean) => void
   actions?: ReactNode
   panel?: ReactNode
 }
 
-type PayFilter = "all" | "paid" | "unpaid"
+type PayFilter = "all" | PayStatus
 
 const categoryLabel = (c?: string) =>
   String(c || "Sin categoría")
@@ -57,6 +66,7 @@ export function AdminTeamsBoard({
   onEdit,
   onDelete,
   onSetPaid,
+  onLocalPaid,
   actions,
   panel,
 }: Props) {
@@ -67,6 +77,13 @@ export function AdminTeamsBoard({
   const [search, setSearch] = useState("")
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [pending, setPending] = useState<Set<number>>(new Set())
+  const [dialogTeamId, setDialogTeamId] = useState<number | null>(null)
+  const [dialogNotice, setDialogNotice] = useState<string | null>(null)
+  const [reportOpen, setReportOpen] = useState(false)
+
+  const seasonIds = useMemo(() => seasons.map((s) => s.id), [seasons])
+  const { finance, error: financeError, reload: reloadFinance } = useTeamFinance(seasonIds)
+  const payOf = (team: BoardTeam) => resolvePayInfo(team, finance.get(Number(team.id)))
 
   const resolvedSeasonId = seasonFilter === "active" ? activeSeasonId : seasonFilter === "all" ? "" : seasonFilter
 
@@ -84,20 +101,43 @@ export function AdminTeamsBoard({
     const q = search.trim().toLowerCase()
     return seasonTeams.filter((t) => {
       if (categoryFilter && t.category !== categoryFilter) return false
-      if (payFilter === "paid" && !t.paid) return false
-      if (payFilter === "unpaid" && t.paid) return false
+      if (payFilter !== "all" && resolvePayInfo(t, finance.get(Number(t.id))).status !== payFilter) return false
       if (q && !`${t.name} ${t.coach_name || ""} ${t.captain_name || ""}`.toLowerCase().includes(q)) return false
       return true
     })
-  }, [seasonTeams, categoryFilter, payFilter, search])
+  }, [seasonTeams, categoryFilter, payFilter, search, finance])
 
   useEffect(() => {
     setSelected(new Set())
   }, [seasonFilter, categoryFilter, payFilter, search])
 
-  const paidCount = seasonTeams.filter((t) => t.paid).length
-  const unpaidCount = seasonTeams.length - paidCount
-  const paidPct = seasonTeams.length ? Math.round((paidCount / seasonTeams.length) * 100) : 0
+  const seasonPays = seasonTeams.map((t) => payOf(t))
+  const paidCount = seasonPays.filter((p) => p.status === "paid").length
+  const partialCount = seasonPays.filter((p) => p.status === "partial").length
+  const unpaidCount = seasonPays.filter((p) => p.status === "unpaid").length
+  const collected = seasonPays.reduce((sum, p) => sum + (p.status === "paid" ? p.fee : p.paidTotal), 0)
+  const owed = seasonPays.reduce((sum, p) => sum + p.remaining, 0)
+  const paidPct = collected + owed > 0 ? Math.round((collected / (collected + owed)) * 100) : 0
+
+  const reportRows = seasonTeams
+    .filter((t) => !categoryFilter || t.category === categoryFilter)
+    .map((team) => ({ team, pay: payOf(team) }))
+    .filter((row) => row.pay.status !== "paid")
+  const reportSeasonName = resolvedSeasonId ? seasons.find((s) => s.id === resolvedSeasonId)?.name : undefined
+
+  const dialogTeam = dialogTeamId != null ? teams.find((t) => Number(t.id) === dialogTeamId) || null : null
+  const openPayments = (team: BoardTeam, notice?: string) => {
+    setDialogNotice(notice || null)
+    setDialogTeamId(Number(team.id))
+  }
+
+  const handleFinanceChanged = async (teamId: number, paid: boolean | null) => {
+    const next = await reloadFinance()
+    const info = next.get(teamId)
+    const finalPaid = paid ?? (info?.finance_id ? info.status === "paid" : null)
+    if (finalPaid !== null) onLocalPaid([teamId], finalPaid)
+    setDialogNotice(null)
+  }
 
   const visibleIds = visibleTeams.map((t) => Number(t.id))
   const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id))
@@ -112,11 +152,25 @@ export function AdminTeamsBoard({
 
   const toggleAll = () => setSelected(allSelected ? new Set() : new Set(visibleIds))
 
-  const runPaid = async (ids: number[], paid: boolean) => {
+  const runPaid = async (requested: number[], paid: boolean) => {
+    let ids = requested
+    if (!paid) {
+      const withInstallments = ids.filter((id) => (finance.get(id)?.paid_total ?? 0) > 0)
+      if (withInstallments.length) {
+        ids = ids.filter((id) => !withInstallments.includes(id))
+        if (requested.length === 1) {
+          const team = teams.find((t) => Number(t.id) === requested[0])
+          if (team) openPayments(team, "Este equipo tiene abonos registrados. Para dejarlo pendiente, elimina los abonos del historial.")
+          return
+        }
+        alert(`${withInstallments.length} equipo(s) tienen abonos registrados y no se cambiaron. Elimina sus abonos desde el botón de abonos.`)
+      }
+    }
     if (!ids.length) return
     setPending((cur) => new Set([...Array.from(cur), ...ids]))
     try {
       await onSetPaid(ids, paid)
+      await reloadFinance()
     } finally {
       setPending((cur) => {
         const next = new Set(cur)
@@ -171,10 +225,20 @@ export function AdminTeamsBoard({
               })}
             </div>
           </div>
-          {actions && <div className="flex shrink-0 flex-wrap gap-2">{actions}</div>}
+          <div className="flex shrink-0 flex-wrap gap-2">
+            {actions}
+            <button
+              type="button"
+              onClick={() => setReportOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-[#25D366] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-95"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Reporte de pendientes
+            </button>
+          </div>
         </div>
 
-        <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
+        <div className="mt-5 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
           <StatTile label="Equipos" value={seasonTeams.length} icon={<Users className="h-4 w-4" />} tone="ink" />
           <StatTile
             label="Pagados"
@@ -183,6 +247,14 @@ export function AdminTeamsBoard({
             tone="green"
             active={payFilter === "paid"}
             onClick={() => setPayFilter(payFilter === "paid" ? "all" : "paid")}
+          />
+          <StatTile
+            label="Abonados"
+            value={partialCount}
+            icon={<Wallet className="h-4 w-4" />}
+            tone="blue"
+            active={payFilter === "partial"}
+            onClick={() => setPayFilter(payFilter === "partial" ? "all" : "partial")}
           />
           <StatTile
             label="Pendientes"
@@ -195,8 +267,13 @@ export function AdminTeamsBoard({
         </div>
 
         <div className="mt-4">
-          <div className="mb-1.5 flex items-center justify-between text-xs">
-            <span className="font-medium text-slate-500">Inscripciones pagadas</span>
+          <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <span className="inline-flex items-center gap-1.5 font-medium text-slate-500">
+              <CircleDollarSign className="h-3.5 w-3.5" />
+              Cobrado <strong className="text-slate-900">{money(collected)}</strong>
+              <span className="text-slate-300">·</span>
+              Por cobrar <strong className="text-amber-600">{money(owed)}</strong>
+            </span>
             <span className="font-bold text-slate-900">{paidPct}%</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-slate-100">
@@ -236,6 +313,7 @@ export function AdminTeamsBoard({
               [
                 ["all", "Todos"],
                 ["paid", "Pagados"],
+                ["partial", "Abonados"],
                 ["unpaid", "Pendientes"],
               ] as const
             ).map(([value, label]) => (
@@ -254,6 +332,10 @@ export function AdminTeamsBoard({
           </div>
         </div>
       </div>
+
+      {financeError && (
+        <p className="rounded-2xl bg-amber-50 px-4 py-2.5 text-xs font-medium text-amber-800">{financeError}</p>
+      )}
 
       {panel}
 
@@ -322,6 +404,7 @@ export function AdminTeamsBoard({
             const isEditing = editingTeamId === id
             const isPending = pending.has(id)
             const isSelected = selected.has(id)
+            const pay = payOf(team)
 
             if (isEditing) {
               return (
@@ -402,28 +485,68 @@ export function AdminTeamsBoard({
                   </div>
                 )}
 
+                {pay.status !== "paid" && (
+                  <button
+                    type="button"
+                    onClick={() => openPayments(team)}
+                    className="mt-3 block w-full rounded-2xl px-3 py-2 text-left ring-1 ring-slate-200/70 transition hover:bg-slate-50"
+                  >
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-slate-500">
+                        {pay.paidTotal > 0 ? (
+                          <>
+                            Abonado <strong className="text-slate-800">{money(pay.paidTotal)}</strong> de {money(pay.fee)}
+                          </>
+                        ) : (
+                          <>Cuota {money(pay.fee)}</>
+                        )}
+                      </span>
+                      <span className="font-bold text-amber-600">Faltan {money(pay.remaining)}</span>
+                    </div>
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full bg-brand-gradient transition-all"
+                        style={{ width: `${pay.fee > 0 ? Math.min(100, (pay.paidTotal / pay.fee) * 100) : 0}%` }}
+                      />
+                    </div>
+                  </button>
+                )}
+
                 <div className="mt-auto flex items-center gap-2 pt-4">
                   <button
                     type="button"
                     disabled={isPending}
-                    onClick={() => runPaid([id], !team.paid)}
+                    onClick={() => runPaid([id], pay.status !== "paid")}
                     className={cn(
-                      "inline-flex flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition",
-                      team.paid
+                      "inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold transition",
+                      pay.status === "paid"
                         ? "bg-emerald-500 text-white hover:bg-emerald-600"
-                        : "bg-amber-50 text-amber-700 ring-1 ring-amber-200 hover:bg-amber-100",
+                        : pay.status === "partial"
+                          ? "bg-brand-blue/10 text-brand-blue ring-1 ring-brand-blue/20 hover:bg-brand-blue/15"
+                          : "bg-amber-50 text-amber-700 ring-1 ring-amber-200 hover:bg-amber-100",
                       isPending && "cursor-wait opacity-70",
                     )}
-                    title={team.paid ? "Marcar como pendiente" : "Marcar como pagado"}
+                    title={pay.status === "paid" ? "Marcar como pendiente" : "Marcar como pagado completo"}
                   >
                     {isPending ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : team.paid ? (
-                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+                    ) : pay.status === "paid" ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
                     ) : (
-                      <Clock className="h-3.5 w-3.5" />
+                      <Clock className="h-3.5 w-3.5 shrink-0" />
                     )}
-                    {team.paid ? "Pagado" : "Pendiente · marcar pagado"}
+                    <span className="truncate">
+                      {pay.status === "paid" ? "Pagado" : pay.status === "partial" ? "Abonado · marcar pagado" : "Pendiente · marcar pagado"}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openPayments(team)}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-brand-blue ring-1 ring-brand-blue/20 transition hover:bg-brand-blue hover:text-white hover:ring-brand-blue"
+                    aria-label={`Abonos de ${team.name}`}
+                    title="Abonos / pagos parciales"
+                  >
+                    <Wallet className="h-4 w-4" />
                   </button>
                   <button
                     type="button"
@@ -447,6 +570,24 @@ export function AdminTeamsBoard({
           })}
         </div>
       )}
+
+      <TeamPaymentsDialog
+        team={dialogTeam}
+        pay={dialogTeam ? payOf(dialogTeam) : null}
+        seasonName={dialogTeam?.seasons?.name}
+        notice={dialogNotice}
+        onClose={() => {
+          setDialogTeamId(null)
+          setDialogNotice(null)
+        }}
+        onChanged={handleFinanceChanged}
+      />
+      <WhatsAppReportDialog
+        open={reportOpen}
+        rows={reportRows}
+        seasonName={reportSeasonName}
+        onClose={() => setReportOpen(false)}
+      />
     </div>
   )
 }
@@ -462,13 +603,14 @@ function StatTile({
   label: string
   value: number
   icon: ReactNode
-  tone: "ink" | "green" | "amber"
+  tone: "ink" | "green" | "blue" | "amber"
   active?: boolean
   onClick?: () => void
 }) {
   const tones = {
     ink: "bg-brand-ink text-white",
     green: "bg-emerald-50 text-emerald-700",
+    blue: "bg-brand-blue/10 text-brand-blue",
     amber: "bg-amber-50 text-amber-700",
   }
   const Comp = onClick ? "button" : "div"
