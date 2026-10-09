@@ -42,10 +42,15 @@ import {
   CalendarDays,
   BarChart3,
   Zap,
+  X,
 } from "lucide-react"
 import { AdminShell, type AdminNavGroup } from "@/components/admin-v2/admin-shell"
 import { AdminOverview } from "@/components/admin-v2/admin-overview"
+import { AdminTeamsBoard } from "@/components/admin-v2/admin-teams-board"
+import { AdminGameRow, Field, FormSection, fieldClass } from "@/components/admin-v2/admin-games"
+import { MatchCard } from "@/components/ui-v2/match-card"
 import { BrandLoader } from "@/components/ui-v2/brand"
+import { AnimatePresence, motion } from "framer-motion"
 import AttendanceSection from "@/components/attendance-section"
 import PlayerStatsAdmin from "@/components/player-stats-admin"
 import QRScanner from "@/components/qr-scanner"
@@ -293,6 +298,7 @@ export default function AdminPage() {
   const [gamesDraftFilter, setGamesDraftFilter] = useState<"all" | "draft" | "published">("all")
   const [systemConfig, setSystemConfig] = useState<{ [key: string]: string }>({})
   const [editingTeamId, setEditingTeamId] = useState<number | null>(null)
+  const [teamsPanel, setTeamsPanel] = useState<"none" | "team" | "player">("none")
   const [editTeamData, setEditTeamData] = useState<any>({})
   const [coachAccounts, setCoachAccounts] = useState<{ id: number; username: string; email: string; role: string }[]>([])
   const [creatingAccount, setCreatingAccount] = useState<number | null>(null)
@@ -1138,6 +1144,33 @@ const [gameForm, setGameForm] = useState({
     }
   }
 
+  const setTeamsPaid = async (ids: number[], paid: boolean) => {
+    const previous = new Map(teams.filter((t) => ids.includes(Number(t.id))).map((t) => [Number(t.id), Boolean(t.paid)]))
+    setTeams((current) => current.map((t) => (ids.includes(Number(t.id)) ? { ...t, paid } : t)))
+    const results = await Promise.all(
+      ids.map((id) =>
+        fetch("/api/teams", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, paid }),
+        })
+          .then((res) => res.json())
+          .then((data) => Boolean(data.success))
+          .catch(() => false),
+      ),
+    )
+    const failed = ids.filter((_, i) => !results[i])
+    if (failed.length) {
+      setTeams((current) =>
+        current.map((t) => (failed.includes(Number(t.id)) ? { ...t, paid: previous.get(Number(t.id)) } : t)),
+      )
+      alert(`No se pudo actualizar el pago de ${failed.length} equipo(s)`)
+    }
+  }
+
+  const findTeamForGame = (name: string, seasonId?: string) =>
+    teams.find((t) => t.name === name && (!seasonId || t.season_id === seasonId)) || teams.find((t) => t.name === name)
+
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       programado: { color: "bg-blue-500", text: "Programado" },
@@ -1699,163 +1732,222 @@ const [gameForm, setGameForm] = useState({
 
           {/* Equipos */}
           <TabsContent value="teams">
-            <div className="grid gap-6">
-              {/* Crear equipo */}
-              <Card className="bg-white border border-gray-200">
-                <CardHeader>
-                  <CardTitle className="text-gray-900 flex items-center">
-                    <Plus className="w-5 h-5 mr-2" />
-                    Crear Nuevo Equipo
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-gray-700">Nombre del Equipo (sin sufijo)</Label>
-                      <Input
-                        value={teamForm.name}
-                        onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })}
-                        className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500"
-                        placeholder="Ej: Wildcats (se agregará VL automáticamente)"
-                      />
-                      <p className="text-gray-500 text-xs mt-1">
-                        Se agregará automáticamente el sufijo según la categoría (VL, FG, FS, etc.)
-                      </p>
-                    </div>
-                    <div>
-                      <Label className="text-gray-700">Categoría</Label>
-                      <select
-                        value={teamForm.category}
-                        onChange={(e) => setTeamForm({ ...teamForm, category: e.target.value })}
-                        className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900"
-                      >
-                        <option value="varonil-libre">Varonil Libre (VL)</option>
-                        <option value="varonil-master">Varonil Master (VM)</option>
-                        <option value="varonil-gold">Varonil Gold (VG)</option>
-                        <option value="varonil-silver">Varonil Silver (VS)</option>
-                        <option value="varonil-cooper">Varonil Cooper (VC)</option> {/* NUEVA */}
-                        <option value="femenil-gold">Femenil Gold (FG)</option>
-                        <option value="femenil-silver">Femenil Silver (FS)</option>
-                        <option value="femenil-cooper-a">Femenil Cooper A (FCA)</option>
-                        <option value="femenil-cooper-b">Femenil Cooper B (FCB)</option>
-                        <option value="mixto-gold">Mixto Gold (MG)</option>
-                        <option value="mixto-silver">Mixto Silver (MS)</option>
-                        <option value="mixto-cooper">Mixto Cooper (MC)</option> {/* NUEVA */}
-                        <option value="mixto-recreativo">Mixto Recreativo (MR)</option>
-                        <option value="teens">Teens (T)</option>
-                      </select>
-                    </div>
-                      <div>
-                        <Label className="text-gray-700">Temporada *</Label>
-                        <select required value={teamForm.season_id} onChange={(e) => setTeamForm({ ...teamForm, season_id: e.target.value })} className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900">
-                          <option value="">Selecciona una temporada</option>
-                          {seasons.map((season) => <option key={season.id} value={season.id}>{season.name}{season.is_active ? " (activa)" : ""}</option>)}
-                        </select>
+            <AdminTeamsBoard
+              teams={teams}
+              seasons={seasons}
+              activeSeasonId={activeSeasonId}
+              editingTeamId={editingTeamId}
+              onSetPaid={setTeamsPaid}
+              onDelete={(id) => deleteTeam(id)}
+              onEdit={(team) => {
+                setEditingTeamId(team.id)
+                setEditTeamData({
+                  name: team.name,
+                  category: team.category,
+                  coach_name: team.coach_name || "",
+                  coach_phone: team.coach_phone || "",
+                  coach_id: team.coach_id || null,
+                  captain_name: team.captain_name || "",
+                  captain_phone: team.captain_phone || "",
+                  logo_url: team.logo_url || "",
+                  season_id: team.season_id || "",
+                  paid: Boolean(team.paid),
+                })
+              }}
+              actions={
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setTeamsPanel(teamsPanel === "team" ? "none" : "team")}
+                    className={teamsPanel === "team" ? "inline-flex items-center gap-1.5 rounded-full bg-brand-ink px-4 py-2 text-sm font-semibold text-white" : "inline-flex items-center gap-1.5 rounded-full bg-brand-gradient px-4 py-2 text-sm font-semibold text-white shadow-brand transition hover:opacity-95"}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Nuevo equipo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTeamsPanel(teamsPanel === "player" ? "none" : "player")}
+                    className={teamsPanel === "player" ? "inline-flex items-center gap-1.5 rounded-full bg-brand-ink px-4 py-2 text-sm font-semibold text-white" : "inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50"}
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    Jugador rápido
+                  </button>
+                </>
+              }
+              panel={
+                <AnimatePresence initial={false} mode="wait">
+                  {teamsPanel !== "none" && (
+                    <motion.div
+                      key={teamsPanel}
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                      className="rounded-3xl bg-white p-5 shadow-lg ring-2 ring-brand-blue/20"
+                    >
+                      <div className="mb-4 flex items-center justify-between">
+                        <h3 className="flex items-center gap-2 font-semibold text-slate-900">
+                          {teamsPanel === "team" ? <Plus className="h-4 w-4 text-brand-pink" /> : <UserPlus className="h-4 w-4 text-brand-pink" />}
+                          {teamsPanel === "team" ? "Crear nuevo equipo" : "Agregar jugador rápido"}
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={() => setTeamsPanel("none")}
+                          className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                          aria-label="Cerrar"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
                       </div>
-                      <label className="flex items-center gap-3 rounded-lg border border-gray-300 p-3">
-                        <input type="checkbox" checked={teamForm.paid} onChange={(e) => setTeamForm({ ...teamForm, paid: e.target.checked })} />
-                        <span className="text-gray-700">Inscripción pagada</span>
-                      </label>
-	                    <div>
-	                      <Label className="text-gray-700">Color 1</Label>
-                      <Input
-                        type="color"
-                        value={teamForm.color1}
-                        onChange={(e) => setTeamForm({ ...teamForm, color1: e.target.value })}
-                        className="bg-white border-gray-300"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-gray-700">Color 2</Label>
-                      <Input
-                        type="color"
-                        value={teamForm.color2}
-                        onChange={(e) => setTeamForm({ ...teamForm, color2: e.target.value })}
-                        className="bg-white border-gray-300"
-                      />
-                    </div>
-                  </div>
-                  <Button onClick={createTeam} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
-                    Crear Equipo
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Agregar Jugador Rápido */}
-              <Card className="bg-white border border-gray-200">
-                <CardHeader>
-                  <CardTitle className="text-gray-900 flex items-center">
-                    <Plus className="w-5 h-5 mr-2" />
-                    Agregar Jugador Rápido
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-gray-700">Nombre</Label>
-                      <Input
-                        value={quickPlayer.name}
-                        onChange={(e) => setQuickPlayer({ ...quickPlayer, name: e.target.value })}
-                        className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500"
-                        placeholder="Nombre del jugador"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-gray-700">Número</Label>
-                      <Input
-                        type="number"
-                        value={quickPlayer.jersey_number}
-                        onChange={(e) => setQuickPlayer({ ...quickPlayer, jersey_number: e.target.value })}
-                        className="bg-white border-gray-300 text-gray-900"
-                        placeholder="0"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-gray-700">Posición</Label>
-                      <select
-                        value={quickPlayer.position}
-                        onChange={(e) => setQuickPlayer({ ...quickPlayer, position: e.target.value })}
-                        className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900"
-                      >
-                        <option value="">Seleccionar posición</option>
-                        <option value="QB">Quarterback (QB)</option>
-                        <option value="RB">Running Back (RB)</option>
-                        <option value="WR">Wide Receiver (WR)</option>
-                        <option value="TE">Tight End (TE)</option>
-                        <option value="RU">Rush (RU)</option>
-                        <option value="LB">Linebacker (LB)</option>
-                        <option value="DB">Defensive Back (DB)</option>
-                        <option value="CB">Corner Back (CB)</option>
-                      </select>
-                    </div>
-                    <div>
-                      <Label className="text-gray-700">Equipo</Label>
-                      <select
-                        value={quickPlayer.team_id}
-                        onChange={(e) => setQuickPlayer({ ...quickPlayer, team_id: e.target.value })}
-                        className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900"
-                      >
-                        <option value="">Seleccionar equipo</option>
-                        {teamsForActiveSeason.map((team) => (
-                          <option key={team.id} value={team.id}>
-                            {team.name} ({team.category})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <Button onClick={createQuickPlayer} className="w-full bg-purple-600 hover:bg-purple-700 text-white">
-                    Agregar Jugador
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Lista de equipos con edicion */}
-              <div className="grid gap-4">
-                {teams.map((team) => (
-                  <Card key={team.id} className="bg-white border border-gray-200">
-                    <CardContent className="p-4">
-                      {editingTeamId === team.id ? (
+                      {teamsPanel === "team" ? (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <Field label="Nombre del equipo (sin sufijo)">
+                              <input
+                                value={teamForm.name}
+                                onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })}
+                                className={fieldClass}
+                                placeholder="Ej: Wildcats (se agregará VL automáticamente)"
+                              />
+                              <span className="mt-1 block text-[11px] text-slate-400">
+                                Se agregará automáticamente el sufijo según la categoría (VL, FG, FS, etc.)
+                              </span>
+                            </Field>
+                            <Field label="Categoría">
+                              <select
+                                value={teamForm.category}
+                                onChange={(e) => setTeamForm({ ...teamForm, category: e.target.value })}
+                                className={fieldClass}
+                              >
+                                <option value="varonil-libre">Varonil Libre (VL)</option>
+                                <option value="varonil-master">Varonil Master (VM)</option>
+                                <option value="varonil-gold">Varonil Gold (VG)</option>
+                                <option value="varonil-silver">Varonil Silver (VS)</option>
+                                <option value="varonil-cooper">Varonil Cooper (VC)</option>
+                                <option value="femenil-gold">Femenil Gold (FG)</option>
+                                <option value="femenil-silver">Femenil Silver (FS)</option>
+                                <option value="femenil-cooper-a">Femenil Cooper A (FCA)</option>
+                                <option value="femenil-cooper-b">Femenil Cooper B (FCB)</option>
+                                <option value="mixto-gold">Mixto Gold (MG)</option>
+                                <option value="mixto-silver">Mixto Silver (MS)</option>
+                                <option value="mixto-cooper">Mixto Cooper (MC)</option>
+                                <option value="mixto-recreativo">Mixto Recreativo (MR)</option>
+                                <option value="teens">Teens (T)</option>
+                              </select>
+                            </Field>
+                            <Field label="Temporada *">
+                              <select required value={teamForm.season_id} onChange={(e) => setTeamForm({ ...teamForm, season_id: e.target.value })} className={fieldClass}>
+                                <option value="">Selecciona una temporada</option>
+                                {seasons.map((season) => <option key={season.id} value={season.id}>{season.name}{season.is_active ? " (activa)" : ""}</option>)}
+                              </select>
+                            </Field>
+                            <div className="grid grid-cols-2 gap-3">
+                              <Field label="Color 1">
+                                <input
+                                  type="color"
+                                  value={teamForm.color1}
+                                  onChange={(e) => setTeamForm({ ...teamForm, color1: e.target.value })}
+                                  className="h-10 w-full cursor-pointer rounded-xl border border-slate-200 bg-white p-1"
+                                />
+                              </Field>
+                              <Field label="Color 2">
+                                <input
+                                  type="color"
+                                  value={teamForm.color2}
+                                  onChange={(e) => setTeamForm({ ...teamForm, color2: e.target.value })}
+                                  className="h-10 w-full cursor-pointer rounded-xl border border-slate-200 bg-white p-1"
+                                />
+                              </Field>
+                            </div>
+                          </div>
+                          <label
+                            className={teamForm.paid ? "flex cursor-pointer items-center justify-between rounded-2xl bg-emerald-50 px-4 py-3 ring-1 ring-emerald-200" : "flex cursor-pointer items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200"}
+                          >
+                            <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                              {teamForm.paid ? <CheckCircle className="h-4 w-4 text-emerald-600" /> : <Clock className="h-4 w-4 text-amber-500" />}
+                              Inscripción pagada
+                            </span>
+                            <input
+                              type="checkbox"
+                              checked={teamForm.paid}
+                              onChange={(e) => setTeamForm({ ...teamForm, paid: e.target.checked })}
+                              className="h-5 w-5 accent-[#10b981]"
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={createTeam}
+                            className="w-full rounded-full bg-brand-gradient py-3 text-sm font-bold text-white shadow-brand transition hover:opacity-95"
+                          >
+                            Crear Equipo
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                            <Field label="Nombre">
+                              <input
+                                value={quickPlayer.name}
+                                onChange={(e) => setQuickPlayer({ ...quickPlayer, name: e.target.value })}
+                                className={fieldClass}
+                                placeholder="Nombre del jugador"
+                              />
+                            </Field>
+                            <Field label="Número">
+                              <input
+                                type="number"
+                                value={quickPlayer.jersey_number}
+                                onChange={(e) => setQuickPlayer({ ...quickPlayer, jersey_number: e.target.value })}
+                                className={fieldClass}
+                                placeholder="0"
+                              />
+                            </Field>
+                            <Field label="Posición">
+                              <select
+                                value={quickPlayer.position}
+                                onChange={(e) => setQuickPlayer({ ...quickPlayer, position: e.target.value })}
+                                className={fieldClass}
+                              >
+                                <option value="">Seleccionar posición</option>
+                                <option value="QB">Quarterback (QB)</option>
+                                <option value="RB">Running Back (RB)</option>
+                                <option value="WR">Wide Receiver (WR)</option>
+                                <option value="TE">Tight End (TE)</option>
+                                <option value="RU">Rush (RU)</option>
+                                <option value="LB">Linebacker (LB)</option>
+                                <option value="DB">Defensive Back (DB)</option>
+                                <option value="CB">Corner Back (CB)</option>
+                              </select>
+                            </Field>
+                            <Field label="Equipo">
+                              <select
+                                value={quickPlayer.team_id}
+                                onChange={(e) => setQuickPlayer({ ...quickPlayer, team_id: e.target.value })}
+                                className={fieldClass}
+                              >
+                                <option value="">Seleccionar equipo</option>
+                                {teamsForActiveSeason.map((team) => (
+                                  <option key={team.id} value={team.id}>
+                                    {team.name} ({team.category})
+                                  </option>
+                                ))}
+                              </select>
+                            </Field>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={createQuickPlayer}
+                            className="w-full rounded-full bg-brand-ink py-3 text-sm font-bold text-white transition hover:bg-brand-ink/90"
+                          >
+                            Agregar Jugador
+                          </button>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              }
+              renderEditor={(team) => (
                         <div className="space-y-4">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
@@ -2006,83 +2098,8 @@ const [gameForm, setGameForm] = useState({
                             </Button>
                           </div>
                         </div>
-                      ) : (
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-4">
-                            {team.logo_url ? (
-                              <img src={team.logo_url} alt={team.name} className="w-12 h-12 rounded-full object-cover" />
-                            ) : (
-                              <div
-                                className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold"
-                                style={{
-                                  background: `linear-gradient(to right, ${team.color1}, ${team.color2})`,
-                                }}
-                              >
-                                {team.name.charAt(0)}
-                              </div>
-                            )}
-                            <div>
-                              <h3 className="text-gray-900 font-semibold text-lg">{team.name}</h3>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <Badge className="bg-blue-600 text-white">{team.category}</Badge>
-	                                <Badge className={team.paid ? "bg-green-600 text-white" : "bg-yellow-600 text-white"}>
-                                    {team.paid ? "Pagado" : "No pagado"}
-                                  </Badge>
-                                  {team.seasons?.name && <Badge variant="outline">{team.seasons.name}</Badge>}
-                              </div>
-                              <div className="text-xs text-gray-500 mt-1 space-y-0.5">
-                                {team.coach_name && <div>Coach: {team.coach_name} {team.coach_phone ? `(${team.coach_phone})` : ""}</div>}
-                                {team.captain_name && <div>Capitan: {team.captain_name} {team.captain_phone ? `(${team.captain_phone})` : ""}</div>}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            {team.stats && (
-                              <div className="text-right text-gray-700 mr-4">
-                                <div className="font-bold">{team.stats.points} pts</div>
-                                <div className="text-sm text-gray-500">
-                                  {team.stats.wins}W-{team.stats.losses}L-{team.stats.draws}D
-                                </div>
-                              </div>
-                            )}
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setEditingTeamId(team.id)
-                                setEditTeamData({
-                                  name: team.name,
-                                  category: team.category,
-                                  coach_name: team.coach_name || "",
-                                  coach_phone: team.coach_phone || "",
-                                  coach_id: team.coach_id || null,
-                                  captain_name: team.captain_name || "",
-	                                  captain_phone: team.captain_phone || "",
-	                                  logo_url: team.logo_url || "",
-                                    season_id: team.season_id || "",
-                                    paid: Boolean(team.paid),
-	                                })
-                              }}
-                              className="border-gray-300 text-gray-700 hover:bg-gray-100"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => deleteTeam(team.id)}
-                              className="bg-red-600 hover:bg-red-700 text-white"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
+              )}
+            />
           </TabsContent>
 
           {/* Jugadores - Información Completa */}
@@ -2603,128 +2620,124 @@ const [gameForm, setGameForm] = useState({
           {/* Partidos */}
           <TabsContent value="games">
             <div className="grid gap-6">
-              <Card className="bg-white border border-gray-200">
-                <CardHeader>
-                  <CardTitle className="text-gray-900 flex items-center">
-                    <Plus className="w-5 h-5 mr-2" />
-                    Programar Nuevo Partido
-                  </CardTitle>
-                </CardHeader>
-	                <CardContent className="space-y-4">
-                    <div className="flex justify-end">
-                      <Button asChild variant="outline"><Link href="/admin/temporadas">Administrar temporadas</Link></Button>
+              <div className="ui-v2 grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+                <div className="space-y-5">
+                  <FormSection step={1} title="Competencia" description="Temporada, formato y tipo de partido.">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <Field label="Temporada *">
+                        <select
+                          required
+                          value={gameForm.season_id}
+                          onChange={(e) => setGameForm({ ...gameForm, season_id: e.target.value })}
+                          className={fieldClass}
+                        >
+                          <option value="">Selecciona una temporada</option>
+                          {seasons.map((season) => <option key={season.id} value={season.id}>{season.name}{season.is_active ? " (activa)" : ""}</option>)}
+                        </select>
+                      </Field>
+                      <Field label="Competencia *">
+                        <select
+                          required
+                          value={gameForm.game_type}
+                          onChange={(e) => setGameForm({ ...gameForm, game_type: e.target.value })}
+                          className={fieldClass}
+                        >
+                          <option value="regular">Temporada regular (suma puntos)</option>
+                          <option value="playoff">Playoff (no suma puntos)</option>
+                          <option value="friendly">Amistoso / exhibición (no suma puntos)</option>
+                        </select>
+                      </Field>
+                      <Field label="Formato">
+                        <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
+                          {[
+                            ["flag", "Flag Football"],
+                            ["wildbrowl", "WildBrowl 1v1"],
+                          ].map(([value, label]) => (
+                            <button
+                              key={value}
+                              type="button"
+                              onClick={() => setGameForm({ ...gameForm, sport_type: value })}
+                              className={gameForm.sport_type === value ? "h-8 rounded-lg bg-white text-xs font-semibold text-slate-900 shadow-sm" : "h-8 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800"}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </Field>
+                      <Field label="Categoría">
+                        <select
+                          value={gameForm.category}
+                          onChange={(e) => setGameForm({ ...gameForm, category: e.target.value })}
+                          className={fieldClass}
+                        >
+                          <option value="varonil-libre">Varonil Libre</option>
+                          <option value="varonil-master">Varonil Master</option>
+                          <option value="varonil-gold">Varonil Gold</option>
+                          <option value="varonil-silver">Varonil Silver</option>
+                          <option value="varonil-cooper">Varonil Cooper</option>
+                          <option value="femenil-gold">Femenil Gold</option>
+                          <option value="femenil-silver">Femenil Silver</option>
+                          <option value="femenil-cooper-a">Femenil Cooper A</option>
+                          <option value="femenil-cooper-b">Femenil Cooper B</option>
+                          <option value="mixto-gold">Mixto Gold</option>
+                          <option value="mixto-silver">Mixto Silver</option>
+                          <option value="mixto-cooper">Mixto Cooper</option>
+                          <option value="mixto-recreativo">Mixto Recreativo</option>
+                          <option value="teens">Teens</option>
+                        </select>
+                      </Field>
+                      <Field label="Tipo de partido">
+                        <select
+                          value={gameForm.match_type}
+                          onChange={(e) => setGameForm({ ...gameForm, match_type: e.target.value })}
+                          className={fieldClass}
+                        >
+                          <option value="jornada">Jornada</option>
+                          <option value="comodin">Comodín</option>
+                          <option value="semifinal">Semifinal</option>
+                          <option value="final">Final</option>
+                          <option value="amistoso">Amistoso</option>
+                        </select>
+                      </Field>
+                      <Field label="Fase del torneo (llaves)">
+                        <select
+                          value={gameForm.stage}
+                          onChange={(e) => setGameForm({ ...gameForm, stage: e.target.value })}
+                          className={fieldClass + " font-semibold text-brand-blue"}
+                        >
+                          <option value="regular">Temporada Regular (Suma puntos)</option>
+                          <optgroup label="🏆 LLAVE A (ORO)">
+                            <option value="llave_a_comodin_a">Llave A - Comodín A</option>
+                            <option value="llave_a_comodin_b">Llave A - Comodín B</option>
+                            <option value="llave_a_semifinal_a">Llave A - Semifinal A</option>
+                            <option value="llave_a_semifinal_b">Llave A - Semifinal B</option>
+                            <option value="llave_a_final">Llave A - La Gran Final</option>
+                          </optgroup>
+                          <optgroup label="🥈 LLAVE B (PLATA)">
+                            <option value="llave_b_comodin_a">Llave B - Comodín A</option>
+                            <option value="llave_b_comodin_b">Llave B - Comodín B</option>
+                            <option value="llave_b_semifinal_a">Llave B - Semifinal A</option>
+                            <option value="llave_b_semifinal_b">Llave B - Semifinal B</option>
+                            <option value="llave_b_final">Llave B - La Gran Final</option>
+                          </optgroup>
+                        </select>
+                      </Field>
                     </div>
-	                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-gray-700">Temporada *</Label>
-                      <select
-                        required
-                        value={gameForm.season_id}
-                        onChange={(e) => setGameForm({ ...gameForm, season_id: e.target.value })}
-                        className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900"
-                      >
-                        <option value="">Selecciona una temporada</option>
-                        {seasons.map((season) => <option key={season.id} value={season.id}>{season.name}{season.is_active ? " (activa)" : ""}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <Label className="text-gray-700">Competencia *</Label>
-                      <select
-                        required
-                        value={gameForm.game_type}
-                        onChange={(e) => setGameForm({ ...gameForm, game_type: e.target.value })}
-                        className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900"
-                      >
-                        <option value="regular">Temporada regular (suma puntos)</option>
-                        <option value="playoff">Playoff (no suma puntos)</option>
-                        <option value="friendly">Amistoso / exhibición (no suma puntos)</option>
-                      </select>
-                    </div>
-	                    <div>
-	                      <Label className="text-gray-700">Formato</Label>
-                      <select
-                        value={gameForm.sport_type}
-                        onChange={(e) => setGameForm({ ...gameForm, sport_type: e.target.value })}
-                        className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900"
-                      >
-                        <option value="flag">Flag Football</option>
-                        <option value="wildbrowl">WildBrowl 1v1</option>
-                      </select>
-                    </div>
-                    <div>
-                      <Label className="text-gray-700">Categoría</Label>
-                      <select
-                        value={gameForm.category}
-                        onChange={(e) => setGameForm({ ...gameForm, category: e.target.value })}
-                        className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900"
-                      >
-                        <option value="varonil-libre">Varonil Libre</option>
-                        <option value="varonil-master">Varonil Master</option>
-                        <option value="varonil-gold">Varonil Gold</option>
-                        <option value="varonil-silver">Varonil Silver</option>
-                        <option value="varonil-cooper">Varonil Cooper</option>
-                        <option value="femenil-gold">Femenil Gold</option>
-                        <option value="femenil-silver">Femenil Silver</option>
-                        <option value="femenil-cooper-a">Femenil Cooper A</option>
-                        <option value="femenil-cooper-b">Femenil Cooper B</option>
-                        <option value="mixto-gold">Mixto Gold</option>
-                        <option value="mixto-silver">Mixto Silver</option>
-                        <option value="mixto-cooper">Mixto Cooper</option>
-                        <option value="mixto-recreativo">Mixto Recreativo</option>
-                        <option value="teens">Teens</option>
-                      </select>
-                    </div>
-                    <div>
-                      <Label className="text-gray-700">Tipo de Partido</Label>
-                      <select
-                        value={gameForm.match_type}
-                        onChange={(e) => setGameForm({ ...gameForm, match_type: e.target.value })}
-                        className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900"
-                      >
-                        <option value="jornada">Jornada</option>
-                        <option value="comodin">Comodín</option>
-                        <option value="semifinal">Semifinal</option>
-                        <option value="final">Final</option>
-                        <option value="amistoso">Amistoso</option>
-                      </select>
-                    </div>
-                    
-                    {/* NUEVO CAMPO: FASE DEL TORNEO */}
-                 <div>
-                      <Label className="text-gray-700">Fase del Torneo (Llaves)</Label>
-                      <select
-                        value={gameForm.stage}
-                        onChange={(e) => setGameForm({ ...gameForm, stage: e.target.value })}
-                        className="w-full p-2 rounded bg-white border border-gray-300 text-blue-700 font-semibold"
-                      >
-                        <option value="regular">Temporada Regular (Suma puntos)</option>
-                        
-                        <optgroup label="🏆 LLAVE A (ORO)">
-                          <option value="llave_a_comodin_a">Llave A - Comodín A</option>
-                          <option value="llave_a_comodin_b">Llave A - Comodín B</option>
-                          <option value="llave_a_semifinal_a">Llave A - Semifinal A</option>
-                          <option value="llave_a_semifinal_b">Llave A - Semifinal B</option>
-                          <option value="llave_a_final">Llave A - La Gran Final</option>
-                        </optgroup>
+                  </FormSection>
 
-                        <optgroup label="🥈 LLAVE B (PLATA)">
-                          <option value="llave_b_comodin_a">Llave B - Comodín A</option>
-                          <option value="llave_b_comodin_b">Llave B - Comodín B</option>
-                          <option value="llave_b_semifinal_a">Llave B - Semifinal A</option>
-                          <option value="llave_b_semifinal_b">Llave B - Semifinal B</option>
-                          <option value="llave_b_final">Llave B - La Gran Final</option>
-                        </optgroup>
-                      </select>
-                    </div>
-                    
-                    {gameForm.sport_type === "flag" ? (
-                      <>
-                        <div>
-                          <Label className="text-gray-700">Equipo Local</Label>
+                  <FormSection
+                    step={2}
+                    title={gameForm.sport_type === "flag" ? "Equipos" : "Jugadores"}
+                    description={gameForm.sport_type === "flag" ? "Solo aparecen equipos de la categoría y temporada elegidas." : "Escribe el nombre de cada jugador."}
+                  >
+                    <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+                      {gameForm.sport_type === "flag" ? (
+                        <>
+                        <Field label="Equipo Local">
                           <select
                             value={gameForm.home_team}
                             onChange={(e) => setGameForm({ ...gameForm, home_team: e.target.value })}
-                            className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900"
+                            className={fieldClass}
                             required
                           >
                             <option value="">Seleccionar equipo</option>
@@ -2737,13 +2750,13 @@ const [gameForm, setGameForm] = useState({
                                 </option>
                               ))}
                           </select>
-                        </div>
-                        <div>
-                          <Label className="text-gray-700">Equipo Visitante</Label>
+                        </Field>
+                          <span className="hidden h-10 items-center justify-center font-display text-xl font-extrabold italic text-slate-300 sm:flex">VS</span>
+                        <Field label="Equipo Visitante">
                           <select
                             value={gameForm.away_team}
                             onChange={(e) => setGameForm({ ...gameForm, away_team: e.target.value })}
-                            className="w-full p-2 rounded bg-white border border-gray-300 text-gray-900"
+                            className={fieldClass}
                             required
                           >
                             <option value="">Seleccionar equipo</option>
@@ -2756,229 +2769,293 @@ const [gameForm, setGameForm] = useState({
                                 </option>
                               ))}
                           </select>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div>
-                          <Label className="text-gray-700">Jugador 1</Label>
-                          <Input
+                        </Field>
+                        </>
+                      ) : (
+                        <>
+                        <Field label="Jugador 1">
+                          <input
                             value={gameForm.home_team}
                             onChange={(e) => setGameForm({ ...gameForm, home_team: e.target.value })}
-                            className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500"
+                            className={fieldClass}
                             placeholder="Nombre del jugador 1"
                           />
-                        </div>
-                        <div>
-                          <Label className="text-gray-700">Jugador 2</Label>
-                          <Input
+                        </Field>
+                          <span className="hidden h-10 items-center justify-center font-display text-xl font-extrabold italic text-slate-300 sm:flex">VS</span>
+                        <Field label="Jugador 2">
+                          <input
                             value={gameForm.away_team}
                             onChange={(e) => setGameForm({ ...gameForm, away_team: e.target.value })}
-                            className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500"
+                            className={fieldClass}
                             placeholder="Nombre del jugador 2"
                           />
-                        </div>
-                      </>
-                    )}
-                    <div>
-                      <Label className="text-gray-700">Fecha</Label>
-                      <Input
-                        type="date"
-                        value={gameForm.game_date}
-                        onChange={(e) => setGameForm({ ...gameForm, game_date: e.target.value })}
-                        className="bg-white border-gray-300 text-gray-900"
-                      />
+                        </Field>
+                        </>
+                      )}
                     </div>
-                    <div>
-                      <Label className="text-gray-700">Número de Jornada</Label>
-                      <Input
-                        type="number"
-                        min="1"
-                        value={gameForm.jornada}
-                        onChange={(e) => setGameForm({ ...gameForm, jornada: e.target.value })}
-                        className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500"
-                        placeholder="Ej: 1, 2, 3..."
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-gray-700">Hora</Label>
-                      <Input
-                        type="time"
-                        value={gameForm.game_time}
-                        onChange={(e) => setGameForm({ ...gameForm, game_time: e.target.value })}
-                        className="bg-white border-gray-300 text-gray-900"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-gray-700">Sede</Label>
-                      <Input
-                        value={gameForm.venue}
-                        onChange={(e) => setGameForm({ ...gameForm, venue: e.target.value })}
-                        className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500"
-                        placeholder="Ej: Unidad Deportiva Norte"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-gray-700">Campo</Label>
-                      <Input
-                        value={gameForm.field}
-                        onChange={(e) => setGameForm({ ...gameForm, field: e.target.value })}
-                        className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500"
-                        placeholder="Ej: Campo A, Campo 1, etc."
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-gray-700">Árbitro Principal</Label>
-                      <Input
-                        value={gameForm.referee1}
-                        onChange={(e) => setGameForm({ ...gameForm, referee1: e.target.value })}
-                        className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500"
-                        placeholder="Nombre del árbitro principal"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-gray-700">Árbitro Asistente</Label>
-                      <Input
-                        value={gameForm.referee2}
-                        onChange={(e) => setGameForm({ ...gameForm, referee2: e.target.value })}
-                        className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500"
-                        placeholder="Nombre del árbitro asistente (opcional)"
-                      />
-                    </div>
-                  </div>
-                  <Button onClick={createGame} className="w-full bg-green-600 hover:bg-green-700 text-white">
-                    Programar Partido
-                  </Button>
-                </CardContent>
-              </Card>
+                    {gameForm.sport_type === "flag" &&
+                      teams.filter((t) => t.category === gameForm.category && t.season_id === gameForm.season_id).length === 0 && (
+                        <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+                          No hay equipos de esta categoría en la temporada seleccionada.
+                        </p>
+                      )}
+                  </FormSection>
 
-              <Card className="bg-white border border-gray-200">
-                <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                  <CardTitle className="text-gray-900">
-                    Partidos Programados{" "}
-                    <span className="text-sm font-normal text-amber-600">
-                      ({games.filter((g) => g.is_draft).length} borradores)
-                    </span>
-                  </CardTitle>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm text-gray-700">Visibilidad:</span>
-                    <select
-                      value={gamesDraftFilter}
-                      onChange={(e) => setGamesDraftFilter(e.target.value as any)}
-                      className="p-2 rounded bg-white border border-gray-300 text-gray-900"
-                    >
-                      <option value="all">Todos</option>
-                      <option value="draft">Solo borradores</option>
-                      <option value="published">Solo publicados</option>
-                    </select>
-                    <span className="text-sm text-gray-700">Categoría:</span>
-                    <select
-                      value={gamesCategoryFilter}
-                      onChange={(e) => setGamesCategoryFilter(e.target.value)}
-                      className="p-2 rounded bg-white border border-gray-300 text-gray-900"
-                    >
-                      <option value="">Todas</option>
-                      <option value="varonil-libre">Varonil Libre</option>
-                      <option value="varonil-master">Varonil Master</option>
-                      <option value="varonil-gold">Varonil Gold</option>
-                      <option value="varonil-silver">Varonil Silver</option>
-                      <option value="varonil-cooper">Varonil Cooper</option>
-                      <option value="femenil-gold">Femenil Gold</option>
-                      <option value="femenil-silver">Femenil Silver</option>
-                      <option value="femenil-cooper-a">Femenil Cooper A</option>
-                      <option value="femenil-cooper-b">Femenil Cooper B</option>
-                      <option value="mixto-gold">Mixto Gold</option>
-                      <option value="mixto-silver">Mixto Silver</option>
-                      <option value="mixto-cooper">Mixto Cooper</option>
-                      <option value="mixto-recreativo">Mixto Recreativo</option>
-                      <option value="teens">Teens</option>
-                    </select>
+                  <FormSection step={3} title="Fecha y sede" description="Cuándo y dónde se juega.">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                      <Field label="Fecha">
+                        <input
+                          type="date"
+                          value={gameForm.game_date}
+                          onChange={(e) => setGameForm({ ...gameForm, game_date: e.target.value })}
+                          className={fieldClass}
+                        />
+                      </Field>
+                      <Field label="Hora">
+                        <input
+                          type="time"
+                          value={gameForm.game_time}
+                          onChange={(e) => setGameForm({ ...gameForm, game_time: e.target.value })}
+                          className={fieldClass}
+                        />
+                      </Field>
+                      <Field label="Número de Jornada">
+                        <input
+                          type="number"
+                          min="1"
+                          value={gameForm.jornada}
+                          onChange={(e) => setGameForm({ ...gameForm, jornada: e.target.value })}
+                          className={fieldClass}
+                          placeholder="Ej: 1, 2, 3..."
+                        />
+                      </Field>
+                    </div>
+                    <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <Field label="Sede">
+                        <input
+                          value={gameForm.venue}
+                          onChange={(e) => setGameForm({ ...gameForm, venue: e.target.value })}
+                          className={fieldClass}
+                          placeholder="Ej: Unidad Deportiva Norte"
+                        />
+                      </Field>
+                      <Field label="Campo">
+                        <input
+                          value={gameForm.field}
+                          onChange={(e) => setGameForm({ ...gameForm, field: e.target.value })}
+                          className={fieldClass}
+                          placeholder="Ej: Campo A, Campo 1, etc."
+                        />
+                      </Field>
+                    </div>
+                  </FormSection>
+
+                  <FormSection step={4} title="Árbitros" description="Puedes asignarlos después.">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <Field label="Árbitro Principal">
+                        <input
+                          value={gameForm.referee1}
+                          onChange={(e) => setGameForm({ ...gameForm, referee1: e.target.value })}
+                          className={fieldClass}
+                          placeholder="Nombre del árbitro principal"
+                        />
+                      </Field>
+                      <Field label="Árbitro Asistente">
+                        <input
+                          value={gameForm.referee2}
+                          onChange={(e) => setGameForm({ ...gameForm, referee2: e.target.value })}
+                          className={fieldClass}
+                          placeholder="Nombre del árbitro asistente (opcional)"
+                        />
+                      </Field>
+                    </div>
+                  </FormSection>
+                </div>
+
+                <aside className="space-y-3 xl:sticky xl:top-24 xl:self-start">
+                  <div className="rounded-3xl bg-slate-100/70 p-3">
+                    <p className="mb-2 px-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Vista previa</p>
+                    <MatchCard
+                      game={{
+                        id: 0,
+                        home_team: gameForm.home_team || (gameForm.sport_type === "flag" ? "Equipo local" : "Jugador 1"),
+                        away_team: gameForm.away_team || (gameForm.sport_type === "flag" ? "Equipo visitante" : "Jugador 2"),
+                        game_date: gameForm.game_date,
+                        game_time: gameForm.game_time,
+                        venue: gameForm.venue,
+                        field: gameForm.field,
+                        category: gameForm.category,
+                        jornada: gameForm.jornada ? Number(gameForm.jornada) : null,
+                        referee1: gameForm.referee1,
+                        referee2: gameForm.referee2,
+                      }}
+                      variant="upcoming"
+                      categoryLabel={gameForm.category.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
+                      getTeam={(name) => findTeamForGame(name, gameForm.season_id)}
+                    />
                   </div>
-                </CardHeader>
-                <CardContent className="p-4">
-                  {games
-                    .filter((game) => !gamesCategoryFilter || game.category === gamesCategoryFilter)
-                    .filter((game) => {
-                      if (gamesDraftFilter === "draft") return !!game.is_draft
-                      if (gamesDraftFilter === "published") return !game.is_draft
-                      return true
-                    })
-                    .map((game) => (
-                      <div key={game.id} className="flex items-center justify-between mb-4 p-4 bg-gray-50 rounded border border-gray-100">
-                        <div>
-                          <h3 className="text-gray-900 font-semibold text-lg">
-                            {game.home_team} vs {game.away_team}
-                          </h3>
-                          <div className="text-gray-600 text-sm">
-                            {game.game_date} - {game.game_time}
-                          </div>
-                          <div className="text-gray-600 text-sm">
-                            {game.venue} - {game.field}
-                          </div>
-                          <div className="text-gray-600 text-sm">
-                            Árbitros: {[game.referee1, game.referee2].filter(Boolean).join(", ") || "Sin asignar"}
-                          </div>
-                          <div className="flex gap-2 mt-1">
-                            {game.is_draft && <Badge className="bg-amber-500 text-white">Borrador</Badge>}
-                            {game.game_type && (
-                              <Badge className={game.game_type === "regular" ? "bg-green-600 text-white" : game.game_type === "playoff" ? "bg-orange-600 text-white" : "bg-slate-600 text-white"}>
-                                {game.game_type === "regular" ? "Regular · suma puntos" : game.game_type === "playoff" ? "Playoff · no suma" : "Amistoso · no suma"}
-                              </Badge>
-                            )}
-                            {game.stage && game.stage !== 'regular' && (
-                               <Badge className="bg-orange-500 text-white capitalize">
-                                 {game.stage === 'comodin' ? 'Comodín' : game.stage}
-                               </Badge>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Badge className={`${getStatusColor(game.status)} text-white`}>
-                            {getStatusLabel(game.status)}
-                          </Badge>
-                          {game.status === "finalizado" && (
-                            <div className="text-gray-900 font-bold text-lg">
-                              {game.home_score} - {game.away_score}
-                            </div>
-                          )}
-                          {game.is_draft && (
-                            <Button
-                              size="sm"
-                              onClick={() => publishDraftGame(game.id)}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                              title="Publicar borrador"
-                            >
-                              Publicar
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            onClick={() => downloadCedula(game)}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                            title="Generar cédula Word"
-                          >
-                            <FileText className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => setEditingGame(game)}
-                            className="bg-blue-600 hover:bg-blue-700 text-white"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => deleteGame(game.id)}
-                            className="bg-red-600 hover:bg-red-700 text-white"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
+                  <button
+                    type="button"
+                    onClick={createGame}
+                    className="flex w-full items-center justify-center gap-2 rounded-full bg-brand-gradient py-3 text-sm font-bold text-white shadow-brand transition hover:opacity-95"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Programar Partido
+                  </button>
+                  <Link
+                    href="/admin/temporadas"
+                    className="block rounded-full py-2.5 text-center text-sm font-semibold text-slate-700 ring-1 ring-slate-200 transition hover:bg-white"
+                  >
+                    Administrar temporadas
+                  </Link>
+                </aside>
+              </div>
+
+              {(() => {
+                const visibleGames = games
+                  .filter((game) => !gamesCategoryFilter || game.category === gamesCategoryFilter)
+                  .filter((game) => {
+                    if (gamesDraftFilter === "draft") return !!game.is_draft
+                    if (gamesDraftFilter === "published") return !game.is_draft
+                    return true
+                  })
+                return (
+                  <div className="ui-v2 min-w-0 space-y-4">
+                    <div className="flex flex-col gap-3 rounded-3xl bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-200/60 md:flex-row md:items-center md:justify-between">
+                      <div className="px-1">
+                        <h3 className="font-semibold text-slate-900">Partidos Programados</h3>
+                        <p className="text-xs text-slate-500">
+                          {visibleGames.length} partidos ·{" "}
+                          <span className="font-semibold text-amber-600">{games.filter((g) => g.is_draft).length} borradores</span>
+                        </p>
                       </div>
-                    ))}
-                </CardContent>
-              </Card>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex rounded-full bg-slate-100 p-1">
+                          {(
+                            [
+                              ["all", "Todos"],
+                              ["draft", "Solo borradores"],
+                              ["published", "Solo publicados"],
+                            ] as const
+                          ).map(([value, label]) => (
+                            <button
+                              key={value}
+                              type="button"
+                              onClick={() => setGamesDraftFilter(value)}
+                              className={gamesDraftFilter === value ? "rounded-full bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-900 shadow-sm" : "rounded-full px-3.5 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800"}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                        <select
+                          value={gamesCategoryFilter}
+                          onChange={(e) => setGamesCategoryFilter(e.target.value)}
+                          className="h-9 rounded-full border border-slate-200 bg-white px-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                        >
+                          <option value="">Todas las categorías</option>
+                          <option value="varonil-libre">Varonil Libre</option>
+                          <option value="varonil-master">Varonil Master</option>
+                          <option value="varonil-gold">Varonil Gold</option>
+                          <option value="varonil-silver">Varonil Silver</option>
+                          <option value="varonil-cooper">Varonil Cooper</option>
+                          <option value="femenil-gold">Femenil Gold</option>
+                          <option value="femenil-silver">Femenil Silver</option>
+                          <option value="femenil-cooper-a">Femenil Cooper A</option>
+                          <option value="femenil-cooper-b">Femenil Cooper B</option>
+                          <option value="mixto-gold">Mixto Gold</option>
+                          <option value="mixto-silver">Mixto Silver</option>
+                          <option value="mixto-cooper">Mixto Cooper</option>
+                          <option value="mixto-recreativo">Mixto Recreativo</option>
+                          <option value="teens">Teens</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {visibleGames.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-white px-4 py-14 text-center">
+                        <CalendarDays className="mb-2 h-8 w-8 text-slate-300" />
+                        <p className="text-sm font-semibold text-slate-700">No hay partidos con estos filtros</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {visibleGames.map((game) => (
+                          <AdminGameRow
+                            key={game.id}
+                            game={game}
+                            getTeam={(name) => findTeamForGame(name, game.season_id)}
+                            statusLabel={getStatusLabel(game.status)}
+                            categoryLabel={game.category ? game.category.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") : undefined}
+                            badges={
+                              <>
+                                {game.is_draft && (
+                                  <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold uppercase text-amber-700">Borrador</span>
+                                )}
+                                {game.game_type && (
+                                  <span
+                                    className={
+                                      game.game_type === "regular"
+                                        ? "rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700"
+                                        : game.game_type === "playoff"
+                                          ? "rounded-full bg-orange-50 px-2.5 py-0.5 text-[10px] font-semibold text-orange-700"
+                                          : "rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-semibold text-slate-600"
+                                    }
+                                  >
+                                    {game.game_type === "regular" ? "Regular · suma puntos" : game.game_type === "playoff" ? "Playoff · no suma" : "Amistoso · no suma"}
+                                  </span>
+                                )}
+                                {game.stage && game.stage !== "regular" && (
+                                  <span className="rounded-full bg-orange-500 px-2.5 py-0.5 text-[10px] font-bold capitalize text-white">
+                                    {game.stage === "comodin" ? "Comodín" : game.stage.replace(/_/g, " ")}
+                                  </span>
+                                )}
+                              </>
+                            }
+                            actions={
+                              <>
+                                {game.is_draft && (
+                                  <button
+                                    type="button"
+                                    onClick={() => publishDraftGame(game.id)}
+                                    className="rounded-full bg-emerald-500 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-emerald-600"
+                                    title="Publicar borrador"
+                                  >
+                                    Publicar
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => downloadCedula(game)}
+                                  className="flex h-9 w-9 items-center justify-center rounded-full text-emerald-600 ring-1 ring-emerald-200 transition hover:bg-emerald-500 hover:text-white hover:ring-emerald-500"
+                                  title="Generar cédula Word"
+                                >
+                                  <FileText className="h-4 w-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingGame(game)}
+                                  className="flex h-9 w-9 items-center justify-center rounded-full text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-900 hover:text-white hover:ring-slate-900"
+                                  title="Editar partido"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => deleteGame(game.id)}
+                                  className="flex h-9 w-9 items-center justify-center rounded-full text-red-500 ring-1 ring-red-100 transition hover:bg-red-500 hover:text-white hover:ring-red-500"
+                                  title="Eliminar partido"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </>
+                            }
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
 
               {editingGame && (
                 <Card className="bg-white border border-gray-200 fixed inset-4 z-50 overflow-auto shadow-2xl">
