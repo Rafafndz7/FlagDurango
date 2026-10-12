@@ -1,19 +1,40 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
-import { Target, Shield, Loader2, Save, ChevronDown, ChevronUp, UserPlus, AlertCircle, CheckCircle2 } from "lucide-react"
-import { getCategoryLabel } from "@/lib/categories"
+import { AnimatePresence, motion } from "framer-motion"
+import {
+  AlertCircle,
+  ArrowLeftRight,
+  CheckCircle2,
+  ChevronDown,
+  Clock,
+  ListChecks,
+  Loader2,
+  MapPin,
+  Minus,
+  Plus,
+  Save,
+  Search,
+  UserPlus,
+  X,
+} from "lucide-react"
+import { cn } from "@/lib/utils"
+import { getCategoryLabel as baseCategoryLabel } from "@/lib/categories"
+import { formatGameTime, gameDateParts } from "@/lib/game-date"
+import { TeamAvatar } from "@/components/ui-v2/team-avatar"
+import { EASE_OUT } from "@/components/ui-v2/motion"
 
 interface Game {
   id: number
   home_team: string
   away_team: string
   game_date: string
+  game_time?: string
+  field?: string
+  venue?: string
+  jornada?: number | string | null
+  home_score?: number
+  away_score?: number
   status: string
   category?: string
   season_id?: string
@@ -24,6 +45,9 @@ interface Team {
   name: string
   category?: string
   season_id?: string
+  logo_url?: string | null
+  color1?: string | null
+  color2?: string | null
 }
 
 interface Player {
@@ -45,26 +69,28 @@ function findTeamForGame(
   const seasonId = game?.season_id
   const category = game?.category
 
+  const sameName = (t: Team) => (t.name || "").trim() === name
+
   if (seasonId) {
     const bySeasonCat = teams.find(
       (t) =>
-        t.name === name &&
+        sameName(t) &&
         t.season_id === seasonId &&
         (!category || t.category === category),
     )
     if (bySeasonCat) return bySeasonCat
 
-    const bySeason = teams.find((t) => t.name === name && t.season_id === seasonId)
+    const bySeason = teams.find((t) => sameName(t) && t.season_id === seasonId)
     if (bySeason) return bySeason
   }
 
   if (category) {
-    const byCat = teams.find((t) => t.name === name && t.category === category)
+    const byCat = teams.find((t) => sameName(t) && t.category === category)
     if (byCat) return byCat
   }
 
   // Último recurso: preferir el de mayor id (más reciente)
-  const matches = teams.filter((t) => t.name === name)
+  const matches = teams.filter(sameName)
   if (matches.length === 0) return undefined
   return matches.reduce((a, b) => (Number(a.id) >= Number(b.id) ? a : b))
 }
@@ -118,29 +144,30 @@ const EMPTY_STAT: Omit<PlayerStat, "player_id" | "game_id" | "team_id"> = {
   puntos_totales: 0,
 }
 
-const OFFENSE_FIELDS: { key: keyof typeof EMPTY_STAT; label: string; short: string }[] = [
-  { key: "pases_completos", label: "Pases Completos", short: "PC" },
-  { key: "pases_intentados", label: "Pases Intentados", short: "PI" },
-  { key: "yardas_pase", label: "Yardas por Pase", short: "YP" },
-  { key: "touchdowns_pase", label: "TD Pase", short: "TDP" },
-  { key: "intercepciones_lanzadas", label: "INT Lanzadas", short: "IL" },
-  { key: "carreras", label: "Carreras", short: "CAR" },
-  { key: "yardas_carrera", label: "Yardas Carrera", short: "YC" },
-  { key: "touchdowns_carrera", label: "TD Carrera", short: "TDC" },
-  { key: "recepciones", label: "Recepciones", short: "REC" },
-  { key: "yardas_recepcion", label: "Yardas Recepcion", short: "YR" },
-  { key: "touchdowns_recepcion", label: "TD Recepcion", short: "TDR" },
-  { key: "puntos_extra", label: "Puntos Extra", short: "XP" },
+type StatKey = keyof typeof EMPTY_STAT
+
+const QUICK_FIELDS: { key: StatKey; label: string; short: string; active: string; dot: string }[] = [
+  { key: "pases_completos", label: "Pases completos", short: "PC", active: "bg-brand-blue/10 ring-brand-blue/40 text-brand-blue", dot: "bg-brand-blue" },
+  { key: "touchdowns_recepcion", label: "TD recepción", short: "TD", active: "bg-emerald-500/10 ring-emerald-500/40 text-emerald-700", dot: "bg-emerald-500" },
+  { key: "intercepciones", label: "Intercepciones", short: "INT", active: "bg-brand-pink/10 ring-brand-pink/50 text-[#b03c8f]", dot: "bg-brand-pink" },
+  { key: "sacks", label: "Sacks", short: "SACK", active: "bg-brand-orange/10 ring-brand-orange/40 text-[#c24f00]", dot: "bg-brand-orange" },
 ]
 
-const DEFENSE_FIELDS: { key: keyof typeof EMPTY_STAT; label: string; short: string }[] = [
-  { key: "sacks", label: "Sacks", short: "SCK" },
-  { key: "intercepciones", label: "Intercepciones", short: "INT" },
-  { key: "yardas_intercepcion", label: "Yardas INT", short: "YINT" },
-  { key: "touchdowns_intercepcion", label: "TD Intercepcion", short: "TDI" },
-  { key: "pases_defendidos", label: "Pases Defendidos", short: "PD" },
-  { key: "banderas_jaladas", label: "Banderas Jaladas", short: "BJ" },
-]
+const STEPPERS_WIDTH = "sm:w-[344px]"
+
+const getCategoryLabel = (category?: string | null) => {
+  if (!category) return "Sin categoría"
+  const label = baseCategoryLabel(category)
+  return label === category
+    ? category
+        .split("-")
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ")
+    : label
+}
+
+const hasQuickData = (stat?: Partial<typeof EMPTY_STAT>) =>
+  !!stat && QUICK_FIELDS.some((f) => Number(stat[f.key]) > 0)
 
 interface PlayerStatsAdminProps {
   games: Game[]
@@ -153,13 +180,15 @@ export default function PlayerStatsAdmin({ games, teams, players, onPlayersChang
   const [selectedGame, setSelectedGame] = useState<number | null>(null)
   const [selectedCategory, setSelectedCategory] = useState("")
   const [coverageFilter, setCoverageFilter] = useState<"missing" | "done" | "all">("missing")
+  const [gameSearch, setGameSearch] = useState("")
+  const [gameLimit, setGameLimit] = useState(24)
   const [statsCounts, setStatsCounts] = useState<Record<number, number>>({})
   const [statsMap, setStatsMap] = useState<Record<number, typeof EMPTY_STAT>>({})
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
-  const [expandedPlayer, setExpandedPlayer] = useState<number | null>(null)
-  const [statView, setStatView] = useState<"offense" | "defense">("offense")
+  const [activeSide, setActiveSide] = useState<"home" | "away">("home")
+  const [showAddPlayer, setShowAddPlayer] = useState(false)
   const [addForm, setAddForm] = useState({
     team_id: "",
     name: "",
@@ -168,7 +197,7 @@ export default function PlayerStatsAdmin({ games, teams, players, onPlayersChang
   })
   const [addingPlayer, setAddingPlayer] = useState(false)
 
-  const categories = [...new Set(games.map((g) => g.category).filter(Boolean))] as string[]
+  const categories = Array.from(new Set(games.map((g) => g.category).filter(Boolean))) as string[]
 
   const loadCoverage = useCallback(async () => {
     try {
@@ -185,9 +214,11 @@ export default function PlayerStatsAdmin({ games, teams, players, onPlayersChang
   }, [loadCoverage])
 
   const filteredGames = useMemo(() => {
+    const q = gameSearch.trim().toLowerCase()
     return games
       .filter((g) => {
         if (selectedCategory && g.category !== selectedCategory) return false
+        if (q && !`${g.home_team} ${g.away_team}`.toLowerCase().includes(q)) return false
         const count = statsCounts[g.id] || 0
         if (coverageFilter === "missing") return count === 0
         if (coverageFilter === "done") return count > 0
@@ -196,9 +227,13 @@ export default function PlayerStatsAdmin({ games, teams, players, onPlayersChang
       .sort((a, b) => {
         const da = (a.game_date || "").slice(0, 10)
         const db = (b.game_date || "").slice(0, 10)
-        return db.localeCompare(da)
+        return db.localeCompare(da) || String(a.game_time || "").localeCompare(String(b.game_time || ""))
       })
-  }, [games, selectedCategory, coverageFilter, statsCounts])
+  }, [games, selectedCategory, coverageFilter, statsCounts, gameSearch])
+
+  useEffect(() => {
+    setGameLimit(24)
+  }, [selectedCategory, coverageFilter, gameSearch])
 
   const missingCount = useMemo(
     () => games.filter((g) => !(statsCounts[g.id] > 0)).length,
@@ -215,9 +250,10 @@ export default function PlayerStatsAdmin({ games, teams, players, onPlayersChang
     if (!selectedGameData) return { home: [] as Player[], away: [] as Player[], homeTeam: undefined, awayTeam: undefined }
     const homeTeam = findTeamForGame(teams, selectedGameData.home_team, selectedGameData)
     const awayTeam = findTeamForGame(teams, selectedGameData.away_team, selectedGameData)
+    const byJersey = (a: Player, b: Player) => (Number(a.jersey_number) || 999) - (Number(b.jersey_number) || 999)
     return {
-      home: players.filter((p) => homeTeam && Number(p.team_id) === Number(homeTeam.id)),
-      away: players.filter((p) => awayTeam && Number(p.team_id) === Number(awayTeam.id)),
+      home: players.filter((p) => homeTeam && Number(p.team_id) === Number(homeTeam.id)).sort(byJersey),
+      away: players.filter((p) => awayTeam && Number(p.team_id) === Number(awayTeam.id)).sort(byJersey),
       homeTeam,
       awayTeam,
     }
@@ -240,6 +276,8 @@ export default function PlayerStatsAdmin({ games, teams, players, onPlayersChang
   }
 
   useEffect(() => {
+    setMessage(null)
+    setActiveSide("home")
     if (selectedGame) loadStats(selectedGame)
     else setStatsMap({})
   }, [selectedGame])
@@ -252,14 +290,24 @@ export default function PlayerStatsAdmin({ games, teams, players, onPlayersChang
     }
   }, [selectedGameData, teams])
 
-  const updateStat = (playerId: number, field: string, value: number) => {
-    setStatsMap((prev) => ({
-      ...prev,
-      [playerId]: {
-        ...(prev[playerId] || { ...EMPTY_STAT }),
-        [field]: value,
-      },
-    }))
+  useEffect(() => {
+    if (message?.type !== "success") return
+    const t = setTimeout(() => setMessage(null), 4000)
+    return () => clearTimeout(t)
+  }, [message])
+
+  const updateStat = (playerId: number, field: StatKey, value: number | ((current: number) => number)) => {
+    setStatsMap((prev) => {
+      const current = prev[playerId] || { ...EMPTY_STAT }
+      const next = typeof value === "function" ? value(Number(current[field]) || 0) : value
+      return {
+        ...prev,
+        [playerId]: {
+          ...current,
+          [field]: Math.max(0, next),
+        },
+      }
+    })
   }
 
   const handleSave = async () => {
@@ -280,7 +328,7 @@ export default function PlayerStatsAdmin({ games, teams, players, onPlayersChang
       }))
 
     if (stats.length === 0) {
-      setMessage({ type: "error", text: "No hay estadisticas para guardar (expande un jugador y captura datos)" })
+      setMessage({ type: "error", text: "Captura al menos un dato antes de guardar" })
       setSaving(false)
       return
     }
@@ -293,13 +341,13 @@ export default function PlayerStatsAdmin({ games, teams, players, onPlayersChang
       })
       const data = await res.json()
       if (data.success) {
-        setMessage({ type: "success", text: `Estadisticas guardadas para ${data.data.length} jugadores` })
+        setMessage({ type: "success", text: `Estadísticas guardadas para ${data.data.length} jugadores` })
         await loadCoverage()
       } else {
         setMessage({ type: "error", text: data.message || "Error al guardar" })
       }
     } catch {
-      setMessage({ type: "error", text: "Error al guardar estadisticas" })
+      setMessage({ type: "error", text: "Error al guardar estadísticas" })
     }
     setSaving(false)
   }
@@ -334,125 +382,172 @@ export default function PlayerStatsAdmin({ games, teams, players, onPlayersChang
     }
   }
 
-  const renderPlayerStats = (player: Player) => {
-    const stat = statsMap[player.id] || { ...EMPTY_STAT }
-    const isExpanded = expandedPlayer === player.id
-    const fields = statView === "offense" ? OFFENSE_FIELDS : DEFENSE_FIELDS
+  const { home, away, homeTeam, awayTeam } = getGamePlayers()
+  const gamePlayers = [...home, ...away]
+  const playersWithData = gamePlayers.filter((p) => hasQuickData(statsMap[p.id])).length
+  const gameTotals = QUICK_FIELDS.map((f) => ({
+    ...f,
+    total: gamePlayers.reduce((sum, p) => sum + (Number(statsMap[p.id]?.[f.key]) || 0), 0),
+  }))
 
+  const renderPlayerRow = (player: Player) => {
+    const stat = statsMap[player.id]
+    const filled = hasQuickData(stat)
     return (
-      <div key={player.id} className="border border-gray-200 rounded-lg overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setExpandedPlayer(isExpanded ? null : player.id)}
-          className="w-full flex items-center justify-between p-3 hover:bg-gray-50 transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <span className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-700">
-              {player.jersey_number}
-            </span>
-            <span className="font-medium text-gray-900">{player.name}</span>
-            {player.position && <Badge variant="outline" className="text-xs">{player.position}</Badge>}
-          </div>
-          <div className="flex items-center gap-2">
-            {stat.touchdowns_totales > 0 && (
-              <Badge className="bg-green-100 text-green-700 text-xs">{stat.touchdowns_totales} TD</Badge>
-            )}
-            {stat.intercepciones > 0 && (
-              <Badge className="bg-blue-100 text-blue-700 text-xs">{stat.intercepciones} INT</Badge>
-            )}
-            {isExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
-          </div>
-        </button>
-
-        {isExpanded && (
-          <div className="border-t border-gray-200 p-3 bg-gray-50">
-            <div className="flex gap-2 mb-3">
-              <Button
-                type="button"
-                size="sm"
-                variant={statView === "offense" ? "default" : "outline"}
-                onClick={() => setStatView("offense")}
-                className={statView === "offense" ? "bg-red-600 hover:bg-red-700" : "text-gray-700 hover:text-gray-900"}
-              >
-                <Target className="w-3 h-3 mr-1" />
-                Ataque
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={statView === "defense" ? "default" : "outline"}
-                onClick={() => setStatView("defense")}
-                className={statView === "defense" ? "bg-blue-600 hover:bg-blue-700" : "text-gray-700 hover:text-gray-900"}
-              >
-                <Shield className="w-3 h-3 mr-1" />
-                Defensa
-              </Button>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-              {fields.map((f) => (
-                <div key={f.key} className="flex flex-col">
-                  <label className="text-xs text-gray-500 mb-1 truncate" title={f.label}>
-                    {f.short} - {f.label}
-                  </label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={stat[f.key] || 0}
-                    onChange={(e) => updateStat(player.id, f.key, Number(e.target.value) || 0)}
-                    className="h-8 text-sm bg-white border-gray-300 text-gray-900"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
+      <div
+        key={player.id}
+        className={cn(
+          "rounded-2xl p-2.5 ring-1 transition-colors sm:flex sm:items-center sm:gap-3",
+          filled ? "bg-white ring-slate-300 shadow-sm" : "bg-slate-50/70 ring-slate-200/70",
         )}
+      >
+        <div className="flex min-w-0 items-center gap-2.5 sm:flex-1">
+          <span
+            className={cn(
+              "flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-display text-sm font-extrabold italic",
+              filled ? "bg-brand-ink text-white" : "bg-white text-slate-700 ring-1 ring-slate-200",
+            )}
+          >
+            {player.jersey_number ?? "–"}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-slate-900">{player.name}</p>
+            {player.position && <p className="truncate text-[11px] text-slate-500">{player.position}</p>}
+          </div>
+        </div>
+        <div className={cn("mt-2 grid grid-cols-4 gap-1.5 sm:mt-0 sm:shrink-0", STEPPERS_WIDTH)}>
+          {QUICK_FIELDS.map((f) => (
+            <Stepper
+              key={f.key}
+              label={f.short}
+              title={f.label}
+              value={Number(stat?.[f.key]) || 0}
+              activeClass={f.active}
+              onChange={(v) => updateStat(player.id, f.key, v)}
+              onStep={(delta) => updateStat(player.id, f.key, (n) => n + delta)}
+            />
+          ))}
+        </div>
       </div>
     )
   }
 
-  const { home, away, homeTeam, awayTeam } = getGamePlayers()
+  const renderTeamPanel = (side: "home" | "away") => {
+    const list = side === "home" ? home : away
+    const team = side === "home" ? homeTeam : awayTeam
+    const name = side === "home" ? selectedGameData?.home_team : selectedGameData?.away_team
+    const totals = QUICK_FIELDS.map((f) => ({
+      ...f,
+      total: list.reduce((sum, p) => sum + (Number(statsMap[p.id]?.[f.key]) || 0), 0),
+    }))
+
+    return (
+      <section
+        className={cn(
+          "rounded-3xl bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-200/60",
+          activeSide === side ? "block" : "hidden xl:block",
+        )}
+      >
+        <div className="mb-3 flex items-center gap-3">
+          <TeamAvatar name={name || ""} logoUrl={team?.logo_url} color1={team?.color1} color2={team?.color2} size="sm" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-semibold text-slate-900">{name}</p>
+            <p className="text-xs text-slate-500">
+              {side === "home" ? "Local" : "Visitante"} · {list.length} jugadores
+            </p>
+          </div>
+        </div>
+
+        {list.length > 0 && (
+          <div className="mb-2 hidden items-center gap-3 px-2.5 sm:flex">
+            <span className="flex-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Jugador</span>
+            <div className={cn("grid shrink-0 grid-cols-4 gap-1.5", STEPPERS_WIDTH)}>
+              {totals.map((f) => (
+                <span key={f.key} className="flex items-center justify-center gap-1 text-[11px] font-bold uppercase text-slate-500" title={f.label}>
+                  <span className={cn("h-1.5 w-1.5 rounded-full", f.dot)} />
+                  {f.short}
+                  <span className="text-slate-900">{f.total}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {list.length > 0 ? (
+          <div className="space-y-1.5">{list.map(renderPlayerRow)}</div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500">
+            Sin jugadores en el roster.
+            <button
+              type="button"
+              onClick={() => {
+                if (team) setAddForm((f) => ({ ...f, team_id: String(team.id) }))
+                setShowAddPlayer(true)
+              }}
+              className="mt-2 block w-full font-semibold text-brand-blue hover:underline"
+            >
+              Agregar jugador
+            </button>
+          </div>
+        )}
+      </section>
+    )
+  }
+
+  const coverageOptions = [
+    { value: "missing" as const, label: "Pendientes", count: missingCount, icon: <AlertCircle className="h-4 w-4" />, tone: "text-amber-600" },
+    { value: "done" as const, label: "Capturados", count: doneCount, icon: <CheckCircle2 className="h-4 w-4" />, tone: "text-emerald-600" },
+    { value: "all" as const, label: "Todos", count: games.length, icon: <ListChecks className="h-4 w-4" />, tone: "text-slate-600" },
+  ]
 
   return (
-    <div className="space-y-4">
-      <Card className="bg-white border-gray-200">
-        <CardHeader>
-          <CardTitle className="text-gray-900 flex items-center gap-2">
-            <Target className="w-5 h-5 text-blue-600" />
-            Estadísticas rápidas por partido
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-2 text-sm">
-            <Badge className="bg-amber-500">
-              <AlertCircle className="w-3 h-3 mr-1" />
-              Sin stats: {missingCount}
-            </Badge>
-            <Badge className="bg-emerald-600">
-              <CheckCircle2 className="w-3 h-3 mr-1" />
-              Con stats: {doneCount}
-            </Badge>
+    <div className="ui-v2 space-y-4">
+      {!selectedGameData ? (
+        <div className="rounded-3xl bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-200/60">
+          <div className="mb-4">
+            <h3 className="font-display text-xl font-extrabold italic text-slate-900">Estadísticas por partido</h3>
+            <p className="text-sm text-slate-500">Elige un partido y captura pases completos, TD de recepción, intercepciones y sacks.</p>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
-            <select
-              value={coverageFilter}
-              onChange={(e) => {
-                setCoverageFilter(e.target.value as any)
-                setSelectedGame(null)
-              }}
-              className="p-2 rounded bg-white border border-gray-300 text-gray-900 text-sm"
-            >
-              <option value="missing">Solo partidos SIN estadísticas</option>
-              <option value="done">Solo partidos CON estadísticas</option>
-              <option value="all">Todos los partidos</option>
-            </select>
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            {coverageOptions.map((opt) => {
+              const active = coverageFilter === opt.value
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setCoverageFilter(opt.value)}
+                  className={cn(
+                    "rounded-2xl p-3 text-left ring-1 transition sm:p-4",
+                    active ? "bg-brand-ink text-white ring-brand-ink" : "bg-white ring-slate-200 hover:bg-slate-50",
+                  )}
+                >
+                  <span className={cn("flex items-center gap-1.5 text-xs font-semibold", active ? "text-white/80" : opt.tone)}>
+                    {opt.icon}
+                    {opt.label}
+                  </span>
+                  <span className={cn("mt-1 block font-display text-2xl font-extrabold italic sm:text-3xl", active ? "text-white" : "text-slate-900")}>
+                    {opt.count}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                value={gameSearch}
+                onChange={(e) => setGameSearch(e.target.value)}
+                placeholder="Buscar equipo…"
+                className="h-10 w-full rounded-full bg-slate-100 pl-10 pr-4 text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+              />
+            </div>
             <select
               value={selectedCategory}
-              onChange={(e) => {
-                setSelectedCategory(e.target.value)
-                setSelectedGame(null)
-              }}
-              className="p-2 rounded bg-white border border-gray-300 text-gray-900 text-sm"
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="h-10 rounded-full border border-slate-200 bg-white px-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
             >
               <option value="">Todas las categorías</option>
               {categories.map((c) => (
@@ -461,159 +556,451 @@ export default function PlayerStatsAdmin({ games, teams, players, onPlayersChang
                 </option>
               ))}
             </select>
-            <select
-              value={selectedGame || ""}
-              onChange={(e) => setSelectedGame(e.target.value ? Number(e.target.value) : null)}
-              className="flex-1 min-w-[220px] p-2 rounded bg-white border border-gray-300 text-gray-900 text-sm"
-            >
-              <option value="">Seleccionar partido ({filteredGames.length})</option>
-              {filteredGames.map((g) => {
-                const count = statsCounts[g.id] || 0
-                const mark = count > 0 ? `✓ ${count} filas` : "⚠ sin stats"
-                return (
-                  <option key={g.id} value={g.id}>
-                    {mark} · {g.home_team} vs {g.away_team} ·{" "}
-                    {(g.game_date || "").toString().slice(0, 10)} ({g.status})
-                  </option>
-                )
-              })}
-            </select>
           </div>
 
-          {!selectedGame && coverageFilter === "missing" && filteredGames.length > 0 && (
-            <div className="border rounded-lg divide-y max-h-64 overflow-y-auto">
-              {filteredGames.slice(0, 40).map((g) => (
-                <button
-                  key={g.id}
-                  type="button"
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-amber-50 flex justify-between gap-2"
-                  onClick={() => setSelectedGame(g.id)}
-                >
-                  <span className="font-medium text-gray-900">
-                    {g.home_team} vs {g.away_team}
-                  </span>
-                  <span className="text-gray-500 shrink-0">
-                    {(g.game_date || "").toString().slice(0, 10)} · {getCategoryLabel(g.category)}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
+          <p className="mb-2 mt-5 text-xs font-semibold uppercase tracking-wider text-slate-400">
+            {filteredGames.length} partidos
+          </p>
 
-          {message && (
-            <div
-              className={`p-3 rounded-lg text-sm ${
-                message.type === "success"
-                  ? "bg-green-50 text-green-700 border border-green-200"
-                  : "bg-red-50 text-red-700 border border-red-200"
-              }`}
-            >
-              {message.text}
-            </div>
-          )}
-
-          {loading && <div className="text-center py-8 text-gray-500">Cargando estadisticas...</div>}
-
-          {selectedGame && !loading && (
+          {filteredGames.length > 0 ? (
             <>
-              {/* Alta rápida si falta alguien en el roster */}
-              <div className="rounded-xl border border-dashed border-blue-300 bg-blue-50/50 p-4 space-y-3">
-                <h4 className="font-semibold text-gray-900 flex items-center gap-2 text-sm">
-                  <UserPlus className="w-4 h-4" />
-                  ¿Falta un jugador? Regístralo aquí y sigue capturando stats
-                </h4>
-                <div className="grid md:grid-cols-5 gap-2 items-end">
-                  <div>
-                    <Label className="text-xs">Equipo</Label>
-                    <select
-                      className="w-full rounded-md border p-2 text-sm"
-                      value={addForm.team_id}
-                      onChange={(e) => setAddForm({ ...addForm, team_id: e.target.value })}
-                    >
-                      <option value="">—</option>
-                      {homeTeam && (
-                        <option value={String(homeTeam.id)}>
-                          Local: {homeTeam.name}
-                        </option>
-                      )}
-                      {awayTeam && (
-                        <option value={String(awayTeam.id)}>
-                          Visita: {awayTeam.name}
-                        </option>
-                      )}
-                    </select>
-                  </div>
-                  <div>
-                    <Label className="text-xs">#</Label>
-                    <Input
-                      value={addForm.jersey_number}
-                      onChange={(e) => setAddForm({ ...addForm, jersey_number: e.target.value })}
-                      placeholder="12"
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <Label className="text-xs">Nombre</Label>
-                    <Input
-                      value={addForm.name}
-                      onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
-                      placeholder="Nombre completo"
-                    />
-                  </div>
-                  <Button
-                    onClick={addMissingPlayer}
-                    disabled={addingPlayer}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    {addingPlayer ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4 mr-1" />}
-                    Agregar
-                  </Button>
-                </div>
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2 2xl:grid-cols-3">
+                {filteredGames.slice(0, gameLimit).map((g) => (
+                  <GamePickCard
+                    key={g.id}
+                    game={g}
+                    count={statsCounts[g.id] || 0}
+                    homeTeam={findTeamForGame(teams, g.home_team, g)}
+                    awayTeam={findTeamForGame(teams, g.away_team, g)}
+                    onSelect={() => setSelectedGame(g.id)}
+                  />
+                ))}
               </div>
-
-              {home.length > 0 && (
-                <div>
-                  <h3 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                    {selectedGameData?.home_team} (Local) — {home.length} jugadores
-                  </h3>
-                  <div className="space-y-2">{home.map(renderPlayerStats)}</div>
-                </div>
-              )}
-
-              {away.length > 0 && (
-                <div>
-                  <h3 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                    {selectedGameData?.away_team} (Visitante) — {away.length} jugadores
-                  </h3>
-                  <div className="space-y-2">{away.map(renderPlayerStats)}</div>
-                </div>
-              )}
-
-              {home.length === 0 && away.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  No hay jugadores en el roster de estos equipos. Usa el alta rápida de arriba.
-                </div>
-              )}
-
-              {(home.length > 0 || away.length > 0) && (
-                <Button onClick={handleSave} disabled={saving} className="w-full bg-green-600 hover:bg-green-700">
-                  {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-                  Guardar Estadisticas
-                </Button>
+              {filteredGames.length > gameLimit && (
+                <button
+                  type="button"
+                  onClick={() => setGameLimit((n) => n + 24)}
+                  className="mx-auto mt-3 flex items-center gap-1 rounded-full px-4 py-2 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-50"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                  Ver más ({filteredGames.length - gameLimit})
+                </button>
               )}
             </>
-          )}
-
-          {!selectedGame && !loading && filteredGames.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
+          ) : (
+            <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-10 text-center text-sm text-slate-500">
               {coverageFilter === "missing"
                 ? "No hay partidos pendientes de estadísticas con estos filtros."
                 : "No hay partidos con estos filtros."}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      ) : (
+        <>
+          <SelectedGameHeader
+            game={selectedGameData}
+            homeTeam={homeTeam}
+            awayTeam={awayTeam}
+            count={statsCounts[selectedGameData.id] || 0}
+            onChange={() => setSelectedGame(null)}
+          />
+
+          {loading ? (
+            <div className="flex items-center justify-center gap-2 rounded-3xl bg-white py-16 text-sm text-slate-500 ring-1 ring-slate-200/60">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Cargando estadísticas…
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <div className="flex min-w-0 flex-1 rounded-full bg-white p-1 ring-1 ring-slate-200 xl:hidden">
+                  {(["home", "away"] as const).map((side) => {
+                    const active = activeSide === side
+                    const list = side === "home" ? home : away
+                    const filledCount = list.filter((p) => hasQuickData(statsMap[p.id])).length
+                    return (
+                      <button
+                        key={side}
+                        type="button"
+                        onClick={() => setActiveSide(side)}
+                        className={cn(
+                          "relative flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold transition-colors",
+                          active ? "text-white" : "text-slate-600",
+                        )}
+                      >
+                        {active && (
+                          <motion.span
+                            layoutId="stats-side-pill"
+                            className="absolute inset-0 rounded-full bg-brand-ink"
+                            transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                          />
+                        )}
+                        <span className="relative truncate">
+                          {side === "home" ? selectedGameData.home_team : selectedGameData.away_team}
+                        </span>
+                        {filledCount > 0 && (
+                          <span className={cn("relative rounded-full px-1.5 text-[10px] font-bold", active ? "bg-white/20" : "bg-slate-100")}>
+                            {filledCount}
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const sideTeam = activeSide === "home" ? homeTeam : awayTeam
+                    if (!showAddPlayer && sideTeam) setAddForm((f) => ({ ...f, team_id: String(sideTeam.id) }))
+                    setShowAddPlayer((v) => !v)
+                  }}
+                  aria-label="Agregar jugador faltante"
+                  className={cn(
+                    "inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-full px-3.5 text-sm font-semibold ring-1 transition sm:px-4 xl:ml-auto",
+                    showAddPlayer ? "bg-brand-blue text-white ring-brand-blue" : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50",
+                  )}
+                >
+                  <UserPlus className="h-4 w-4" />
+                  <span className="hidden sm:inline">¿Falta un jugador?</span>
+                </button>
+              </div>
+
+              <AnimatePresence initial={false}>
+                {showAddPlayer && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: EASE_OUT }}
+                    className="overflow-hidden"
+                  >
+                    <div className="rounded-3xl border border-dashed border-brand-blue/40 bg-brand-blue/[0.04] p-4">
+                      <div className="mb-3 flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-slate-900">Regístralo aquí y sigue capturando</p>
+                        <button
+                          type="button"
+                          onClick={() => setShowAddPlayer(false)}
+                          className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-white"
+                          aria-label="Cerrar"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-[88px_minmax(0,1fr)] gap-2 sm:grid-cols-[minmax(0,1.2fr)_88px_minmax(0,1.6fr)_auto]">
+                        <select
+                          className={cn(inputClass, "col-span-2 sm:col-span-1")}
+                          value={addForm.team_id}
+                          onChange={(e) => setAddForm((f) => ({ ...f, team_id: e.target.value }))}
+                        >
+                          <option value="">Equipo…</option>
+                          {homeTeam && <option value={String(homeTeam.id)}>Local: {homeTeam.name}</option>}
+                          {awayTeam && <option value={String(awayTeam.id)}>Visita: {awayTeam.name}</option>}
+                        </select>
+                        <input
+                          className={inputClass}
+                          value={addForm.jersey_number}
+                          onChange={(e) => setAddForm((f) => ({ ...f, jersey_number: e.target.value }))}
+                          placeholder="#"
+                          inputMode="numeric"
+                        />
+                        <input
+                          className={inputClass}
+                          value={addForm.name}
+                          onChange={(e) => setAddForm((f) => ({ ...f, name: e.target.value }))}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") addMissingPlayer()
+                          }}
+                          placeholder="Nombre completo"
+                        />
+                        <button
+                          type="button"
+                          onClick={addMissingPlayer}
+                          disabled={addingPlayer}
+                          className="col-span-2 inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-brand-blue px-4 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-60 sm:col-span-1"
+                        >
+                          {addingPlayer ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                          Agregar
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                {renderTeamPanel("home")}
+                {renderTeamPanel("away")}
+              </div>
+
+              <div className="sticky bottom-3 z-20 space-y-2">
+                <AnimatePresence>
+                  {message && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 8 }}
+                      className={cn(
+                        "flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium shadow-lg",
+                        message.type === "success" ? "bg-emerald-600 text-white" : "bg-red-600 text-white",
+                      )}
+                    >
+                      {message.type === "success" ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
+                      <span className="flex-1">{message.text}</span>
+                      <button type="button" onClick={() => setMessage(null)} aria-label="Cerrar" className="opacity-80 hover:opacity-100">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {gamePlayers.length > 0 && (
+                  <div className="flex items-center gap-3 rounded-full bg-brand-ink p-1.5 pl-5 text-white shadow-xl">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-semibold sm:text-sm">
+                        {playersWithData} de {gamePlayers.length} jugadores con datos
+                      </p>
+                      <div className="hidden gap-3 text-[11px] text-white/70 sm:flex">
+                        {gameTotals.map((f) => (
+                          <span key={f.key} className="inline-flex items-center gap-1">
+                            <span className={cn("h-1.5 w-1.5 rounded-full", f.dot)} />
+                            {f.short} <strong className="text-white">{f.total}</strong>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleSave}
+                      disabled={saving}
+                      className="inline-flex shrink-0 items-center gap-2 rounded-full bg-brand-gradient px-5 py-2.5 text-sm font-bold text-white shadow-brand transition hover:brightness-110 disabled:opacity-70"
+                    >
+                      {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                      Guardar
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+const inputClass =
+  "h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-blue/50 focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
+
+function Stepper({
+  label,
+  title,
+  value,
+  activeClass,
+  onChange,
+  onStep,
+}: {
+  label: string
+  title: string
+  value: number
+  activeClass: string
+  onChange: (value: number) => void
+  onStep: (delta: number) => void
+}) {
+  const active = value > 0
+  return (
+    <div className={cn("rounded-xl ring-1 transition-colors", active ? activeClass : "bg-white text-slate-400 ring-slate-200")} title={title}>
+      <span className="block pt-1 text-center text-[9px] font-bold uppercase tracking-wide sm:hidden">{label}</span>
+      <div className="flex items-center">
+        <button
+          type="button"
+          onClick={() => onStep(-1)}
+          disabled={!active}
+          className="flex h-8 w-6 shrink-0 items-center justify-center rounded-l-xl transition hover:bg-black/5 disabled:opacity-30 sm:w-7"
+          aria-label={`Restar ${title}`}
+        >
+          <Minus className="h-3.5 w-3.5" />
+        </button>
+        <input
+          type="text"
+          inputMode="numeric"
+          value={value}
+          onFocus={(e) => e.target.select()}
+          onChange={(e) => onChange(Number(e.target.value.replace(/\D/g, "")) || 0)}
+          className={cn(
+            "h-8 w-full min-w-0 bg-transparent text-center font-display text-base font-extrabold italic tabular-nums focus:outline-none",
+            active ? "" : "text-slate-400",
+          )}
+          aria-label={title}
+        />
+        <button
+          type="button"
+          onClick={() => onStep(1)}
+          className="flex h-8 w-6 shrink-0 items-center justify-center rounded-r-xl transition hover:bg-black/5 sm:w-7"
+          aria-label={`Sumar ${title}`}
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function GamePickCard({
+  game,
+  count,
+  homeTeam,
+  awayTeam,
+  onSelect,
+}: {
+  game: Game
+  count: number
+  homeTeam?: Team
+  awayTeam?: Team
+  onSelect: () => void
+}) {
+  const parts = gameDateParts(game.game_date)
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className="group flex items-center gap-3 rounded-2xl bg-white p-3 text-left ring-1 ring-slate-200 transition hover:shadow-md hover:ring-slate-300"
+    >
+      <div className="flex w-12 shrink-0 flex-col items-center rounded-xl bg-slate-50 py-1.5 ring-1 ring-slate-200">
+        {parts ? (
+          <>
+            <span className="text-[8px] font-bold tracking-widest text-slate-500">{parts.weekday}</span>
+            <span className="font-display text-lg font-extrabold italic leading-none text-slate-900">{parts.day}</span>
+            <span className="text-[8px] font-bold tracking-widest text-brand-pink">{parts.month}</span>
+          </>
+        ) : (
+          <span className="py-1 text-xs font-bold text-slate-400">—</span>
+        )}
+      </div>
+      <div className="min-w-0 flex-1 space-y-1">
+        {[
+          { name: game.home_team, team: homeTeam },
+          { name: game.away_team, team: awayTeam },
+        ].map((side, i) => (
+          <div key={i} className="flex min-w-0 items-center gap-2">
+            <TeamAvatar
+              name={side.name}
+              logoUrl={side.team?.logo_url}
+              color1={side.team?.color1}
+              color2={side.team?.color2}
+              size="sm"
+              className="!h-6 !w-6 !text-[10px] !ring-1"
+            />
+            <span className="truncate text-sm font-semibold text-slate-900">{side.name}</span>
+          </div>
+        ))}
+        <p className="truncate text-[11px] text-slate-500">
+          {getCategoryLabel(game.category)}
+          {game.jornada != null && game.jornada !== "" ? ` · J${game.jornada}` : ""}
+          {game.game_time ? ` · ${formatGameTime(game.game_time)}` : ""}
+        </p>
+      </div>
+      <span
+        className={cn(
+          "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase",
+          count > 0 ? "bg-emerald-500/10 text-emerald-700" : "bg-amber-500/10 text-amber-700",
+        )}
+      >
+        {count > 0 ? `✓ ${count}` : "Pendiente"}
+      </span>
+    </button>
+  )
+}
+
+function SelectedGameHeader({
+  game,
+  homeTeam,
+  awayTeam,
+  count,
+  onChange,
+}: {
+  game: Game
+  homeTeam?: Team
+  awayTeam?: Team
+  count: number
+  onChange: () => void
+}) {
+  const parts = gameDateParts(game.game_date)
+  const showScore = game.status === "finalizado" || game.status === "en vivo" || game.status === "en_vivo"
+  return (
+    <div className="relative overflow-hidden rounded-3xl bg-brand-ink p-4 text-white shadow-lg sm:p-5">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-brand-gradient" aria-hidden />
+      <div className="relative flex flex-col gap-4 md:flex-row md:items-center">
+        <div className="space-y-2 sm:hidden">
+          {[
+            { name: game.home_team, team: homeTeam, score: game.home_score },
+            { name: game.away_team, team: awayTeam, score: game.away_score },
+          ].map((side, i) => (
+            <div key={i} className="flex items-center gap-2.5">
+              <TeamAvatar name={side.name} logoUrl={side.team?.logo_url} color1={side.team?.color1} color2={side.team?.color2} size="sm" />
+              <span className="min-w-0 flex-1 truncate font-bold">{side.name}</span>
+              {showScore && <span className="font-display text-2xl font-extrabold italic tabular-nums">{side.score ?? 0}</span>}
+            </div>
+          ))}
+        </div>
+        <div className="hidden min-w-0 flex-1 items-center gap-3 sm:flex">
+          <div className="flex min-w-0 flex-1 items-center justify-end gap-2 text-right">
+            <span className="truncate text-sm font-bold sm:text-base">{game.home_team}</span>
+            <TeamAvatar name={game.home_team} logoUrl={homeTeam?.logo_url} color1={homeTeam?.color1} color2={homeTeam?.color2} size="md" />
+          </div>
+          <div className="w-16 shrink-0 text-center">
+            {showScore ? (
+              <span className="font-display text-2xl font-extrabold italic tabular-nums">
+                {game.home_score ?? 0}
+                <span className="mx-1 text-white/40">-</span>
+                {game.away_score ?? 0}
+              </span>
+            ) : (
+              <span className="font-display text-lg font-extrabold italic text-white/50">VS</span>
+            )}
+          </div>
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <TeamAvatar name={game.away_team} logoUrl={awayTeam?.logo_url} color1={awayTeam?.color1} color2={awayTeam?.color2} size="md" />
+            <span className="truncate text-sm font-bold sm:text-base">{game.away_team}</span>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 md:justify-end">
+          <span className="rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide">
+            {getCategoryLabel(game.category)}
+          </span>
+          {game.jornada != null && game.jornada !== "" && (
+            <span className="rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-bold">J{game.jornada}</span>
+          )}
+          {parts && (
+            <span className="inline-flex items-center gap-1 text-xs text-white/70">
+              <Clock className="h-3.5 w-3.5" />
+              {parts.weekday} {parts.day} {parts.month}
+              {game.game_time ? ` · ${formatGameTime(game.game_time)}` : ""}
+            </span>
+          )}
+          {game.field && (
+            <span className="inline-flex items-center gap-1 text-xs text-white/70">
+              <MapPin className="h-3.5 w-3.5" />
+              {game.field}
+            </span>
+          )}
+          <span
+            className={cn(
+              "rounded-full px-2.5 py-1 text-[10px] font-bold uppercase",
+              count > 0 ? "bg-emerald-400/20 text-emerald-200" : "bg-amber-400/20 text-amber-200",
+            )}
+          >
+            {count > 0 ? "Ya capturado" : "Sin stats"}
+          </span>
+          <button
+            type="button"
+            onClick={onChange}
+            className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-xs font-bold text-slate-900 transition hover:bg-white/90"
+          >
+            <ArrowLeftRight className="h-3.5 w-3.5" />
+            Cambiar partido
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
