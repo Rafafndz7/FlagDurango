@@ -152,6 +152,7 @@ export default function RegisterTeamPage() {
                       <option value="varonil-silver">Varonil Silver</option>
                       <option value="femenil-gold">Femenil Gold</option>
                       <option value="femenil-silver">Femenil Silver</option>
+                      <option value="mixto-libre">Mixto Libre</option>
                       <option value="mixto-gold">Mixto Gold</option>
                       <option value="mixto-silver">Mixto Silver</option>
                       <option value="mixto-recreativo">Mixto Recreativo</option>

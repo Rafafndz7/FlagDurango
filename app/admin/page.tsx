@@ -1835,6 +1835,7 @@ const [gameForm, setGameForm] = useState({
                                 <option value="femenil-silver">Femenil Silver (FS)</option>
                                 <option value="femenil-cooper-a">Femenil Cooper A (FCA)</option>
                                 <option value="femenil-cooper-b">Femenil Cooper B (FCB)</option>
+                                <option value="mixto-libre">Mixto Libre (ML)</option>
                                 <option value="mixto-gold">Mixto Gold (MG)</option>
                                 <option value="mixto-silver">Mixto Silver (MS)</option>
                                 <option value="mixto-cooper">Mixto Cooper (MC)</option>
@@ -1981,6 +1982,7 @@ const [gameForm, setGameForm] = useState({
                                 <option value="femenil-silver">Femenil Silver (FS)</option>
                                 <option value="femenil-cooper-a">Femenil Cooper A (FCA)</option>
                         <option value="femenil-cooper-b">Femenil Cooper B (FCB)</option>
+                                <option value="mixto-libre">Mixto Libre (ML)</option>
                                 <option value="mixto-gold">Mixto Gold (MG)</option>
                                 <option value="mixto-silver">Mixto Silver (MS)</option>
                                 <option value="mixto-cooper">Mixto Cooper (MC)</option> {/* NUEVA */}
@@ -2686,6 +2688,7 @@ const [gameForm, setGameForm] = useState({
                           <option value="femenil-silver">Femenil Silver</option>
                           <option value="femenil-cooper-a">Femenil Cooper A</option>
                           <option value="femenil-cooper-b">Femenil Cooper B</option>
+                          <option value="mixto-libre">Mixto Libre</option>
                           <option value="mixto-gold">Mixto Gold</option>
                           <option value="mixto-silver">Mixto Silver</option>
                           <option value="mixto-cooper">Mixto Cooper</option>
@@ -2970,6 +2973,7 @@ const [gameForm, setGameForm] = useState({
                           <option value="femenil-silver">Femenil Silver</option>
                           <option value="femenil-cooper-a">Femenil Cooper A</option>
                           <option value="femenil-cooper-b">Femenil Cooper B</option>
+                          <option value="mixto-libre">Mixto Libre</option>
                           <option value="mixto-gold">Mixto Gold</option>
                           <option value="mixto-silver">Mixto Silver</option>
                           <option value="mixto-cooper">Mixto Cooper</option>
@@ -3767,6 +3771,7 @@ const [gameForm, setGameForm] = useState({
                       { value: "femenil-silver", label: "Femenil Silver" },
                       { value: "femenil-cooper-a", label: "Femenil Cooper A" },
                       { value: "femenil-cooper-b", label: "Femenil Cooper B" },
+                      { value: "mixto-libre", label: "Mixto Libre" },
                       { value: "mixto-gold", label: "Mixto Gold" },
                       { value: "mixto-silver", label: "Mixto Silver" },
                       { value: "mixto-cooper", label: "Mixto Cooper" }, // <-- NUEVA

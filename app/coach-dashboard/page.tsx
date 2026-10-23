@@ -963,6 +963,8 @@ export default function CoachDashboard() {
       varonil_silver: "Varonil Silver",
       "mixto-recreativo": "Mixto Recreativo",
       mixto_recreativo: "Mixto Recreativo",
+      "mixto-libre": "Mixto Libre",
+      mixto_libre: "Mixto Libre",
       "Varonil-master":"Varonil Master",
       varonil_master:"Varonil Master",
     }
@@ -1710,6 +1712,7 @@ export default function CoachDashboard() {
                               <option value="femenil-silver">Femenil Silver</option>
                               <option value="femenil-cooper-a">Femenil Cooper A</option>
                               <option value="femenil-cooper-b">Femenil Cooper B</option>
+                              <option value="mixto-libre">Mixto Libre</option>
                               <option value="mixto-gold">Mixto Gold</option>
                               <option value="mixto-silver">Mixto Silver</option>
                               <option value="mixto-recreativo">Mixto Recreativo</option>

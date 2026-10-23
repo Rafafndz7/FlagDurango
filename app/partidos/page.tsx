@@ -197,6 +197,7 @@ function GamesPageContent() {
       "varonil-libre": "bg-blue-600",
       "mixto-silver": "bg-orange-400",
       "mixto-gold": "bg-orange-500",
+      "mixto-libre": "bg-orange-600",
     }
     return colors[category] || "bg-gray-500"
   }
@@ -213,6 +214,7 @@ function GamesPageContent() {
       "varonil-libre": "Varonil Libre",
       "mixto-silver": "Mixto Silver",
       "mixto-gold": "Mixto Gold",
+      "mixto-libre": "Mixto Libre",
     }
     return labels[category] || category
   }
@@ -524,6 +526,7 @@ function GamesPageContent() {
                 <option value="femenil-silver">Femenil Silver</option>
                 <option value="femenil-cooper-a">Femenil Cooper A</option>
                 <option value="femenil-cooper-b">Femenil Cooper B</option>
+                <option value="mixto-libre">Mixto Libre</option>
                 <option value="mixto-gold">Mixto Gold</option>
                 <option value="mixto-silver">Mixto Silver</option>
               </select>

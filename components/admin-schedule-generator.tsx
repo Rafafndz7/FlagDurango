@@ -462,7 +462,6 @@ export default function AdminScheduleGenerator({
                           {c.label}
                         </option>
                       ))}
-                      <option value="varonil-libre">Varonil Libre</option>
                       <option value="mixto-recreativo">Mixto Recreativo</option>
                     </select>
                   </div>

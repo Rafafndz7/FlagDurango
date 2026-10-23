@@ -320,6 +320,33 @@ export const ACTIVE_SEASON_TEAM_ALIASES: TeamAliasMap = {
   },
 }
 
+/** Une mapas de alias; un alias que apunta a equipos distintos se descarta por ambiguo. */
+function mergeAliases(...maps: Record<string, string>[]): Record<string, string> {
+  const merged: Record<string, string> = {}
+  const ambiguous = new Set<string>()
+  for (const map of maps) {
+    for (const [alias, team] of Object.entries(map)) {
+      if (ambiguous.has(alias)) continue
+      if (merged[alias] && merged[alias] !== team) {
+        delete merged[alias]
+        ambiguous.add(alias)
+        continue
+      }
+      merged[alias] = team
+    }
+  }
+  return merged
+}
+
+ACTIVE_SEASON_TEAM_ALIASES["varonil-libre"] = mergeAliases(
+  ACTIVE_SEASON_TEAM_ALIASES["varonil-gold"],
+  ACTIVE_SEASON_TEAM_ALIASES["varonil-silver"],
+)
+ACTIVE_SEASON_TEAM_ALIASES["mixto-libre"] = mergeAliases(
+  ACTIVE_SEASON_TEAM_ALIASES["mixto-gold"],
+  ACTIVE_SEASON_TEAM_ALIASES["mixto-silver"],
+)
+
 function aliasKey(raw: string): string {
   return String(raw || "")
     .toLowerCase()

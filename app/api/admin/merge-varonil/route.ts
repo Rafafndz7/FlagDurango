@@ -13,7 +13,7 @@ export async function POST() {
         CHECK (category IS NULL OR category IN (
             'varonil-libre','varonil-gold','varonil-master','varonil-silver','varonil-cooper',
             'femenil-gold','femenil-silver','femenil-cooper','femenil-cooper-a','femenil-cooper-b',
-            'mixto-gold','mixto-silver','mixto-cooper','mixto-recreativo',
+            'mixto-libre','mixto-gold','mixto-silver','mixto-cooper','mixto-recreativo',
             'teens','1v1'
         ));
       `,

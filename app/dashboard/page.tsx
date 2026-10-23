@@ -635,10 +635,12 @@ export default function Dashboard() {
                         onChange={(e) => setTeamForm({ ...teamForm, category: e.target.value })}
                         className="w-full p-2 rounded bg-white/10 border border-white/20 text-white"
                       >
+                        <option value="varonil-libre">Varonil Libre</option>
                         <option value="varonil-gold">Varonil Gold</option>
                         <option value="varonil-silver">Varonil Silver</option>
                         <option value="femenil-gold">Femenil Gold</option>
                         <option value="femenil-silver">Femenil Silver</option>
+                        <option value="mixto-libre">Mixto Libre</option>
                         <option value="mixto-gold">Mixto Gold</option>
                         <option value="mixto-silver">Mixto Silver</option>
                         <option value="femenil-cooper-a">Femenil Cooper A</option>
@@ -901,12 +903,14 @@ export default function Dashboard() {
                       className="p-2 rounded bg-white/10 border border-white/20 text-white"
                     >
                       <option value="">Todas</option>
+                      <option value="varonil-libre">Varonil Libre</option>
                       <option value="varonil-gold">Varonil Gold</option>
                       <option value="varonil-silver">Varonil Silver</option>
                       <option value="femenil-gold">Femenil Gold</option>
                       <option value="femenil-silver">Femenil Silver</option>
                       <option value="femenil-cooper-a">Femenil Cooper A</option>
                       <option value="femenil-cooper-b">Femenil Cooper B</option>
+                      <option value="mixto-libre">Mixto Libre</option>
                       <option value="mixto-gold">Mixto Gold</option>
                       <option value="mixto-silver">Mixto Silver</option>
                     </select>

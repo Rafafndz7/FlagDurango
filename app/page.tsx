@@ -218,6 +218,7 @@ function HomePageContent() {
 
   const getCategoryLabel = (category: string) => {
     const labels: { [key: string]: string } = {
+      "varonil-libre": "Varonil Libre",
       "varonil-gold": "Varonil Gold",
       "varonil-silver": "Varonil Silver",
       "varonil-cooper": "Varonil Cooper",
@@ -226,6 +227,7 @@ function HomePageContent() {
       "femenil-cooper": "Femenil Cooper A",
       "femenil-cooper-a": "Femenil Cooper A",
       "femenil-cooper-b": "Femenil Cooper B",
+      "mixto-libre": "Mixto Libre",
       "mixto-gold": "Mixto Gold",
       "mixto-silver": "Mixto Silver",
       "mixto-cooper": "Mixto Cooper",

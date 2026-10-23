@@ -46,8 +46,10 @@ export default function GameShareCard({ game, teams }: GameShareCardProps) {
       "femenil-cooper-b": "bg-fuchsia-700",
       "varonil-silver": "bg-blue-400",
       "varonil-gold": "bg-blue-500",
+      "varonil-libre": "bg-blue-600",
       "mixto-silver": "bg-orange-400",
       "mixto-gold": "bg-orange-500",
+      "mixto-libre": "bg-orange-600",
     }
     return colors[category] || "bg-gray-500"
   }
@@ -61,8 +63,10 @@ export default function GameShareCard({ game, teams }: GameShareCardProps) {
       "femenil-cooper-b": "Femenil Cooper B",
       "varonil-silver": "Varonil Silver",
       "varonil-gold": "Varonil Gold",
+      "varonil-libre": "Varonil Libre",
       "mixto-silver": "Mixto Silver",
       "mixto-gold": "Mixto Gold",
+      "mixto-libre": "Mixto Libre",
     }
     return labels[category] || category
   }

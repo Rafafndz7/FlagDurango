@@ -3,6 +3,7 @@
 export type CategorySlug = string
 
 export const CATEGORY_LABELS: Record<string, string> = {
+  "varonil-libre": "Varonil Libre",
   "varonil-gold": "Varonil Gold",
   "varonil-master": "Varonil Master",
   "varonil-silver": "Varonil Silver",
@@ -12,14 +13,17 @@ export const CATEGORY_LABELS: Record<string, string> = {
   "femenil-cooper": "Femenil Cooper A", // legacy alias
   "femenil-cooper-a": "Femenil Cooper A",
   "femenil-cooper-b": "Femenil Cooper B",
+  "mixto-libre": "Mixto Libre",
   "mixto-gold": "Mixto Gold",
   "mixto-silver": "Mixto Silver",
   "mixto-cooper": "Mixto Cooper",
+  "mixto-recreativo": "Mixto Recreativo",
   teens: "Teens",
   "1v1": "1v1",
 }
 
 export const CATEGORY_SUFFIXES: Record<string, string> = {
+  "varonil-libre": "VL",
   "varonil-gold": "VG",
   "varonil-master": "VM",
   "varonil-silver": "VS",
@@ -29,6 +33,7 @@ export const CATEGORY_SUFFIXES: Record<string, string> = {
   "femenil-cooper": "FCA",
   "femenil-cooper-a": "FCA",
   "femenil-cooper-b": "FCB",
+  "mixto-libre": "ML",
   "mixto-gold": "MG",
   "mixto-silver": "MS",
   "mixto-cooper": "MC",
@@ -36,6 +41,7 @@ export const CATEGORY_SUFFIXES: Record<string, string> = {
 }
 
 export const CATEGORY_COLORS: Record<string, string> = {
+  "varonil-libre": "bg-blue-600",
   "varonil-gold": "bg-yellow-600",
   "varonil-master": "bg-amber-700",
   "varonil-silver": "bg-slate-500",
@@ -45,6 +51,7 @@ export const CATEGORY_COLORS: Record<string, string> = {
   "femenil-cooper": "bg-pink-600",
   "femenil-cooper-a": "bg-pink-600",
   "femenil-cooper-b": "bg-fuchsia-700",
+  "mixto-libre": "bg-purple-600",
   "mixto-gold": "bg-violet-600",
   "mixto-silver": "bg-indigo-400",
   "mixto-cooper": "bg-purple-700",
@@ -54,6 +61,7 @@ export const CATEGORY_COLORS: Record<string, string> = {
 
 /** Opciones estándar para selects de equipo/juego */
 export const TEAM_CATEGORY_OPTIONS: { value: string; label: string }[] = [
+  { value: "varonil-libre", label: "Varonil Libre (VL)" },
   { value: "varonil-gold", label: "Varonil Gold (VG)" },
   { value: "varonil-silver", label: "Varonil Silver (VS)" },
   { value: "varonil-cooper", label: "Varonil Cooper (VC)" },
@@ -61,6 +69,7 @@ export const TEAM_CATEGORY_OPTIONS: { value: string; label: string }[] = [
   { value: "femenil-silver", label: "Femenil Silver (FS)" },
   { value: "femenil-cooper-a", label: "Femenil Cooper A (FCA)" },
   { value: "femenil-cooper-b", label: "Femenil Cooper B (FCB)" },
+  { value: "mixto-libre", label: "Mixto Libre (ML)" },
   { value: "mixto-gold", label: "Mixto Gold (MG)" },
   { value: "mixto-silver", label: "Mixto Silver (MS)" },
   { value: "mixto-cooper", label: "Mixto Cooper (MC)" },

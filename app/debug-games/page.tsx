@@ -33,12 +33,14 @@ type Game = {
 }
 
 const categories = [
+  { value: "varonil-libre", label: "Varonil Libre" },
   { value: "varonil-gold", label: "Varonil Gold" },
   { value: "varonil-silver", label: "Varonil Silver" },
   { value: "femenil-gold", label: "Femenil Gold" },
   { value: "femenil-silver", label: "Femenil Silver" },
   { value: "femenil-cooper-a", label: "Femenil Cooper A" },
   { value: "femenil-cooper-b", label: "Femenil Cooper B" },
+  { value: "mixto-libre", label: "Mixto Libre" },
   { value: "mixto-gold", label: "Mixto Gold" },
   { value: "mixto-silver", label: "Mixto Silver" },
 ]
