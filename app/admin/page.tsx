@@ -43,11 +43,13 @@ import {
   BarChart3,
   Zap,
   X,
+  FileSpreadsheet,
 } from "lucide-react"
 import { AdminShell, type AdminNavGroup } from "@/components/admin-v2/admin-shell"
 import { AdminOverview } from "@/components/admin-v2/admin-overview"
 import { AdminTeamsBoard } from "@/components/admin-v2/admin-teams-board"
 import { AdminGameRow, Field, FormSection, fieldClass } from "@/components/admin-v2/admin-games"
+import { RolImporter } from "@/components/admin-v2/rol-importer"
 import { MatchCard } from "@/components/ui-v2/match-card"
 import { BrandLoader } from "@/components/ui-v2/brand"
 import { AnimatePresence, motion } from "framer-motion"
@@ -1550,6 +1552,7 @@ const [gameForm, setGameForm] = useState({
         { id: "teams", label: "Equipos", icon: Users, description: "Crea, edita y administra los equipos de cada temporada." },
         { id: "players", label: "Jugadores", icon: User, description: "Rosters, verificación y cuentas de jugadores." },
         { id: "games", label: "Partidos", icon: Trophy, description: "Programa partidos, captura marcadores y publica jornadas." },
+        { id: "rol-import", label: "Importar rol", icon: FileSpreadsheet, description: "Sube el Excel o pega el rol de Google Sheets y publica la jornada." },
         { id: "schedule-generator", label: "Generador de rol", icon: Wand2, description: "Genera el rol de juegos de la temporada." },
         { id: "calendar", label: "Calendario", icon: CalendarDays, description: "Vista de calendario de partidos." },
         { id: "stats", label: "Estadísticas", icon: BarChart3, description: "Estadísticas individuales por partido." },
@@ -3563,6 +3566,16 @@ const [gameForm, setGameForm] = useState({
 
           <TabsContent value="finanzas">
             <AdminFinanzasPanel />
+          </TabsContent>
+
+          <TabsContent value="rol-import">
+            <RolImporter
+              teams={teams}
+              games={games}
+              activeSeasonId={seasons.find((s) => s.is_active)?.id || ""}
+              seasonYear={seasons.find((s) => s.is_active)?.year}
+              onImported={() => loadData()}
+            />
           </TabsContent>
 
           <TabsContent value="schedule-generator">
