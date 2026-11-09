@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation"
 import { SiteFooter } from "@/components/ui-v2/site-footer"
 
-const PUBLIC_PREFIXES = ["/partidos", "/equipos", "/estadisticas", "/noticias", "/reglamento", "/wildbrowl", "/privacidad"]
+const PUBLIC_PREFIXES = ["/partidos", "/equipos", "/estadisticas", "/galeria", "/noticias", "/reglamento", "/wildbrowl", "/privacidad"]
 
 /** Pie de página solo en las páginas públicas (no en paneles ni formularios) */
 export function FooterGuard() {

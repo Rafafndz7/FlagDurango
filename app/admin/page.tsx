@@ -23,6 +23,7 @@ import {
   UserCheck,
   Target,
   Star,
+  Images,
   FileImage,
   User,
   Eye,
@@ -66,7 +67,8 @@ import AdminUsersPanel from "@/components/admin-users-panel"
 import AdminBulkRoster from "@/components/admin-bulk-roster"
 import AdminTeamGamesCleaner from "@/components/admin-team-games-cleaner"
 import AdminStandingsEditor from "@/components/admin-standings-editor"
-import AdminMvpSuggestions from "@/components/admin-mvp-suggestions"
+import AdminMvpEditor from "@/components/admin-mvp-editor"
+import AdminGallery from "@/components/admin-gallery"
 
 type Team = {
   id?: any
@@ -1559,6 +1561,7 @@ const [gameForm, setGameForm] = useState({
         { id: "calendar", label: "Calendario", icon: CalendarDays, description: "Vista de calendario de partidos." },
         { id: "stats", label: "Estadísticas", icon: BarChart3, description: "Estadísticas individuales por partido." },
         { id: "mvps", label: "MVPs", icon: Star, description: "MVPs semanales y de partido." },
+        { id: "galeria", label: "Galería", icon: Images, description: "Fotos de cada jornada para la página pública." },
         { id: "quick-manager", label: "Gestión rápida", icon: Zap, description: "Atajos para equipos, jugadores y partidos." },
         { id: "qr", label: "Códigos QR", icon: QrCode, description: "Escáner de asistencia y hojas QR para imprimir." },
       ],
@@ -3917,7 +3920,7 @@ const [gameForm, setGameForm] = useState({
             </div>
           </TabsContent>
           <TabsContent value="mvps" className="space-y-6">
-            <AdminMvpSuggestions />
+            <AdminMvpEditor />
             <Card className="bg-white border border-gray-200">
               <CardHeader>
                 <CardTitle className="text-gray-900 flex items-center gap-2">
@@ -3949,6 +3952,10 @@ const [gameForm, setGameForm] = useState({
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="galeria">
+            <AdminGallery />
           </TabsContent>
 
           {/* QR Codes */}

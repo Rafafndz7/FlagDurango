@@ -24,6 +24,7 @@ import {
 import { BrandBlobs, BrandLoader, SectionHeading, brandButtonClass, ghostButtonClass } from "@/components/ui-v2/brand"
 import { CountUp, EASE_OUT, HoverLift, Reveal, Stagger, StaggerItem } from "@/components/ui-v2/motion"
 import { MatchCard } from "@/components/ui-v2/match-card"
+import { HomeGalleryPreview } from "@/components/home-gallery-preview"
 
 interface Game {
   id: number
@@ -628,6 +629,8 @@ function HomePageContent() {
             </Stagger>
           </section>
         )}
+
+        <HomeGalleryPreview />
       </div>
 
       {/* LIGA EN NÚMEROS */}

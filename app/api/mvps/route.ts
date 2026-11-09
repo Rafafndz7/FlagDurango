@@ -71,6 +71,9 @@ export async function POST(request: NextRequest) {
       const { data: active } = await supabase.from("seasons").select("id").eq("is_active", true).maybeSingle()
       seasonId = active?.id
     }
+    const { data: seasonRow } = seasonId
+      ? await supabase.from("seasons").select("year").eq("id", seasonId).maybeSingle()
+      : { data: null }
 
     console.log("Creating MVP:", body)
 
@@ -88,7 +91,8 @@ export async function POST(request: NextRequest) {
         .eq("category", category)
         .eq("week_number", week_number)
         .eq("season_id", seasonId)
-        .single()
+        .limit(1)
+        .maybeSingle()
 
       if (existingMvp) {
         return NextResponse.json(
@@ -107,6 +111,7 @@ export async function POST(request: NextRequest) {
         category,
         week_number: mvp_type === "weekly" ? week_number : null,
         season_id: seasonId,
+        ...(seasonRow?.year ? { season: String(seasonRow.year) } : {}),
         notes,
       })
       .select(`
