@@ -95,15 +95,6 @@ export async function PUT(req: NextRequest) {
       renamedGames = (home.count || 0) + (away.count || 0)
     }
 
-    // team_stats es la copia que usa la app móvil; si no existe la tabla se ignora.
-    if (renamed || (update.category !== undefined && update.category !== current.category)) {
-      await supabase
-        .from("team_stats")
-        .update({ team_name: team.name, team_category: team.category })
-        .eq("season_id", current.season_id)
-        .eq("team_name", current.name)
-    }
-
     return NextResponse.json({ success: true, data: team, renamed_games: renamedGames })
   } catch (error: any) {
     return NextResponse.json({ success: false, message: error.message || "Error" }, { status: 500 })

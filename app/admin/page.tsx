@@ -66,6 +66,7 @@ import AdminUsersPanel from "@/components/admin-users-panel"
 import AdminBulkRoster from "@/components/admin-bulk-roster"
 import AdminTeamGamesCleaner from "@/components/admin-team-games-cleaner"
 import AdminStandingsEditor from "@/components/admin-standings-editor"
+import AdminMvpSuggestions from "@/components/admin-mvp-suggestions"
 
 type Team = {
   id?: any
@@ -3915,7 +3916,8 @@ const [gameForm, setGameForm] = useState({
             </Card>
             </div>
           </TabsContent>
-          <TabsContent value="mvps">
+          <TabsContent value="mvps" className="space-y-6">
+            <AdminMvpSuggestions />
             <Card className="bg-white border border-gray-200">
               <CardHeader>
                 <CardTitle className="text-gray-900 flex items-center gap-2">
