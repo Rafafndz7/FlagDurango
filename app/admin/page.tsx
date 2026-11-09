@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent } from "@/components/ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import {
   Trash2,
@@ -65,6 +65,7 @@ import AdminScheduleGenerator from "@/components/admin-schedule-generator"
 import AdminUsersPanel from "@/components/admin-users-panel"
 import AdminBulkRoster from "@/components/admin-bulk-roster"
 import AdminTeamGamesCleaner from "@/components/admin-team-games-cleaner"
+import AdminStandingsEditor from "@/components/admin-standings-editor"
 
 type Team = {
   id?: any
@@ -1583,7 +1584,7 @@ const [gameForm, setGameForm] = useState({
       items: [
         { id: "wildbrowl", label: "WildBrowl", icon: Target, description: "Torneo 1v1." },
         { id: "config", label: "Configuración", icon: Settings, description: "Ajustes generales de la liga." },
-        { id: "team-cleaner", label: "Limpiar tablas", icon: Eraser, description: "Herramienta de limpieza de equipos y partidos." },
+        { id: "team-cleaner", label: "Editar tablas", icon: Eraser, description: "Tabla de posiciones editable: ajusta puntos, partidos y datos de cada equipo." },
       ],
     },
   ]
@@ -1729,7 +1730,18 @@ const [gameForm, setGameForm] = useState({
           </TabsContent>
 
           <TabsContent value="team-cleaner">
-            <AdminTeamGamesCleaner />
+            <Tabs defaultValue="tabla">
+              <TabsList className="mb-4">
+                <TabsTrigger value="tabla">Tabla y ajustes</TabsTrigger>
+                <TabsTrigger value="duplicados">Limpiar duplicados</TabsTrigger>
+              </TabsList>
+              <TabsContent value="tabla">
+                <AdminStandingsEditor />
+              </TabsContent>
+              <TabsContent value="duplicados">
+                <AdminTeamGamesCleaner />
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
           {/* NUEVO CONTENIDO: Gestión Rápida */}
