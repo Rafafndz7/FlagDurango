@@ -15,6 +15,7 @@ type ImportGame = {
   category: string
   home_team: string
   away_team: string
+  friendly?: boolean
 }
 
 const LOCKED_STATUSES = new Set(["en vivo", "en_vivo", "finalizado"])
@@ -116,12 +117,12 @@ export async function POST(request: NextRequest) {
       field: g.field,
       category: g.category,
       status: "programado",
-      match_type: "jornada",
+      match_type: g.friendly ? "amistoso" : "jornada",
       jornada,
       stage: "regular",
       sport_type: "flag",
-      game_type: "regular",
-      counts_for_standings: true,
+      game_type: g.friendly ? "friendly" : "regular",
+      counts_for_standings: !g.friendly,
       season_id: season.id,
       season: String(season.year || ""),
       is_draft: isDraft,

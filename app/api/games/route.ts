@@ -341,9 +341,33 @@ export async function PUT(request: NextRequest) {
 
     const { data: currentGame } = await supabase
       .from("games")
-      .select("status, home_team, away_team, season_id, game_type")
+      .select("status, home_team, away_team, season_id, game_type, sport_type")
       .eq("id", id)
       .single()
+
+    if (currentGame && (updateData.home_team !== undefined || updateData.away_team !== undefined)) {
+      const home = String(updateData.home_team ?? currentGame.home_team ?? "")
+      const away = String(updateData.away_team ?? currentGame.away_team ?? "")
+      if (!home.trim() || !away.trim()) {
+        return NextResponse.json({ success: false, message: "Elige los dos equipos" }, { status: 400 })
+      }
+      if (home.trim() === away.trim()) {
+        return NextResponse.json({ success: false, message: "El equipo local y visitante no pueden ser el mismo" }, { status: 400 })
+      }
+      const changed = home !== currentGame.home_team || away !== currentGame.away_team
+      if (changed && currentGame.sport_type !== "wildbrowl") {
+        const seasonId = updateData.season_id || currentGame.season_id
+        const { data: found } = await supabase.from("teams").select("name").eq("season_id", seasonId).in("name", [home, away])
+        const names = new Set((found || []).map((t) => t.name))
+        const missing = [home, away].filter((n) => !names.has(n))
+        if (missing.length) {
+          return NextResponse.json(
+            { success: false, message: `No existen en la temporada del partido: ${missing.join(", ")}` },
+            { status: 400 },
+          )
+        }
+      }
+    }
 
     if (updateData.status === "finalizado" && updateData.mvp) {
       const { data: playerData, error: playerError } = await supabase

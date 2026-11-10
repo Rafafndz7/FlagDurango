@@ -42,6 +42,202 @@ const MONTHS: Record<string, number> = {
   diciembre: 12,
 }
 
+/** Colores que la IA puede reportar al leer una imagen del rol, con su tono para la vista previa */
+export const ROL_IMAGE_COLORS: Record<string, string> = {
+  blanco: "#ffffff",
+  gris: "#9ca3af",
+  negro: "#000000",
+  amarillo: "#facc15",
+  naranja: "#f97316",
+  rojo: "#dc2626",
+  rosa: "#f472b6",
+  morado: "#9333ea",
+  azul: "#2563eb",
+  azul_claro: "#7dd3fc",
+  verde: "#16a34a",
+  verde_claro: "#86efac",
+  cafe: "#92400e",
+  otro: "#cbd5e1",
+}
+
+export type RolImageResult = {
+  title?: string
+  fields?: string[]
+  rows?: { time?: string; cells?: { field?: string; text?: string; color?: string }[] }[]
+  notes?: string
+}
+
+const fieldHeader = (value: string) => {
+  const v = String(value || "").trim()
+  return /^(campo|cancha)\b/i.test(v) ? v : `Campo ${v}`
+}
+
+/** Convierte lo que leyó la IA en la misma cuadrícula que produce el Excel */
+export function gridFromImageResult(data: RolImageResult): RolGrid {
+  const rows = data.rows || []
+  const fields: string[] = []
+  for (const f of [...(data.fields || []), ...rows.flatMap((r) => (r.cells || []).map((c) => c.field || ""))]) {
+    const header = fieldHeader(f)
+    if (f && !fields.some((x) => compactKey(x) === compactKey(header))) fields.push(header)
+  }
+  const grid: RolGrid = [[{ text: data.title || "", color: null }], [{ text: "Hora", color: null }, ...fields.map((f) => ({ text: f, color: null }))]]
+  for (const row of rows) {
+    const line: RolCell[] = [{ text: row.time || "", color: null }]
+    for (const field of fields) {
+      const cell = (row.cells || []).find((c) => compactKey(fieldHeader(c.field || "")) === compactKey(field))
+      const hex = cell?.color ? ROL_IMAGE_COLORS[cell.color] ?? null : null
+      line.push({ text: cell?.text || "", color: hex === "#ffffff" ? null : hex })
+    }
+    grid.push(line)
+  }
+  return grid
+}
+
+/** Celdas negras (o casi) del rol son amistosos */
+export function isDarkColor(color: string | null | undefined) {
+  if (!color || !/^#[0-9a-f]{6}$/i.test(color)) return false
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16) / 255)
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.18
+}
+
+export type RolSqlGame = {
+  time: string
+  field: string
+  category: string
+  home: string
+  away: string
+  friendly: boolean
+  raw: string
+}
+
+const sqlText = (value: string) => `'${String(value).replace(/'/g, "''")}'`
+const sqlComment = (value: string) => String(value).replace(/\r?\n/g, " ").replace(/\*\//g, "* /")
+
+/** SQL para publicar la jornada en el SQL Editor de Supabase (mismo formato que los scripts de jornada) */
+export function buildRolSql(opts: {
+  jornada: number
+  date: string
+  venue: string
+  isDraft: boolean
+  games: RolSqlGame[]
+  excluded: string[]
+  notes: string[]
+}) {
+  const { jornada, date, venue, isDraft, games, excluded, notes } = opts
+  const j = `J${jornada}`
+  const friendlies = games.filter((g) => g.friendly)
+  const pad = (v: string, n: number) => (v + ",").padEnd(n + 1)
+  const lines: string[] = [
+    `-- Jornada ${jornada} (${date}${venue ? `, ${sqlComment(venue)}` : ""})`,
+    `-- Generado desde el importador de rol. ${games.length} partidos${isDraft ? " como BORRADOR" : " publicados"}.`,
+  ]
+  if (friendlies.length) {
+    lines.push("--", "-- Amistosos (no suman puntos):")
+    friendlies.forEach((g) => lines.push(`--   ${g.time} ${g.field} ${sqlComment(g.raw)}`))
+  }
+  if (excluded.length) {
+    lines.push("--", "-- No incluidos:")
+    excluded.forEach((e) => lines.push(`--   ${sqlComment(e)}`))
+  }
+  if (notes.length) {
+    lines.push("--", "-- Revisar:")
+    notes.forEach((n) => lines.push(`--   ${sqlComment(n)}`))
+  }
+
+  const values: string[] = []
+  let lastTime = ""
+  games.forEach((g, i) => {
+    if (g.time !== lastTime) {
+      values.push(`    -- ${g.time}`)
+      lastTime = g.time
+    }
+    const row = [
+      pad(sqlText(g.time), 7),
+      pad(sqlText(g.field), 9),
+      pad(sqlText(g.category), 18),
+      pad(sqlText(g.home), 24),
+      pad(sqlText(g.away), 24),
+      pad(sqlText(g.friendly ? "amistoso" : "jornada"), 10),
+      sqlText(g.friendly ? "friendly" : "regular"),
+    ].join(" ")
+    values.push(`    (${row})${i < games.length - 1 ? "," : " "}  -- ${sqlComment(g.raw)}`)
+  })
+
+  lines.push(
+    "",
+    "DO $$",
+    "DECLARE",
+    "  v_season uuid;",
+    "  v_year integer;",
+    "  v_deleted integer;",
+    "  v_inserted integer;",
+    "BEGIN",
+    "  SELECT id, year INTO v_season, v_year FROM public.seasons WHERE is_active = true LIMIT 1;",
+    "  IF v_season IS NULL THEN",
+    "    RAISE EXCEPTION 'No hay temporada activa';",
+    "  END IF;",
+    "",
+    "  IF EXISTS (",
+    "    SELECT 1 FROM public.games",
+    `    WHERE season_id = v_season AND jornada = ${jornada} AND game_date = DATE '${date}'`,
+    "      AND status IN ('en_vivo', 'en vivo', 'finalizado')",
+    "  ) THEN",
+    `    RAISE EXCEPTION 'Hay partidos de ${j} en vivo o finalizados; no se reemplaza nada';`,
+    "  END IF;",
+    "",
+    "  DELETE FROM public.games",
+    `  WHERE season_id = v_season AND jornada = ${jornada} AND game_date = DATE '${date}';`,
+    "  GET DIAGNOSTICS v_deleted = ROW_COUNT;",
+    "",
+    "  INSERT INTO public.games (",
+    "    home_team, away_team, game_date, game_time, venue, field, category,",
+    "    status, match_type, jornada, stage, sport_type, game_type,",
+    "    counts_for_standings, season_id, season, is_draft",
+    "  )",
+    "  SELECT",
+    `    r.home, r.away, DATE '${date}', r.hora::time, ${venue ? sqlText(venue) : "NULL"}, r.campo, r.categoria,`,
+    `    'programado', r.match_type, ${jornada}, 'regular', 'flag', r.game_type,`,
+    `    (r.game_type = 'regular'), v_season, v_year, ${isDraft ? "true" : "false"}`,
+    "  FROM (VALUES",
+    ...values,
+    "  ) AS r(hora, campo, categoria, home, away, match_type, game_type);",
+    "  GET DIAGNOSTICS v_inserted = ROW_COUNT;",
+    "",
+    `  RAISE NOTICE '${j}: % partidos borrados, % insertados', v_deleted, v_inserted;`,
+    "END $$;",
+    "",
+    `-- Verificación 1: rol de ${j} (deben salir ${games.length} partidos; ${friendlies.length} amistosos)`,
+    "SELECT game_time, field, category, home_team, away_team, match_type, game_type, counts_for_standings",
+    "FROM public.games",
+    `WHERE jornada = ${jornada} AND game_date = DATE '${date}'`,
+    "  AND season_id = (SELECT id FROM public.seasons WHERE is_active LIMIT 1)",
+    "ORDER BY game_time, field;",
+    "",
+    "-- Verificación 2: equipos que NO existen en la temporada activa (debe salir vacío)",
+    "SELECT g.game_time, g.field, g.category, g.home_team, g.away_team",
+    "FROM public.games g",
+    `WHERE g.jornada = ${jornada} AND g.game_date = DATE '${date}'`,
+    "  AND g.season_id = (SELECT id FROM public.seasons WHERE is_active LIMIT 1)",
+    "  AND (",
+    "    NOT EXISTS (SELECT 1 FROM public.teams t WHERE t.season_id = g.season_id AND t.name = g.home_team)",
+    "    OR NOT EXISTS (SELECT 1 FROM public.teams t WHERE t.season_id = g.season_id AND t.name = g.away_team)",
+    "  )",
+    "ORDER BY g.game_time, g.field;",
+    "",
+    "-- Verificación 3: mismo equipo en dos campos a la misma hora (debe salir vacío)",
+    "SELECT g.game_time, t.name AS equipo, string_agg(g.field || ': ' || g.home_team || ' vs ' || g.away_team, ' | ' ORDER BY g.field) AS partidos",
+    "FROM public.games g",
+    "JOIN public.teams t ON t.season_id = g.season_id AND (t.name = g.home_team OR t.name = g.away_team)",
+    `WHERE g.jornada = ${jornada} AND g.game_date = DATE '${date}'`,
+    "  AND g.season_id = (SELECT id FROM public.seasons WHERE is_active LIMIT 1)",
+    "GROUP BY g.game_time, t.name",
+    "HAVING count(*) > 1",
+    "ORDER BY g.game_time, t.name;",
+    "",
+  )
+  return lines.join("\n")
+}
+
 const CATEGORY_SUFFIX_TOKENS = new Set(["fs", "ms", "mg", "vs", "vg", "vl", "ml", "fc", "fca", "fcb", "fg", "fl"])
 
 export function normalizeText(value: string) {

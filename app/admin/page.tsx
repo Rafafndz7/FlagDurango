@@ -24,6 +24,7 @@ import {
   Target,
   Star,
   Images,
+  Printer,
   FileImage,
   User,
   Eye,
@@ -67,6 +68,7 @@ import AdminUsersPanel from "@/components/admin-users-panel"
 import AdminBulkRoster from "@/components/admin-bulk-roster"
 import AdminTeamGamesCleaner from "@/components/admin-team-games-cleaner"
 import AdminStandingsEditor from "@/components/admin-standings-editor"
+import { TEAM_CATEGORY_OPTIONS, getCategoryLabel } from "@/lib/categories"
 import AdminMvpEditor from "@/components/admin-mvp-editor"
 import AdminGallery from "@/components/admin-gallery"
 
@@ -1280,10 +1282,11 @@ const [gameForm, setGameForm] = useState({
     game_date?: string,              // <-- NUEVO
     game_time?: string,              // <-- NUEVO
     venue?: string,                  // <-- NUEVO
-    field?: string                   // <-- NUEVO
+    field?: string,                  // <-- NUEVO
+    extra?: Record<string, unknown>,
   ) => {
     try {
-      const updateData: any = { id, status }
+      const updateData: any = { id, status, ...extra }
       if (home_score !== undefined) updateData.home_score = home_score
       if (away_score !== undefined) updateData.away_score = away_score
       if (mvp) updateData.mvp = mvp
@@ -2534,6 +2537,16 @@ const [gameForm, setGameForm] = useState({
                             <Badge className={`${netProfit >= 0 ? 'bg-blue-600' : 'bg-red-600'} text-white py-1.5`}>
                               Ganancia del Día: ${netProfit}
                             </Badge>
+                            {/^\d{4}-\d{2}-\d{2}/.test(date) && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => window.open(`/admin/hoja-arbitraje?fecha=${date.slice(0, 10)}`, "_blank")}
+                              >
+                                <Printer className="w-4 h-4 mr-1" />
+                                Imprimir hoja
+                              </Button>
+                            )}
                           </div>
                         </div>
                       </CardHeader>
@@ -3095,6 +3108,69 @@ const [gameForm, setGameForm] = useState({
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {(() => {
+                      const seasonTeams = teams
+                        .filter((t) => t.season_id === (editingGame.season_id || activeSeasonId))
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                      const sameCategory = seasonTeams.filter((t) => t.category === editingGame.category)
+                      const otherCategory = seasonTeams.filter((t) => t.category !== editingGame.category)
+                      const categoryOptions = Array.from(
+                        new Set([editingGame.category, ...TEAM_CATEGORY_OPTIONS.map((o) => o.value)].filter(Boolean)),
+                      )
+                      const teamSelect = (side: "home_team" | "away_team") => {
+                        const value = editingGame[side]
+                        const known = seasonTeams.some((t) => t.name === value)
+                        return (
+                          <select
+                            value={value}
+                            onChange={(e) => setEditingGame({ ...editingGame, [side]: e.target.value })}
+                            className="w-full p-2 rounded bg-gray-50 border border-gray-200 text-black"
+                          >
+                            {!known && <option value={value}>{value} (no está en la temporada)</option>}
+                            <optgroup label={getCategoryLabel(editingGame.category)}>
+                              {sameCategory.map((t) => (
+                                <option key={t.id} value={t.name}>
+                                  {t.name.trim()}
+                                </option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="Otras categorías">
+                              {otherCategory.map((t) => (
+                                <option key={t.id} value={t.name}>
+                                  {t.name.trim()} · {getCategoryLabel(t.category)}
+                                </option>
+                              ))}
+                            </optgroup>
+                          </select>
+                        )
+                      }
+                      return (
+                        <div className="grid grid-cols-1 gap-4 rounded-lg border border-gray-200 bg-gray-50/60 p-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_200px]">
+                          <div>
+                            <Label className="text-black">Local</Label>
+                            {teamSelect("home_team")}
+                          </div>
+                          <div>
+                            <Label className="text-black">Visitante</Label>
+                            {teamSelect("away_team")}
+                          </div>
+                          <div>
+                            <Label className="text-black">Categoría</Label>
+                            <select
+                              value={editingGame.category}
+                              onChange={(e) => setEditingGame({ ...editingGame, category: e.target.value })}
+                              className="w-full p-2 rounded bg-gray-50 border border-gray-200 text-black"
+                            >
+                              {categoryOptions.map((c) => (
+                                <option key={c} value={c}>
+                                  {getCategoryLabel(c)}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      )
+                    })()}
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label className="text-black">Estado</Label>
@@ -3302,7 +3378,12 @@ const [gameForm, setGameForm] = useState({
                             editingGame.game_date,
                             editingGame.game_time,
                             editingGame.venue,
-                            editingGame.field
+                            editingGame.field,
+                            {
+                              home_team: editingGame.home_team,
+                              away_team: editingGame.away_team,
+                              category: editingGame.category,
+                            },
                           )
                         }
                         className="bg-green-600 hover:bg-green-700 text-white"

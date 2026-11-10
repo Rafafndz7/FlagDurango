@@ -7,18 +7,27 @@ import {
   CalendarDays,
   CheckCircle2,
   ClipboardPaste,
+  Copy,
+  Database,
+  Download,
   FileSpreadsheet,
+  ImageIcon,
   Loader2,
   MapPin,
   RotateCcw,
   Send,
   Upload,
+  X,
 } from "lucide-react"
+import { blobToBase64, compressImage } from "@/lib/image-compress"
 import { cn } from "@/lib/utils"
 import { getCategoryLabel as baseCategoryLabel } from "@/lib/categories"
 import { dateKey } from "@/lib/game-date"
 import {
+  buildRolSql,
   compactKey,
+  gridFromImageResult,
+  isDarkColor,
   parseRolGrid,
   resolveRolGames,
   type LearnedAliases,
@@ -186,11 +195,16 @@ export function RolImporter({ teams, games, activeSeasonId, seasonYear, onImport
   const [categoryOverrides, setCategoryOverrides] = useState<Record<string, string>>({})
   const [teamOverrides, setTeamOverrides] = useState<Record<string, { home?: string; away?: string }>>({})
   const [excluded, setExcluded] = useState<Set<string>>(new Set())
+  const [friendlyOverrides, setFriendlyOverrides] = useState<Record<string, boolean>>({})
+  const [aiNotes, setAiNotes] = useState<string[]>([])
+  const [sql, setSql] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
   const [learned, setLearned] = useState<LearnedAliases>({})
   const [isDraft, setIsDraft] = useState(false)
   const [saving, setSaving] = useState(false)
   const [result, setResult] = useState<{ type: "success" | "error"; text: string } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const imageRef = useRef<HTMLInputElement>(null)
 
   const year = seasonYear || new Date().getFullYear()
   const seasonTeams = useMemo(
@@ -212,6 +226,8 @@ export function RolImporter({ teams, games, activeSeasonId, seasonYear, onImport
     setCategoryOverrides({})
     setTeamOverrides({})
     setExcluded(new Set())
+    setFriendlyOverrides({})
+    setSql(null)
     setResult(null)
   }, [parsed])
 
@@ -227,6 +243,7 @@ export function RolImporter({ teams, games, activeSeasonId, seasonYear, onImport
       home: teamOverrides[g.key]?.home ?? g.home,
       away: teamOverrides[g.key]?.away ?? g.away,
       include: !excluded.has(g.key),
+      friendly: friendlyOverrides[g.key] ?? isDarkColor(g.color),
     }))
     const slotCount = new Map<string, number>()
     list.forEach((g) => {
@@ -247,7 +264,7 @@ export function RolImporter({ teams, games, activeSeasonId, seasonYear, onImport
       })
       return { ...g, issues }
     })
-  }, [resolved, teamOverrides, excluded])
+  }, [resolved, teamOverrides, excluded, friendlyOverrides])
 
   const included = finalGames.filter((g) => g.include)
   const withIssues = included.filter((g) => g.issues.length > 0)
@@ -271,10 +288,35 @@ export function RolImporter({ teams, games, activeSeasonId, seasonYear, onImport
     setSheetIndex(0)
     setSourceLabel(label)
     setReadError(null)
+    setAiNotes([])
   }, [])
+
+  const handleImage = async (file: File) => {
+    setReading(true)
+    setReadError(null)
+    try {
+      const image = await compressImage(file)
+      const res = await fetch("/api/games/rol-from-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image_base64: await blobToBase64(image.blob), mime_type: image.blob.type }),
+      })
+      const data = await res.json().catch(() => ({ success: false, message: `Error ${res.status}` }))
+      if (!data.success) throw new Error(data.message || "No se pudo leer la imagen")
+      const imageGrid = gridFromImageResult(data.data)
+      if (imageGrid.length <= 2) throw new Error("No encontré partidos en la imagen")
+      loadGrid(imageGrid, file.name || "Imagen pegada")
+      setAiNotes(data.data.notes ? [String(data.data.notes)] : [])
+    } catch (err: any) {
+      setReadError(`No pude leer la imagen: ${err?.message || err}`)
+    } finally {
+      setReading(false)
+    }
+  }
 
   const handleFile = async (file?: File | null) => {
     if (!file) return
+    if (file.type.startsWith("image/")) return handleImage(file)
     if (!/\.xlsx$/i.test(file.name)) {
       setReadError("Sube el archivo en formato .xlsx (en Google Sheets: Archivo → Descargar → Microsoft Excel).")
       return
@@ -288,6 +330,7 @@ export function RolImporter({ teams, games, activeSeasonId, seasonYear, onImport
       setSheets(list)
       setSheetIndex(best)
       setSourceLabel(file.name)
+      setAiNotes([])
     } catch (err: any) {
       setReadError(`No pude leer el Excel: ${err?.message || err}`)
     } finally {
@@ -298,6 +341,11 @@ export function RolImporter({ teams, games, activeSeasonId, seasonYear, onImport
   const handlePaste = useCallback(
     (data: DataTransfer | null) => {
       if (!data) return false
+      const image = Array.from(data.files || []).find((f) => f.type.startsWith("image/"))
+      if (image) {
+        handleImage(image)
+        return true
+      }
       const pasted = gridFromClipboard(data)
       if (!pasted) return false
       loadGrid(pasted, "Celdas pegadas")
@@ -322,6 +370,8 @@ export function RolImporter({ teams, games, activeSeasonId, seasonYear, onImport
     setSourceLabel("")
     setResult(null)
     setReadError(null)
+    setAiNotes([])
+    setSql(null)
   }
 
   const setTeam = (key: string, side: "home" | "away", name: string) =>
@@ -377,6 +427,7 @@ export function RolImporter({ teams, games, activeSeasonId, seasonYear, onImport
             category: g.category,
             home_team: g.home,
             away_team: g.away,
+            friendly: g.friendly,
           })),
         }),
       })
@@ -409,6 +460,57 @@ export function RolImporter({ teams, games, activeSeasonId, seasonYear, onImport
     } finally {
       setSaving(false)
     }
+  }
+
+  const generateSql = () => {
+    const jornada = Number(meta.jornada)
+    if (!jornada || !meta.date) {
+      setResult({ type: "error", text: "Falta el número de jornada o la fecha." })
+      return
+    }
+    const notes = [
+      ...aiNotes,
+      ...included.flatMap((g) => [
+        g.homeGuessed && !teamOverrides[g.key]?.home ? `${g.time} ${g.field}: "${g.homeRaw}" se tomó como ${g.home?.trim()}` : null,
+        g.awayGuessed && !teamOverrides[g.key]?.away ? `${g.time} ${g.field}: "${g.awayRaw}" se tomó como ${g.away?.trim()}` : null,
+      ]),
+    ].filter(Boolean) as string[]
+    setSql(
+      buildRolSql({
+        jornada,
+        date: meta.date,
+        venue: meta.venue.trim(),
+        isDraft,
+        games: included.map((g) => ({
+          time: g.time,
+          field: g.field,
+          category: g.category,
+          home: g.home!,
+          away: g.away!,
+          friendly: g.friendly,
+          raw: `${g.homeRaw} vs ${g.awayRaw}`,
+        })),
+        excluded: finalGames.filter((g) => !g.include).map((g) => `${g.time} ${g.field} ${g.homeRaw} vs ${g.awayRaw}`),
+        notes,
+      }),
+    )
+    setCopied(false)
+  }
+
+  const copySql = async () => {
+    if (!sql) return
+    await navigator.clipboard.writeText(sql)
+    setCopied(true)
+  }
+
+  const downloadSql = () => {
+    if (!sql) return
+    const url = URL.createObjectURL(new Blob([sql], { type: "text/plain;charset=utf-8" }))
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `${meta.date || "rol"}-jornada-${meta.jornada || "x"}.sql`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const teamsByCategory = (category: string) =>
@@ -472,11 +574,42 @@ export function RolImporter({ teams, games, activeSeasonId, seasonYear, onImport
         <div className="rounded-3xl bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-200/60 sm:p-6">
           <h3 className="font-display text-xl font-extrabold italic text-slate-900">Importar rol de la jornada</h3>
           <p className="mt-1 text-sm text-slate-500">
-            Sube el Excel del rol o pega las celdas desde Google Sheets. Detecto jornada, fecha, sede, campos, horarios y
-            categorías por color; tú revisas y publicas.
+            Sube el Excel o la imagen del rol, o pega las celdas desde Google Sheets. Detecto jornada, fecha, sede, campos,
+            horarios y categorías por color; tú revisas y publicas o generas el SQL.
           </p>
 
-          <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-3">
+            <button
+              type="button"
+              onClick={() => imageRef.current?.click()}
+              disabled={reading}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault()
+                const file = Array.from(e.dataTransfer.files || []).find((f) => f.type.startsWith("image/"))
+                if (file) handleImage(file)
+              }}
+              className="flex min-h-[170px] flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-slate-300 p-6 text-center transition hover:border-brand-orange/60 hover:bg-slate-50 disabled:cursor-wait"
+            >
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-orange text-white">
+                {reading ? <Loader2 className="h-5 w-5 animate-spin" /> : <ImageIcon className="h-5 w-5" />}
+              </span>
+              <span className="font-semibold text-slate-900">{reading ? "Leyendo imagen…" : "Subir imagen del rol"}</span>
+              <span className="text-xs text-slate-500">
+                La foto o captura del rol con colores. También puedes pegarla con Ctrl+V
+              </span>
+            </button>
+            <input
+              ref={imageRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) handleImage(file)
+                e.target.value = ""
+              }}
+            />
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
@@ -623,9 +756,9 @@ export function RolImporter({ teams, games, activeSeasonId, seasonYear, onImport
               </p>
             )}
 
-            {parsed && parsed.warnings.length > 0 && (
+            {parsed && parsed.warnings.length + aiNotes.length > 0 && (
               <ul className="mt-4 space-y-1 rounded-2xl bg-slate-50 px-4 py-3 text-xs text-slate-600">
-                {parsed.warnings.map((w, i) => (
+                {[...aiNotes.map((n) => `Al leer la imagen: ${n}`), ...parsed.warnings].map((w, i) => (
                   <li key={i} className="flex items-start gap-1.5">
                     <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
                     {w}
@@ -725,6 +858,21 @@ export function RolImporter({ teams, games, activeSeasonId, seasonYear, onImport
                         <span className="text-slate-400">
                           Rol: {g.homeRaw} vs {g.awayRaw}
                         </span>
+                        <label
+                          className={cn(
+                            "inline-flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 font-semibold ring-1",
+                            g.friendly ? "bg-slate-900 text-white ring-slate-900" : "text-slate-500 ring-slate-200",
+                          )}
+                          title="Los amistosos no suman puntos en la tabla"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={g.friendly}
+                            onChange={(e) => setFriendlyOverrides((prev) => ({ ...prev, [g.key]: e.target.checked }))}
+                            className="h-3 w-3 accent-[#e266be]"
+                          />
+                          Amistoso
+                        </label>
                         {g.include &&
                           [
                             g.homeGuessed && !teamOverrides[g.key]?.home ? `${g.homeRaw} → ${g.home?.trim()}` : null,
@@ -773,6 +921,9 @@ export function RolImporter({ teams, games, activeSeasonId, seasonYear, onImport
               <div className="min-w-0 flex-1 py-1">
                 <p className="text-sm font-semibold">
                   {included.length} partidos
+                  {included.some((g) => g.friendly) && (
+                    <span className="text-white/70"> · {included.filter((g) => g.friendly).length} amistosos</span>
+                  )}
                   {withIssues.length > 0 ? (
                     <span className="text-amber-300"> · {withIssues.length} por revisar</span>
                   ) : (
@@ -786,6 +937,15 @@ export function RolImporter({ teams, games, activeSeasonId, seasonYear, onImport
               </div>
               <button
                 type="button"
+                onClick={generateSql}
+                disabled={included.length === 0 || withIssues.length > 0}
+                className="inline-flex shrink-0 items-center gap-2 rounded-full bg-white/10 px-4 py-2.5 text-sm font-bold text-white ring-1 ring-white/30 transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Database className="h-4 w-4" />
+                Generar SQL
+              </button>
+              <button
+                type="button"
                 onClick={publish}
                 disabled={saving || included.length === 0 || withIssues.length > 0 || existing.locked > 0}
                 className="inline-flex shrink-0 items-center gap-2 rounded-full bg-brand-gradient px-5 py-2.5 text-sm font-bold text-white shadow-brand transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
@@ -796,6 +956,54 @@ export function RolImporter({ teams, games, activeSeasonId, seasonYear, onImport
             </div>
           </div>
         </>
+      )}
+
+      {sql && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setSql(null)}>
+          <div
+            className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-3xl bg-white p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <h4 className="font-display text-lg font-extrabold italic text-slate-900">SQL de la J{meta.jornada}</h4>
+                <p className="text-xs text-slate-500">
+                  Pégalo en el SQL Editor de Supabase. Reemplaza los partidos de esa jornada y fecha, y trae verificaciones al final.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={copySql}
+                className="inline-flex items-center gap-1.5 rounded-full bg-brand-ink px-4 py-2 text-sm font-semibold text-white"
+              >
+                {copied ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {copied ? "Copiado" : "Copiar"}
+              </button>
+              <button
+                type="button"
+                onClick={downloadSql}
+                className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+              >
+                <Download className="h-4 w-4" />
+                Descargar
+              </button>
+              <button
+                type="button"
+                onClick={() => setSql(null)}
+                className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
+                aria-label="Cerrar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <textarea
+              readOnly
+              value={sql}
+              className="min-h-[50vh] flex-1 resize-none rounded-2xl bg-slate-950 p-4 font-mono text-[12px] leading-relaxed text-slate-100"
+              onFocus={(e) => e.target.select()}
+            />
+          </div>
+        </div>
       )}
     </div>
   )

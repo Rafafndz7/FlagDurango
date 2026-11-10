@@ -54,6 +54,25 @@ async function encode(
   return { blob, width: w, height: h }
 }
 
+/** Una sola versión comprimida (por ejemplo, para mandar una imagen a la IA). */
+export async function compressImage(file: File, maxSide = 2400, quality = 0.9) {
+  const decoded = await decode(file)
+  try {
+    return await encode(decoded.source, decoded.width, decoded.height, maxSide, quality)
+  } finally {
+    decoded.close()
+  }
+}
+
+export function blobToBase64(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result).replace(/^data:[^;]+;base64,/, ""))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(blob)
+  })
+}
+
 /** Genera la foto grande y la miniatura comprimidas, respetando la orientación de la cámara. */
 export async function compressPhoto(file: File, opts = { maxSide: 1920, quality: 0.8, thumbSide: 640, thumbQuality: 0.7 }) {
   const decoded = await decode(file)
